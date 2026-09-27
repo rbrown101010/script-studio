@@ -165,6 +165,7 @@ export const attach = mutation({
     await requireUser(ctx);
     const c = await ctx.db.get(id);
     if (!c) throw new ConvexError("Comment not found");
+    if (a.url && !/^https?:\/\//i.test(a.url)) throw new ConvexError("Links must start with http:// or https://");
     await ctx.db.patch(id, { attachments: [...c.attachments, a], updatedAt: Date.now() });
     if (a.kind !== "link") await queueAssetSync(ctx, c.videoId);
   },

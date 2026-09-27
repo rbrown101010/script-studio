@@ -146,7 +146,7 @@ export function SharePopover({
                 className="flex gap-2"
                 onSubmit={async (e) => {
                   e.preventDefault();
-                  if (code.trim().length < 4) return;
+                  if (code.trim().length < 8) return;
                   await update({ id, editPasscode: code.trim() });
                   setEditing(false);
                 }}
@@ -156,10 +156,10 @@ export function SharePopover({
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   aria-label="Passcode"
-                  placeholder="At least 4 characters"
+                  placeholder="At least 8 characters"
                   className="h-10 min-w-0 flex-1 rounded-lg border border-(--c-l-dcdcdc) px-3 font-mono text-[14px] text-(--c-t-1b1b1b) outline-none focus:border-(--c-l-8a8a8a)"
                 />
-                <button className={`${primaryButton} h-10`} disabled={code.trim().length < 4}>
+                <button className={`${primaryButton} h-10`} disabled={code.trim().length < 8}>
                   Save
                 </button>
               </form>

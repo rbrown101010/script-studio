@@ -86,8 +86,8 @@ export const update = mutation({
   },
   handler: async (ctx, { id, ...patch }) => {
     await requireUser(ctx);
-    if (patch.editPasscode !== undefined && patch.editPasscode !== null && patch.editPasscode.trim().length < 4) {
-      throw new Error("Passcode must be at least 4 characters");
+    if (patch.editPasscode !== undefined && patch.editPasscode !== null && patch.editPasscode.trim().length < 8) {
+      throw new Error("Passcode must be at least 8 characters");
     }
     if (patch.captions && (patch.captions.length > 30 || patch.captions.some((c) => c.fields.length > 30 || c.caption.length > 20000)))
       throw new Error("Too many captions or fields");

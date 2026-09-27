@@ -4,5 +4,17 @@ export function authorized(req: Request) {
     .map((k) => k?.trim())
     .filter((k): k is string => !!k && k.length >= 20);
   const header = req.headers.get("authorization") ?? "";
-  return keys.some((k) => header === `Bearer ${k}`);
+  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+  if (!token) return false;
+  // Compare every key in full, in constant time, so response timing reveals nothing about a key
+  let ok = false;
+  for (const k of keys) if (safeEqual(token, k)) ok = true;
+  return ok;
+}
+
+function safeEqual(a: string, b: string) {
+  const len = Math.max(a.length, b.length);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < len; i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
 }

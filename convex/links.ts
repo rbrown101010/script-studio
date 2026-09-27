@@ -169,6 +169,7 @@ type OEmbed = { title?: string; author_name?: string; thumbnail_url?: string };
 export const fetchPreview = action({
   args: { url: v.string() },
   handler: async (ctx, args) => {
+    if (args.url.length > 2000) return;
     const url = normalizeSocialUrl(args.url);
     const platform = socialPlatformOf(url);
     if (!platform) return; // only known social hosts are ever fetched
