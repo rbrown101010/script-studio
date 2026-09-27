@@ -1,6 +1,9 @@
 import { httpAction } from "./_generated/server";
 
 /** Public guide for agents (no key needed to read it). Also returned by the MCP tool read_guide. */
+// The deployment's own HTTP address (Convex sets CONVEX_SITE_URL), so no deployment name is written in the code
+const SITE = process.env.CONVEX_SITE_URL ?? "https://<your-deployment>.convex.site";
+
 export const HELP = `# Native Note: guide for agents
 
 Native Note is Riley's team app for video scripts (https://script-studio-kohl.vercel.app).
@@ -11,8 +14,8 @@ text as a version first, so nothing is ever lost and any edit can be undone with
 ## How to connect
 - In Composio: use the Native Note tools (toolkit custom_native_note, slugs CUSTOM_NATIVE_NOTE_*).
   Composio holds the key, so you never need one. Never ask for, look for, or print a key.
-- As an MCP server: https://pleasant-eel-856.convex.site/mcp (Authorization: Bearer <key>).
-- Plain HTTP: the same operations under https://pleasant-eel-856.convex.site/agent/... (see the end).
+- As an MCP server: ${SITE}/mcp (Authorization: Bearer <key>).
+- Plain HTTP: the same operations under ${SITE}/agent/... (see the end).
 
 ## What a script has (the tabs under the title)
 - Title, and the script itself: lines, each with a stable key, a type (p text, h1 heading, bullet, number, todo) and text.

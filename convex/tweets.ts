@@ -8,11 +8,17 @@ import type { Id } from "./_generated/dataModel";
 import { requireUser } from "./lib";
 import { runTools } from "./composio";
 
-/** Our account ids → the account names in Composio, and their X usernames */
-export const X_ACCOUNTS: Record<string, { composio: string; username: string }> = {
-  rileybrown: { composio: "twitter_mooned-phenic", username: "rileybrown" },
-  agentnative: { composio: "twitter_slatch-coff", username: "agentnative_" },
-};
+/**
+ * Our account ids → the connected account names in Composio and their X usernames. Set in the X_ACCOUNTS
+ * environment variable as JSON, e.g. {"rileybrown":{"composio":"twitter_xxx","username":"rileybrown"}}.
+ */
+export const X_ACCOUNTS: Record<string, { composio: string; username: string }> = (() => {
+  try {
+    return JSON.parse(process.env.X_ACCOUNTS ?? "{}");
+  } catch {
+    return {};
+  }
+})();
 const accountIds = v.array(v.string());
 
 function check(ids: string[], text: string) {

@@ -28,6 +28,7 @@ A video-script editor for creators: block-based scripts, line comments with file
 | `SITE_URL` | Public URL of the site (used in links the agent API returns). |
 | `AGENT_API_KEY`, `AGENT_API_KEYS` | Bearer key(s) for the agent API and MCP server (extra keys comma-separated). |
 | `COMPOSIO_CONSUMER_KEY` | Composio key used to post to the connected X accounts (optional). |
+| `X_ACCOUNTS` | The X accounts to post from, as JSON: `{"id":{"composio":"<connected account>","username":"<handle>"}}` (optional). |
 | `JWT_PRIVATE_KEY`, `JWKS` | Auth keys, set up by `npx @convex-dev/auth`. |
 
 Never commit `.env*` files; they are git-ignored.
