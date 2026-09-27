@@ -1,0 +1,65 @@
+@import "tailwindcss";
+@import "./theme.css";
+
+@theme inline {
+  --font-sans: var(--font-instrument), "Helvetica Neue", sans-serif;
+}
+
+html,
+body {
+  background: var(--page);
+  color: var(--page-text);
+}
+
+body {
+  font-family: var(--font-instrument), "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Placeholder for empty contentEditable blocks (float trick keeps the caret at the start) */
+.editable[data-empty="true"]::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--placeholder);
+  white-space: pre;
+}
+
+.editable {
+  caret-color: var(--caret);
+}
+
+::selection {
+  background: var(--selection);
+}
+
+
+/* Lines with comments: a soft yellow underline under the text (the open line gets the full highlight) */
+[data-has-comments]:not([data-active-row]) .editable:not(.line-through),
+[data-has-comments]:not([data-active-row]) [data-line-text] {
+  text-decoration-line: underline;
+  text-decoration-color: var(--comment-underline);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+  text-decoration-skip-ink: none;
+}
+
+/* Links inside script lines */
+.script-link {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: var(--link-underline);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: text-decoration-color 120ms ease;
+}
+.script-link:hover {
+  text-decoration-color: var(--link);
+}
+
+.script-bold {
+  font-weight: 650;
+}
