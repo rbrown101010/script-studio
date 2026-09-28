@@ -27,25 +27,18 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
 
   const close = useCallback(() => {
     setClosing(true);
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
     setTimeout(onClose, 180);
   }, [onClose]);
 
-  // Real full screen when the browser allows it; leaving full screen (Esc) leaves presentation mode
+  // Fills the browser window (not the computer's screen), so tabs and the browser stay usable.
+  // The page underneath doesn't scroll while presenting.
   useEffect(() => {
-    const el = root.current;
-    if (el?.requestFullscreen) void el.requestFullscreen().catch(() => {});
-    const onChange = () => {
-      if (!document.fullscreenElement) close();
-    };
-    document.addEventListener("fullscreenchange", onChange);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener("fullscreenchange", onChange);
       document.body.style.overflow = prev;
     };
-  }, [close]);
+  }, []);
 
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const setOpen = (key: string | null) => {

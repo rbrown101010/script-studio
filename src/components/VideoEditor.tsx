@@ -76,7 +76,20 @@ export function VideoEditor({ id }: { id: string }) {
   const [insBlocks, setInsBlocks] = useState<Block[] | null>(null);
   const [review, setReview] = useState<{ doc: DocInfo; blocks: Block[] } | null>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
-  const [presenting, setPresenting] = useState(false);
+  // Presentation mode lives in the address (?present), so it stays on through reloads and when you come back to the tab
+  const [presenting, setPresentingState] = useState(false);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("present")) setPresentingState(true);
+  }, []);
+  const setPresenting = (on: boolean) => {
+    setPresentingState(on);
+    const params = new URLSearchParams(window.location.search);
+    if (on) params.set("present", "1");
+    else params.delete("present");
+    const qs = params.toString();
+    window.history.replaceState(window.history.state, "", window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash);
+  };
+
   const setPinnedM = useMutation(api.videos.setPinned);
   const router = useRouter();
   const cameFromHome = useRef(false);
