@@ -149,9 +149,14 @@ const TURN_INTO: { type: BlockType; label: string; tile: ReactNode }[] = [
   { type: "todo", label: "To-do", tile: <span className="block h-3 w-3 rounded-[3px] border-[1.5px] border-current" /> },
 ];
 
+/** The editor that last changed, so ⌘Z with no line focused (e.g. after deleting selected lines) goes to it */
+let lastEditor: object | null = null;
+
+type Snapshot = { blocks: Block[]; caret: { id: string; offset: number } | null };
+
 export function DocEditor({
   blocks,
-  setBlocks,
+  setBlocks: setBlocksRaw,
   readOnly,
   canUpload,
   onFiles,
@@ -208,6 +213,89 @@ export function DocEditor({
     setSlashState(s);
   }, []);
 
+  // ---- Undo / redo: every change to the lines is a step; typing in one line groups into a single step ----
+  const me = useRef({}).current;
+  const history = useRef({ past: [] as Snapshot[], future: [] as Snapshot[], lastKind: null as string | null, lastId: null as string | null, lastAt: 0, groupStart: 0 });
+  const nextIsTyping = useRef<string | null>(null);
+  const caretNow = (): Snapshot["caret"] => {
+    for (const [id, el] of els.current) {
+      if (el === document.activeElement) return { id, offset: getSelectionOffsets(el)?.start ?? readText(el).length };
+    }
+    return null;
+  };
+  const setBlocks = useCallback<SetBlocks>(
+    (fn) => {
+      if (!readOnly) {
+        const h = history.current;
+        const typingIn = nextIsTyping.current;
+        nextIsTyping.current = null;
+        const now = Date.now();
+        // Typing groups into one step while you keep going (a pause, another line, or ~3s of typing starts a new one)
+        const sameTyping = typingIn && h.lastKind === "type" && h.lastId === typingIn && now - h.lastAt < 1500 && now - h.groupStart < 3000;
+        if (!sameTyping) h.groupStart = now;
+        const last = h.past[h.past.length - 1];
+        if (!sameTyping && last?.blocks !== blocksRef.current) {
+          h.past.push({ blocks: blocksRef.current, caret: caretNow() });
+          if (h.past.length > 300) h.past.shift();
+        }
+        h.future = [];
+        h.lastKind = typingIn ? "type" : "edit";
+        h.lastId = typingIn;
+        h.lastAt = now;
+        lastEditor = me;
+      }
+      setBlocksRaw(fn);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [setBlocksRaw, readOnly],
+  );
+  /** Puts the lines back as they were, with the caret where it was (or on the first line that changed) */
+  const restore = (snap: Snapshot, from: Block[]) => {
+    const exists = snap.caret && snap.blocks.some((b) => b.id === snap.caret!.id);
+    if (exists) focusBlock(snap.caret!.id, snap.caret!.offset);
+    else {
+      const before = new Map(from.map((b) => [b.id, b]));
+      const changed = snap.blocks.find((b) => before.get(b.id)?.content !== b.content || !before.has(b.id)) ?? snap.blocks[0];
+      if (changed) focusBlock(changed.id, "end");
+    }
+    setLineSel(null);
+    setSlash(null);
+    setBlocksRaw(() => snap.blocks);
+  };
+  const undo = () => {
+    const h = history.current;
+    const snap = h.past.pop();
+    if (!snap) return;
+    h.future.push({ blocks: blocksRef.current, caret: caretNow() });
+    h.lastKind = null;
+    restore(snap, blocksRef.current);
+  };
+  const redo = () => {
+    const h = history.current;
+    const snap = h.future.pop();
+    if (!snap) return;
+    h.past.push({ blocks: blocksRef.current, caret: caretNow() });
+    h.lastKind = null;
+    restore(snap, blocksRef.current);
+  };
+  const undoRef = useRef({ undo, redo });
+  undoRef.current = { undo, redo };
+  // ⌘Z / ⇧⌘Z / ⌘Y when no line has the caret (e.g. right after deleting several selected lines)
+  useEffect(() => {
+    if (readOnly) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || lastEditor !== me) return;
+      const k = e.key.toLowerCase();
+      if (k !== "z" && k !== "y") return;
+      if ((e.target as HTMLElement).closest?.("input, textarea, select, [contenteditable=true]")) return;
+      e.preventDefault();
+      if (k === "y" || e.shiftKey) undoRef.current.redo();
+      else undoRef.current.undo();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [readOnly, me]);
+
   useLayoutEffect(() => {
     blocksRef.current = blocks;
     const req = focusReq.current;
@@ -256,6 +344,7 @@ export function DocEditor({
           return;
         }
       }
+      nextIsTyping.current = id;
       update(id, { content: text });
 
       // Typing / at the start of a line or after a space opens the menu; what follows filters it
@@ -337,6 +426,14 @@ export function DocEditor({
           setSlash(null);
           return;
         }
+      }
+
+      // ⌘Z undo, ⇧⌘Z or ⌘Y redo: across lines (the browser's own undo only knows about one line)
+      if (!readOnly && (e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === "z" || e.key.toLowerCase() === "y")) {
+        e.preventDefault();
+        if (e.key.toLowerCase() === "y" || e.shiftKey) undoRef.current.redo();
+        else undoRef.current.undo();
+        return;
       }
 
       // ⌘B makes the selected words bold (saved as **words**); ⌘I / ⌘U would only change the screen, so skip them

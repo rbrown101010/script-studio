@@ -248,6 +248,12 @@ function TitleCell({ title, onRename }: { title: string; onRename: (t: string) =
 function ScriptList() {
   const router = useRouter();
   const videos = useQuery(api.videos.list);
+  // Lets a script's "Scripts" button go back here (keeping this page's view and scroll)
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("nn-last-page", "/");
+    } catch {}
+  }, []);
   const partners = useQuery(api.partners.list);
   const partnerById = new Map((partners ?? []).map((p) => [p.id as string, p]));
   const me = useQuery(api.users.me);

@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -76,6 +77,14 @@ export function VideoEditor({ id }: { id: string }) {
   const [review, setReview] = useState<{ doc: DocInfo; blocks: Block[] } | null>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [presenting, setPresenting] = useState(false);
+  const router = useRouter();
+  const cameFromHome = useRef(false);
+  useEffect(() => {
+    try {
+      cameFromHome.current = sessionStorage.getItem("nn-last-page") === "/";
+      sessionStorage.setItem("nn-last-page", window.location.pathname);
+    } catch {}
+  }, []);
   const mobile = useIsMobile();
   const partnerOptions = useQuery(api.partners.list)?.map((p) => ({ id: p.id as string, name: p.name, logoUrl: p.logoUrl }));
   /** Comments open in the side panel: a line's key, SCRIPT for the whole script, or none */
@@ -411,7 +420,17 @@ export function VideoEditor({ id }: { id: string }) {
     <>
       <ScriptLayout
         left={
-          <Link href="/" className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[14px] text-(--c-t-6b6b6b) no-underline hover:bg-(--c-b-f4f4f4)">
+          <Link
+            href="/"
+            onClick={(e) => {
+              // Came here from the Scripts page: go back to it, so its view, filters and scroll are just as you left them
+              if (cameFromHome.current && window.history.length > 1) {
+                e.preventDefault();
+                router.back();
+              }
+            }}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[14px] text-(--c-t-6b6b6b) no-underline hover:bg-(--c-b-f4f4f4)"
+          >
             <IconArrowLeft />
             <span>Scripts</span>
           </Link>
