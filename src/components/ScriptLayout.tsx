@@ -67,8 +67,12 @@ export function ScriptLayout({
         {topBar}
         {banner}
         {/* Extra room below while commenting, so any line can be brought up to the same spot */}
-        <main className={`px-5 pt-7 sm:px-16 lg:px-[88px] ${focusMode ? (mobile ? "pb-[85vh]" : "pb-[75vh]") : sheet ? "pb-[60vh]" : "pb-20"}`}>
-          <div className="mx-auto max-w-[680px]">{children}</div>
+        <main className={`px-5 pt-7 [--pl:20px] sm:px-16 sm:[--pl:64px] lg:px-[88px] lg:[--pl:88px] ${focusMode && mobile ? "pb-[85vh]" : sheet ? "pb-[60vh]" : "pb-20"}`}>
+          {/* The script sits where it would be centered on the whole screen, and only slides left when the
+              sidebar needs the room, so opening comments doesn't move what you're writing */}
+          <div className="w-full max-w-[680px]" style={{ marginLeft: "clamp(0px, calc((100vw - 680px) / 2 - var(--pl)), calc(100% - 680px))" }}>
+            {children}
+          </div>
         </main>
       </div>
       {!mobile && sidebar.mounted && (

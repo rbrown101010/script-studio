@@ -27,17 +27,17 @@ export function groupComments(comments: Comment[], blocks: Block[]) {
   return { counts, script };
 }
 
-/**
- * Brings the line being commented on to the same spot every time: near the top on phones (above the
- * comments sheet), level with the quoted line in the comments panel on desktop. Waits for the layout to settle first.
- */
+/** Keeps the line being commented on in view without moving the page more than needed (see below). */
 export function snapToLine(key: string) {
+  // Computers: never scroll. The sidebar opens beside the script and the line is highlighted where it is.
+  // Phones: the comments sheet covers the bottom half, so scroll only if the line would end up hidden under it.
+  if (!window.matchMedia("(max-width: 1023px)").matches) return;
   setTimeout(() => {
     const el = document.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(key)}"]`);
     if (!el) return;
-    const target = window.matchMedia("(max-width: 1023px)").matches ? 76 : 58;
-    const delta = el.getBoundingClientRect().top - target;
-    const calm = document.visibilityState !== "visible" || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (Math.abs(delta) > 24) window.scrollBy({ top: delta, behavior: calm ? "auto" : "smooth" });
+    const r = el.getBoundingClientRect();
+    const visibleBottom = window.innerHeight * 0.48;
+    if (r.top >= 64 && r.bottom <= visibleBottom) return;
+    window.scrollBy({ top: r.bottom > visibleBottom ? r.bottom - visibleBottom + 16 : r.top - 76, behavior: "smooth" });
   }, 50);
 }
