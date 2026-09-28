@@ -12,6 +12,7 @@ import { FeedView } from "@/components/FeedView";
 import { Mymind } from "@/components/Mymind";
 import { Library } from "@/components/Library";
 import { usePresence } from "@/lib/usePresence";
+import { PartnerLogo } from "@/components/VideoMeta";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Tweet } from "@/components/Tweet";
 import { BrandDeals } from "@/components/BrandDeals";
@@ -247,6 +248,8 @@ function TitleCell({ title, onRename }: { title: string; onRename: (t: string) =
 function ScriptList() {
   const router = useRouter();
   const videos = useQuery(api.videos.list);
+  const partners = useQuery(api.partners.list);
+  const partnerById = new Map((partners ?? []).map((p) => [p.id as string, p]));
   const me = useQuery(api.users.me);
   const create = useMutation(api.videos.create);
   const remove = useMutation(api.videos.remove);
@@ -566,6 +569,38 @@ function ScriptList() {
                         />
                       </Cell>
                     </span>
+                    {/* The brand partner's logo (same as Partner Sponsor in Details); pick one here too */}
+                    {(() => {
+                      const partner = v.partnerId ? partnerById.get(v.partnerId) : undefined;
+                      return (
+                        <Cell
+                          className={`relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md hover:bg-(--c-b-f4f4f4) ${
+                            partner ? "" : "sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100"
+                          }`}
+                        >
+                          <span title={partner ? `Partner: ${partner.name}` : "Add partner sponsor"} className="inline-flex">
+                            {partner ? (
+                              <PartnerLogo p={partner} size={20} className="ring-1 ring-(--c-hairline)" />
+                            ) : (
+                              <span className="h-5 w-5 rounded-[22%] border border-dashed border-(--c-l-d4d4d4)" />
+                            )}
+                          </span>
+                          <select
+                            aria-label={`Partner sponsor of ${v.title || "Untitled"}`}
+                            value={v.partnerId ?? ""}
+                            onChange={(e) => void update({ id: v._id as Id<"videos">, partnerId: (e.target.value || null) as Id<"partners"> | null })}
+                            className="absolute inset-0 cursor-pointer opacity-0"
+                          >
+                            <option value="">No partner</option>
+                            {(partners ?? []).map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        </Cell>
+                      );
+                    })()}
                     <SponsorPill
                       id={v._id}
                       title={v.title}
