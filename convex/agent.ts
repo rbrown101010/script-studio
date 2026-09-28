@@ -39,6 +39,8 @@ const update = v.object({
   source: v.optional(v.union(v.string(), v.null())),
   /** When it happened, YYYY-MM-DD or a full ISO time; defaults to now */
   date: v.optional(v.string()),
+  /** Needs a response right away: pinned to the top of the Feed */
+  urgent: v.optional(v.boolean()),
 });
 type UpdateArg = Infer<typeof update>;
 

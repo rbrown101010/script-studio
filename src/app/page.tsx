@@ -454,11 +454,11 @@ function ScriptList() {
           <div className="mt-6 flex flex-wrap items-end justify-between gap-3 border-b border-(--c-l-ebebeb) pb-3">
             <div>
               <h1 className="m-0 text-[32px] font-semibold tracking-[-0.015em] text-(--c-t-1b1b1b)">{view === "calendar" ? "Calendar" : view === "feed" ? "Feed" : "Scripts"}</h1>
-              <p className="m-0 mt-1 text-[14px] text-(--c-t-737373)">
+              {view !== "feed" && <p className="m-0 mt-1 text-[14px] text-(--c-t-737373)">
                 {heading}
                 {q && ` · matching "${search.trim()}"`}
                 {videos && ` · ${shown.length}`}
-              </p>
+              </p>}
             </div>
             {view === "list" && <SortMenu sort={sort} onChange={setSort} />}
           </div>
@@ -466,7 +466,9 @@ function ScriptList() {
           {view === "calendar" ? (
             <div className="mt-5">{videos && <CalendarView videos={shown} onMove={onMove} />}</div>
           ) : view === "feed" ? (
-            <div className="mt-5">{videos && <FeedView videoIds={new Set(shown.map((v) => v._id as string))} />}</div>
+            <div className="mt-5">
+              <FeedView />
+            </div>
           ) : (
             <>
         <div className="h-2" />

@@ -85,7 +85,7 @@ each idea saying what it is and why it's worth keeping. Use list_ideas to search
 | set_brief {script, text, mode?} | Append to the brief (default) or replace it (mode "replace") |
 | add_brief_links {script, links:[{label,url}]} | Attach docs / threads to the brief |
 | remove_brief_links {script, urls} | Remove brief links |
-| add_update {script, title, details?, link?, source?, date?} | Log what happened on the Updates tab |
+| add_update {script, title, details?, link?, source?, date?, urgent?} | Log what happened on the Updates tab (urgent: needs a response now, pinned to the top of the Feed) |
 | add_ideas {ideas:[{url?, note?, date?}]} | Save ideas to Mymind (bulk import OK) |
 | list_ideas {query?, limit?} | Search Mymind |
 | create_script {title, format?, status?, liveDate?, sponsored?, lines?, instructions?, brief?, updates?} | New script |

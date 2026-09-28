@@ -167,6 +167,8 @@ export default defineSchema({
     authorName: v.union(v.string(), v.null()),
     authorId: v.union(v.id("users"), v.null()),
     agent: v.boolean(),
+    /** Needs a response right away; pinned to the top of the Feed until handled */
+    urgent: v.optional(v.boolean()),
     createdAt: v.number(),
   })
     .index("by_video", ["videoId", "happenedAt"])

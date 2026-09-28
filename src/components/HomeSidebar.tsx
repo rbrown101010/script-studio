@@ -106,7 +106,7 @@ export function HomeSidebar({
       </Group>
 
       {/* Filters are about scripts; Mymind has its own search */}
-      {view !== "mymind" && view !== "library" && view !== "tweet" && view !== "brands" && (
+      {view !== "mymind" && view !== "library" && view !== "tweet" && view !== "brands" && view !== "feed" && (
       <>
 
       <Group label="Status">

@@ -3,7 +3,7 @@
 
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { requireUser } from "./lib";
 
 const MAX_TITLE = 300;
@@ -27,6 +27,7 @@ export const list = query({
       happenedAt: u.happenedAt,
       authorName: u.authorName,
       agent: u.agent,
+      urgent: !!u.urgent,
     }));
   },
 });
@@ -41,16 +42,22 @@ export const feed = query({
       .withIndex("by_happened")
       .order("desc")
       .take(Math.min(Math.max(limit ?? 200, 1), 500));
-    const titles = new Map<string, string | null>();
+    // Urgent ones are always included, however old, so they stay pinned until handled
+    const urgent = (await ctx.db.query("updates").collect()).filter((u) => u.urgent && !rows.some((r) => r._id === u._id));
+    const videos = new Map<string, Doc<"videos"> | null>();
     const out = [];
-    for (const u of rows) {
-      if (!titles.has(u.videoId)) titles.set(u.videoId, (await ctx.db.get(u.videoId))?.title ?? null);
-      const videoTitle = titles.get(u.videoId);
-      if (videoTitle === null) continue; // video was deleted
+    for (const u of [...rows, ...urgent]) {
+      if (!videos.has(u.videoId)) videos.set(u.videoId, await ctx.db.get(u.videoId));
+      const video = videos.get(u.videoId);
+      if (!video) continue; // video was deleted
       out.push({
         id: u._id,
         videoId: u.videoId,
-        videoTitle: videoTitle ?? "",
+        videoTitle: video.title,
+        videoStatus: video.status,
+        videoFormat: video.format,
+        videoSponsored: video.sponsored ?? "none",
+        urgent: !!u.urgent,
         title: u.title,
         details: u.details,
         link: u.link,
@@ -64,7 +71,7 @@ export const feed = query({
   },
 });
 
-type NewUpdate = { title: string; details?: string; link?: string | null; source?: string | null; happenedAt?: number };
+type NewUpdate = { title: string; details?: string; link?: string | null; source?: string | null; happenedAt?: number; urgent?: boolean };
 
 export async function insertUpdate(
   ctx: MutationCtx,
@@ -87,6 +94,7 @@ export async function insertUpdate(
     authorName: author.name,
     authorId: author.id,
     agent: author.agent,
+    urgent: !!u.urgent,
     createdAt: now,
   });
 }
@@ -99,11 +107,21 @@ export const add = mutation({
     link: v.optional(v.union(v.string(), v.null())),
     source: v.optional(v.union(v.string(), v.null())),
     happenedAt: v.optional(v.number()),
+    urgent: v.optional(v.boolean()),
   },
   handler: async (ctx, { videoId, ...u }) => {
     const userId = await requireUser(ctx);
     const user = await ctx.db.get(userId);
     return insertUpdate(ctx, videoId, u, { name: user?.name || user?.email || null, id: userId, agent: false });
+  },
+});
+
+/** Mark an update urgent (pinned to the top of the Feed) or handled. */
+export const setUrgent = mutation({
+  args: { id: v.id("updates"), urgent: v.boolean() },
+  handler: async (ctx, { id, urgent }) => {
+    await requireUser(ctx);
+    await ctx.db.patch(id, { urgent });
   },
 });
 

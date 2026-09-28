@@ -6,12 +6,14 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { linkify } from "./Brief";
 import { IconChevron, IconLink, IconPlus, IconSparkle, IconTrash } from "./icons";
+import { UrgentButton } from "./FeedView";
 
 /** The Updates tab: what happened on this video, newest first. Agents add to it; team members can too. */
 export function Updates({ videoId, readOnly }: { videoId: string; readOnly?: boolean }) {
   const updates = useQuery(api.updates.list, { videoId: videoId as Id<"videos"> });
   const add = useMutation(api.updates.add);
   const remove = useMutation(api.updates.remove);
+  const setUrgent = useMutation(api.updates.setUrgent);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
 
@@ -96,6 +98,7 @@ export function Updates({ videoId, readOnly }: { videoId: string; readOnly?: boo
                       </p>
                     )}
                   </div>
+                  {!readOnly && <UrgentButton urgent={u.urgent} onChange={(v) => void setUrgent({ id: u.id, urgent: v })} />}
                   {!readOnly && (
                     <button
                       type="button"
@@ -136,7 +139,7 @@ function AddForm({
   onSave,
   onCancel,
 }: {
-  onSave: (u: { title: string; details: string; link: string | null; source: string | null; happenedAt: number }) => Promise<void>;
+  onSave: (u: { title: string; details: string; link: string | null; source: string | null; happenedAt: number; urgent: boolean }) => Promise<void>;
   onCancel: () => void;
 }) {
   const [title, setTitle] = useState("");
@@ -144,6 +147,7 @@ function AddForm({
   const [source, setSource] = useState("");
   const [link, setLink] = useState("");
   const [details, setDetails] = useState("");
+  const [urgent, setUrgentOn] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   return (
@@ -160,6 +164,7 @@ function AddForm({
             link: link.trim() || null,
             source: source.trim() || null,
             happenedAt: new Date(`${date}T12:00:00`).getTime() || Date.now(),
+            urgent,
           });
         } catch (err) {
           setError(err instanceof Error ? err.message : "Couldn't save the update");
@@ -181,7 +186,11 @@ function AddForm({
       </datalist>
       <textarea id="update-details" value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Details (optional)" rows={3} className={`${inputCls} resize-y leading-[1.55]`} />
       {error && <p className="m-0 text-[13px] text-(--c-t-b42318)">{error}</p>}
-      <div className="flex justify-end gap-2">
+      <div className="flex items-center justify-end gap-2">
+        <label className="mr-auto inline-flex cursor-pointer items-center gap-2 text-[13px] text-(--c-t-4a4a4a)">
+          <input type="checkbox" checked={urgent} onChange={(e) => setUrgentOn(e.target.checked)} style={{ accentColor: "var(--c-b-d92d20)" }} />
+          Urgent (needs a response now)
+        </label>
         <button type="button" onClick={onCancel} className="h-8 rounded-lg px-3 text-[14px] text-(--c-t-6b6b6b) hover:bg-(--c-b-f4f4f4)">
           Cancel
         </button>

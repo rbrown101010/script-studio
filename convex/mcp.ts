@@ -23,6 +23,7 @@ const updateProps = {
   link: { type: "string", description: "Where to find the conversation (email thread, Slack message, doc URL)" },
   source: { type: "string", description: "e.g. Email, Slack, Notion, Call" },
   date: { type: "string", description: "When it happened, YYYY-MM-DD or ISO time; defaults to now" },
+  urgent: { type: "boolean", description: "True if it needs a response right away (e.g. a brand waiting on an answer). Pinned to the top of the Feed until someone marks it handled." },
 };
 const lineArg = {
   type: "object",
