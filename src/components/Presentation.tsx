@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { colorBg, textHex, type Attachment, type Block, type Comment } from "@/lib/types";
 import { linkSegments } from "@/lib/scriptLinks";
 import { listNumbers } from "@/lib/util";
@@ -8,8 +8,8 @@ import { LinkCard, linkCardsIn } from "./LinkCard";
 
 /**
  * Presentation mode: the script full screen, big and calm, for showing an outline while filming.
- * Hover a line (or step with ↑/↓) and its comments float up beside it, with tweets, videos and images.
- * Read-only: nothing here changes the script.
+ * Hover a line (or step with ↑/↓): it lights up yellow and its comments slide open right underneath,
+ * with tweets, videos and images. Read-only: nothing here changes the script.
  */
 export function Presentation({ title, blocks, comments, onClose }: { title: string; blocks: Block[]; comments: Comment[]; onClose: () => void }) {
   const byKey = new Map<string, Comment[]>();
@@ -20,7 +20,8 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
   const root = useRef<HTMLDivElement>(null);
   const lineEls = useRef(new Map<string, HTMLElement>());
   const [active, setActive] = useState<string | null>(null);
-  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+  // The line whose notes are closing, so they stay rendered while they slide shut
+  const [leaving, setLeaving] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stepAt = useRef(-1);
@@ -47,19 +48,25 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
     };
   }, [close]);
 
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setOpen = (key: string | null) => {
+    setActive((cur) => {
+      if (cur && cur !== key) {
+        setLeaving(cur);
+        if (leaveTimer.current) clearTimeout(leaveTimer.current);
+        leaveTimer.current = setTimeout(() => setLeaving(null), 380);
+      }
+      return key;
+    });
+  };
   const show = (key: string) => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
-    const el = lineEls.current.get(key);
-    if (!el) return;
-    setActive(key);
-    setAnchor(el.getBoundingClientRect());
+    // A short pause so sweeping the mouse across lines doesn't open every one
+    hideTimer.current = setTimeout(() => setOpen(key), active ? 120 : 60);
   };
   const hideSoon = () => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => setActive(null), 220);
-  };
-  const keep = () => {
-    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setOpen(null), 260);
   };
 
   // ↑/↓ (or j/k) step through the lines that have comments; Esc exits
@@ -75,20 +82,13 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
       const n = down ? Math.min(i + 1, commented.length - 1) : Math.max(i - 1, 0);
       stepAt.current = n;
       const next = commented[n];
-      lineEls.current.get(next)?.scrollIntoView({ block: "center", behavior: "smooth" });
-      setTimeout(() => show(next), 380);
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      setOpen(next);
+      setTimeout(() => lineEls.current.get(next)?.scrollIntoView({ block: "center", behavior: "smooth" }), 40);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
-
-  // Keep the bubble next to its line while scrolling
-  const onScroll = () => {
-    if (active) {
-      const el = lineEls.current.get(active);
-      if (el) setAnchor(el.getBoundingClientRect());
-    }
-  };
 
   return (
     // Always the dark stage, whatever the app's theme
@@ -107,8 +107,8 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto" onScroll={onScroll}>
-        <div className="mx-auto w-full max-w-[880px] px-8 pb-[40vh] pt-[14vh] lg:ml-[max(4rem,calc((100%-880px)/2-200px))]">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-[900px] px-8 pb-[40vh] pt-[14vh]">
           <h1 className="m-0 mb-12 animate-[pres-line_500ms_cubic-bezier(0.2,0,0,1)_both] text-[44px] font-semibold leading-[1.15] tracking-[-0.02em] text-white">
             {title || "Untitled"}
           </h1>
@@ -125,13 +125,13 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
                 }}
                 onMouseEnter={has ? () => show(b.id) : undefined}
                 onMouseLeave={has ? hideSoon : undefined}
-                className={`transition-[opacity,transform] duration-300 ${b.type === "h1" ? "mb-2 mt-10" : "my-1.5"} ${active && !on ? "opacity-35" : "opacity-100"} ${
-                  on ? "translate-x-1" : ""
-                }`}
+                className={`transition-opacity duration-300 ${b.type === "h1" ? "mb-2 mt-10" : "my-1.5"} ${active && !on ? "opacity-40" : "opacity-100"}`}
               >
               <div
-                style={{ animationDelay: `${Math.min(i, 24) * 28}ms`, ...(bg ? { background: bg } : {}) }}
-                className={`relative flex animate-[pres-line_480ms_cubic-bezier(0.2,0,0,1)_both] gap-3 rounded-xl ${bg ? "px-4 py-1.5" : ""}`}
+                style={{ animationDelay: `${Math.min(i, 24) * 28}ms`, ...(bg && !on ? { background: bg } : {}) }}
+                className={`relative flex animate-[pres-line_480ms_cubic-bezier(0.2,0,0,1)_both] gap-3 rounded-xl transition-[background-color,box-shadow,padding] duration-300 ${
+                  on ? "bg-[#f5c542]/[0.16] px-4 py-1.5 shadow-[inset_0_0_0_1px_rgba(245,197,66,0.35)]" : bg ? "px-4 py-1.5" : ""
+                }`}
               >
                 {has && (
                   <span
@@ -151,21 +151,25 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
                   {rich(b.content) || " "}
                 </p>
               </div>
+              {has && (
+                // Slides open underneath the line (height animates from 0), pushing the next lines down
+                <div className={`grid transition-[grid-template-rows,opacity] duration-[360ms] ease-[cubic-bezier(0.2,0,0,1)] ${on ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                  <div className="min-h-0 overflow-hidden">
+                    {(on || leaving === b.id) && <Notes comments={byKey.get(b.id)!} open={on} />}
+                  </div>
+                </div>
+              )}
               </div>
             );
           })}
         </div>
       </div>
 
-      {active && anchor && byKey.get(active) && (
-        <Bubble key={active} anchor={anchor} comments={byKey.get(active)!} onEnter={keep} onLeave={hideSoon} />
-      )}
-
       <style>{`
         @keyframes pres-in { from { opacity: 0; transform: scale(1.015) } to { opacity: 1; transform: none } }
         @keyframes pres-out { to { opacity: 0; transform: scale(1.01) } }
         @keyframes pres-line { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
-        @keyframes pres-pop { from { opacity: 0; transform: translateY(8px) scale(0.97) } to { opacity: 1; transform: none } }
+        @keyframes pres-notes { from { opacity: 0; transform: translateY(-6px) } to { opacity: 1; transform: none } }
       `}</style>
     </div>
   );
@@ -190,30 +194,14 @@ function rich(text: string): ReactNode {
   );
 }
 
-/** The floating card beside a line: its comments, with tweets, videos and images. */
-function Bubble({ anchor, comments, onEnter, onLeave }: { anchor: DOMRect; comments: Comment[]; onEnter: () => void; onLeave: () => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
-  useLayoutEffect(() => {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const h = ref.current?.offsetHeight ?? 300;
-    const beside = vw - anchor.right > 400;
-    const width = beside ? Math.min(460, vw - anchor.right - 56) : Math.min(560, vw - 32);
-    const left = beside ? anchor.right + 32 : Math.max(16, Math.min(anchor.left, vw - width - 16));
-    let top = beside ? anchor.top - 8 : anchor.bottom + 12;
-    top = Math.max(16, Math.min(top, vh - h - 16));
-    setPos({ top, left, width });
-  }, [anchor]);
-
+/** A line's comments, shown right under it: notes, then tweets, videos and images. */
+function Notes({ comments, open }: { comments: Comment[]; open: boolean }) {
   const media: Attachment[] = comments.flatMap((c) => c.attachments.filter((a) => a.url && a.kind !== "link"));
   return (
     <div
-      ref={ref}
-      onMouseEnter={onEnter}
-      onMouseLeave={onLeave}
-      className="fixed z-20 max-h-[calc(100vh-32px)] animate-[pres-pop_260ms_cubic-bezier(0.2,0,0,1)] overflow-y-auto rounded-2xl bg-[#1c1c1e]/95 p-4 shadow-[0_24px_60px_rgba(0,0,0,0.55)] ring-1 ring-white/10 backdrop-blur-xl"
-      style={pos ? { top: pos.top, left: pos.left, width: pos.width } : { visibility: "hidden", top: 0, left: 0 }}
+      className={`mb-3 ml-4 mt-2 rounded-2xl border-l-[3px] border-[#f5c542] bg-[#1c1c1e] p-5 shadow-[0_18px_40px_rgba(0,0,0,0.45)] ring-1 ring-white/[0.06] ${
+        open ? "animate-[pres-notes_380ms_cubic-bezier(0.2,0,0,1)_both]" : ""
+      }`}
     >
       <div className="flex flex-col gap-4">
         {comments.map((c) => {
