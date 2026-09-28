@@ -8,7 +8,7 @@ import { LinkCard, linkCardsIn } from "./LinkCard";
 
 /**
  * Presentation mode: the script full screen, big and calm, for showing an outline while filming.
- * Hover a line (or step with ↑/↓): it lights up yellow and its comments slide open right underneath,
+ * Click a line (or step with ↑/↓): it lights up yellow and its comments slide open right underneath,
  * with tweets, videos and images. Read-only: nothing here changes the script.
  */
 export function Presentation({ title, blocks, comments, onClose }: { title: string; blocks: Block[]; comments: Comment[]; onClose: () => void }) {
@@ -23,7 +23,6 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
   // The line whose notes are closing, so they stay rendered while they slide shut
   const [leaving, setLeaving] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stepAt = useRef(-1);
 
   const close = useCallback(() => {
@@ -59,15 +58,8 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
       return key;
     });
   };
-  const show = (key: string) => {
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    // A short pause so sweeping the mouse across lines doesn't open every one
-    hideTimer.current = setTimeout(() => setOpen(key), active ? 120 : 60);
-  };
-  const hideSoon = () => {
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => setOpen(null), 260);
-  };
+  // Click a line to open its notes; click the line again to close them
+  const toggle = (key: string) => setOpen(active === key ? null : key);
 
   // ↑/↓ (or j/k) step through the lines that have comments; Esc exits
   useEffect(() => {
@@ -82,7 +74,6 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
       const n = down ? Math.min(i + 1, commented.length - 1) : Math.max(i - 1, 0);
       stepAt.current = n;
       const next = commented[n];
-      if (hideTimer.current) clearTimeout(hideTimer.current);
       setOpen(next);
       setTimeout(() => lineEls.current.get(next)?.scrollIntoView({ block: "center", behavior: "smooth" }), 40);
     };
@@ -100,7 +91,7 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between px-6 py-4 opacity-60 transition-opacity hover:opacity-100 [&>*]:pointer-events-auto">
         <span className="text-[13px] text-[#8a8a8a]">
-          {commented.length ? "Hover a line to see its notes · ↑ ↓ to step through · Esc to exit" : "Esc to exit"}
+          {commented.length ? "Click a highlighted line to see its notes · ↑ ↓ to step through · Esc to exit" : "Esc to exit"}
         </span>
         <button type="button" onClick={close} className="rounded-full bg-white/10 px-3.5 py-1.5 text-[13px] font-medium text-white hover:bg-white/20">
           Exit
@@ -123,9 +114,15 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
                   if (el) lineEls.current.set(b.id, el);
                   else lineEls.current.delete(b.id);
                 }}
-                onMouseEnter={has ? () => show(b.id) : undefined}
-                onMouseLeave={has ? hideSoon : undefined}
-                className={`transition-opacity duration-300 ${b.type === "h1" ? "mb-2 mt-10" : "my-1.5"} ${active && !on ? "opacity-40" : "opacity-100"}`}
+                onClick={
+                  has
+                    ? (e) => {
+                        // Clicks inside the open notes (links, videos, text) don't close them
+                        if (!(e.target as HTMLElement).closest("[data-notes]")) toggle(b.id);
+                      }
+                    : undefined
+                }
+                className={`transition-opacity duration-300 ${has ? "cursor-pointer" : ""} ${b.type === "h1" ? "mb-2 mt-10" : "my-1.5"} ${active && !on ? "opacity-40" : "opacity-100"}`}
               >
               <div
                 style={{ animationDelay: `${Math.min(i, 24) * 28}ms`, ...(bg && !on ? { background: bg } : {}) }}
@@ -199,7 +196,8 @@ function Notes({ comments, open }: { comments: Comment[]; open: boolean }) {
   const media: Attachment[] = comments.flatMap((c) => c.attachments.filter((a) => a.url && a.kind !== "link"));
   return (
     <div
-      className={`mb-3 ml-4 mt-2 rounded-2xl border-l-[3px] border-[#f5c542] bg-[#1c1c1e] p-5 shadow-[0_18px_40px_rgba(0,0,0,0.45)] ring-1 ring-white/[0.06] ${
+      data-notes
+      className={`mb-3 mt-2 cursor-auto rounded-2xl bg-[#1c1c1e] p-5 shadow-[0_18px_40px_rgba(0,0,0,0.45)] ring-1 ring-white/[0.06] ${
         open ? "animate-[pres-notes_380ms_cubic-bezier(0.2,0,0,1)_both]" : ""
       }`}
     >
