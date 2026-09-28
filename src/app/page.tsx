@@ -13,13 +13,14 @@ import { Mymind } from "@/components/Mymind";
 import { Library } from "@/components/Library";
 import { usePresence } from "@/lib/usePresence";
 import { PartnerLogo } from "@/components/VideoMeta";
+import { PinnedVideos } from "@/components/PinnedVideos";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Tweet } from "@/components/Tweet";
 import { BrandDeals } from "@/components/BrandDeals";
 import { HomeSidebar, SidebarIcon, type View } from "@/components/HomeSidebar";
 import { FormatIcon } from "@/components/FormatIcon";
 import { TeamGate } from "@/components/TeamGate";
-import { IconCheck, IconPencil, IconTrash, IconX } from "@/components/icons";
+import { IconCheck, IconPencil, IconTrash, IconX, IconPin } from "@/components/icons";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { FORMATS, SPONSORSHIPS, STATUSES, isPaidSponsor, statusOf, type Sponsorship, type VideoFormat, type VideoStatus } from "@/lib/types";
 
@@ -260,6 +261,7 @@ function ScriptList() {
   const create = useMutation(api.videos.create);
   const remove = useMutation(api.videos.remove);
   const update = useMutation(api.videos.update);
+  const setPinned = useMutation(api.videos.setPinned);
   const [filter, setFilter] = useState<"all" | VideoFormat>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | VideoStatus>("inProduction");
   const [sponsorFilter, setSponsorFilter] = useState<"all" | "sponsored" | "notSponsored">("all");
@@ -472,6 +474,14 @@ function ScriptList() {
             {view === "list" && <SortMenu sort={sort} onChange={setSort} />}
           </div>
 
+          {videos && (
+            <PinnedVideos
+              videos={videos as Parameters<typeof PinnedVideos>[0]["videos"]}
+              partnerOf={(id) => (id ? partnerById.get(id) : undefined)}
+              onUnpin={(id) => void setPinned({ id: id as Id<"videos">, pinned: false })}
+            />
+          )}
+
           {view === "calendar" ? (
             <div className="mt-5">{videos && <CalendarView videos={shown} onMove={onMove} />}</div>
           ) : view === "feed" ? (
@@ -618,6 +628,19 @@ function ScriptList() {
                     </span>
                   </div>
                 </Link>
+                <button
+                  type="button"
+                  aria-pressed={!!v.pinnedAt}
+                  aria-label={v.pinnedAt ? `Unpin ${v.title || "Untitled"}` : `Pin ${v.title || "Untitled"}`}
+                  title={v.pinnedAt ? "Unpin" : "Pin to the top"}
+                  onClick={() => void setPinned({ id: v._id as Id<"videos">, pinned: !v.pinnedAt })}
+                  // Just left of the row, like the delete button on the right
+                  className={`absolute -left-10 top-0 bottom-0 hidden w-10 items-center justify-center transition-opacity sm:flex ${
+                    v.pinnedAt ? "text-(--c-t-2358d8) opacity-100" : "text-(--c-t-9a9a9a) opacity-0 hover:text-(--c-t-1b1b1b) focus-visible:opacity-100 group-hover:opacity-100"
+                  }`}
+                >
+                  <IconPin size={15} filled={!!v.pinnedAt} />
+                </button>
                 <button
                   type="button"
                   aria-label={`Delete ${v.title || "Untitled"}`}

@@ -24,7 +24,7 @@ import { ScriptLayout, primaryButton } from "./ScriptLayout";
 import { SharePopover } from "./SharePopover";
 import { ScriptTabs } from "./ScriptTabs";
 import { VideoDetails, VideoTitle, type Meta } from "./VideoMeta";
-import { IconArrowLeft, IconCheck, IconCopy, IconHistory } from "./icons";
+import { IconArrowLeft, IconCheck, IconCopy, IconHistory, IconPin } from "./icons";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { Presentation } from "./Presentation";
 
@@ -77,6 +77,7 @@ export function VideoEditor({ id }: { id: string }) {
   const [review, setReview] = useState<{ doc: DocInfo; blocks: Block[] } | null>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [presenting, setPresenting] = useState(false);
+  const setPinnedM = useMutation(api.videos.setPinned);
   const router = useRouter();
   const cameFromHome = useRef(false);
   useEffect(() => {
@@ -440,6 +441,16 @@ export function VideoEditor({ id }: { id: string }) {
         onClosePanel={closeComments}
         tools={
           <>
+            <button
+              type="button"
+              onClick={() => void setPinnedM({ id: id as Id<"videos">, pinned: !data.video.pinnedAt })}
+              aria-pressed={!!data.video.pinnedAt}
+              aria-label={data.video.pinnedAt ? "Unpin" : "Pin"}
+              title={data.video.pinnedAt ? "Unpin from the top of Scripts" : "Pin to the top of Scripts"}
+              className={`flex h-9 w-9 items-center justify-center rounded-lg hover:bg-(--c-b-ececea) ${data.video.pinnedAt ? "text-(--c-t-2358d8)" : "text-(--c-t-6b6b6b) hover:text-(--c-t-1b1b1b)"}`}
+            >
+              <IconPin size={17} filled={!!data.video.pinnedAt} />
+            </button>
             <button
               type="button"
               onClick={() => setPresenting(true)}

@@ -99,6 +99,15 @@ export const update = mutation({
   },
 });
 
+/** Pin a video to the top of the Scripts views, or unpin it. Doesn't count as an edit. */
+export const setPinned = mutation({
+  args: { id: v.id("videos"), pinned: v.boolean() },
+  handler: async (ctx, { id, pinned }) => {
+    await requireUser(ctx);
+    await ctx.db.patch(id, { pinnedAt: pinned ? Date.now() : null });
+  },
+});
+
 export const resetShareLink = mutation({
   args: { id: v.id("videos") },
   handler: async (ctx, { id }) => {

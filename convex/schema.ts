@@ -93,6 +93,8 @@ export default defineSchema({
     brief: v.optional(v.string()),
     /** Links that go with the brief (docs, contracts, email threads). Internal like the brief. */
     briefLinks: v.optional(v.array(v.object({ id: v.string(), label: v.string(), url: v.string() }))),
+    /** Pinned to the top of the Scripts views while it's being worked on (when it was pinned; absent = not pinned) */
+    pinnedAt: v.optional(v.union(v.number(), v.null())),
     /** The brand partner this video is for ("Partner Sponsor"); picked from the partners table */
     partnerId: v.optional(v.union(v.id("partners"), v.null())),
     shareSlug: v.string(),

@@ -214,3 +214,9 @@ export const IconShare = (p: P) => (
     <path d="M5.5 12.5v5a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-5" />
   </Svg>
 );
+export const IconPin = (p: P & { filled?: boolean }) => (
+  <Svg {...p}>
+    <path d="M9 3.5h6l-1 5.5 3.5 3.5v1.5h-11V12.5L10 9 9 3.5Z" fill={p.filled ? "currentColor" : "none"} />
+    <path d="M12 14v6.5" />
+  </Svg>
+);
