@@ -25,6 +25,7 @@ import { ScriptTabs } from "./ScriptTabs";
 import { VideoDetails, VideoTitle, type Meta } from "./VideoMeta";
 import { IconArrowLeft, IconCheck, IconCopy, IconHistory } from "./icons";
 import { useIsMobile } from "@/lib/useIsMobile";
+import { Presentation } from "./Presentation";
 
 type SetList = (fn: (prev: Block[]) => Block[]) => void;
 type DocInfo = { _id: string; kind: string; editorName: string | null; updatedAt: number };
@@ -74,6 +75,7 @@ export function VideoEditor({ id }: { id: string }) {
   const [insBlocks, setInsBlocks] = useState<Block[] | null>(null);
   const [review, setReview] = useState<{ doc: DocInfo; blocks: Block[] } | null>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
+  const [presenting, setPresenting] = useState(false);
   const mobile = useIsMobile();
   const partnerOptions = useQuery(api.partners.list)?.map((p) => ({ id: p.id as string, name: p.name, logoUrl: p.logoUrl }));
   /** Comments open in the side panel: a line's key, SCRIPT for the whole script, or none */
@@ -419,6 +421,15 @@ export function VideoEditor({ id }: { id: string }) {
         onClosePanel={closeComments}
         tools={
           <>
+            <button
+              type="button"
+              onClick={() => setPresenting(true)}
+              aria-label="Present"
+              title="Present: full screen, hover lines to show their notes"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-(--c-t-6b6b6b) hover:bg-(--c-b-ececea) hover:text-(--c-t-1b1b1b)"
+            >
+              <PresentIcon />
+            </button>
             <CopyForAgent
               text={() => {
                 const origin = window.location.origin;
@@ -621,6 +632,7 @@ export function VideoEditor({ id }: { id: string }) {
           </>
         )}
       </ScriptLayout>
+      {presenting && <Presentation title={meta.title} blocks={mainBlocks} comments={allComments} onClose={() => setPresenting(false)} />}
       {placing && (
         <div data-placing-bar className="fixed inset-x-0 top-3 z-[70] flex justify-center px-4">
           <div className="flex items-center gap-3 rounded-full bg-(--c-b-1b1b1b) py-2 pl-4 pr-2 text-[14px] text-(--c-on-ink) shadow-[0_8px_24px_rgba(0,0,0,0.2)]">
@@ -733,5 +745,14 @@ function ReviewBar({
         </div>
       </div>
     </div>
+  );
+}
+
+function PresentIcon() {
+  return (
+    <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2.5" y="3.5" width="15" height="10" rx="2" />
+      <path d="M8.5 6.6v4.3l3.6-2.15-3.6-2.15ZM7 16.5h6M10 13.5v3" />
+    </svg>
   );
 }
