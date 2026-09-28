@@ -17,6 +17,7 @@ import { DocEditor } from "./DocEditor";
 import { DiffBlocks } from "./DiffView";
 import { Captions } from "./Captions";
 import { Instructions, instructionsProgress } from "./Instructions";
+import { cleanImages } from "@/lib/sync";
 import { ScriptLayout, primaryButton, topButton } from "./ScriptLayout";
 import { ScriptTabs, type ScriptTab } from "./ScriptTabs";
 import { VideoDetails, VideoTitle } from "./VideoMeta";
@@ -126,6 +127,7 @@ export function SharedScript({ slug }: { slug: string }) {
             checked: !!b.checked,
             color: b.color ?? null,
             textColor: b.textColor ?? null,
+            ...(b.type === "images" ? { images: cleanImages(b.images) } : {}),
             sourceBlockId: b.source_block_id ?? null,
           })),
         });

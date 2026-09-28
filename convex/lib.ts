@@ -29,6 +29,7 @@ export async function docBlocks(ctx: QueryCtx, documentId: Id<"documents">) {
     color: b.color,
     textColor: b.textColor ?? null,
     source_block_id: b.sourceBlockId,
+    ...(b.images ? { images: b.images } : {}),
   }));
 }
 
@@ -97,6 +98,7 @@ type EditedBlock = {
   checked: boolean;
   color: Doc<"blocks">["color"];
   textColor?: Doc<"blocks">["textColor"];
+  images?: Doc<"blocks">["images"];
   sourceBlockId: string | null;
 };
 
@@ -153,6 +155,7 @@ export async function writeEditedVersion(
       checked: b.checked,
       color: b.color,
       ...(b.textColor ? { textColor: b.textColor } : {}),
+      ...(b.images ? { images: b.images } : {}),
       sourceBlockId: b.sourceBlockId,
     });
   }

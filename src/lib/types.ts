@@ -1,4 +1,4 @@
-export type BlockType = "p" | "h1" | "bullet" | "number" | "todo";
+export type BlockType = "p" | "h1" | "bullet" | "number" | "todo" | "images";
 export type BlockColor = "yellow" | "blue" | "green" | "red" | "rose";
 export type AttachmentKind = "image" | "video" | "audio" | "file" | "link";
 
@@ -39,6 +39,8 @@ export type Block = {
   checked?: boolean;
   color?: BlockColor | null;
   textColor?: TextColor | null;
+  /** An "images" block's pictures, side by side */
+  images?: Attachment[];
   source_block_id?: string | null;
 };
 

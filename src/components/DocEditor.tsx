@@ -1,7 +1,11 @@
 "use client";
 
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { BLOCK_COLORS, TEXT_COLORS, colorBg, textHex, type Block, type BlockColor, type BlockType, type TextColor } from "@/lib/types";
+import { useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+import { BLOCK_COLORS, TEXT_COLORS, colorBg, textHex, type Attachment, type Block, type BlockColor, type BlockType, type TextColor } from "@/lib/types";
+import { uploadToUrl } from "@/lib/upload";
 import { caretOnFirstLine, caretOnLastLine, getSelectionOffsets, readText, setCaret, writeText } from "@/lib/caret";
 import { isUrl, linkSegments, renderLinks, toRawOffset, toggleBold, wrapLink } from "@/lib/scriptLinks";
 import { listNumbers, uid } from "@/lib/util";
@@ -99,6 +103,7 @@ const TYPE_WORDS: Record<BlockType, string> = {
   bullet: "bulleted list bullet unordered",
   number: "numbered list number ordered",
   todo: "to-do todo checkbox task check",
+  images: "images image picture pictures photo photos gallery logos",
 };
 
 /** Everything the / menu can do to a line, filtered by what's typed after the slash. */
@@ -147,6 +152,16 @@ const TURN_INTO: { type: BlockType; label: string; tile: ReactNode }[] = [
   { type: "bullet", label: "Bulleted list", tile: "•" },
   { type: "number", label: "Numbered list", tile: "1." },
   { type: "todo", label: "To-do", tile: <span className="block h-3 w-3 rounded-[3px] border-[1.5px] border-current" /> },
+  {
+    type: "images",
+    label: "Images",
+    tile: (
+      <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
+        <rect x="2" y="3" width="12" height="10" rx="2" />
+        <path d="M2.5 11l3-3 2.5 2.5 1.5-1.5 3.5 3.5" />
+      </svg>
+    ),
+  },
 ];
 
 /** The editor that last changed, so ⌘Z with no line focused (e.g. after deleting selected lines) goes to it */
@@ -212,6 +227,67 @@ export function DocEditor({
     slashRef.current = s;
     setSlashState(s);
   }, []);
+
+  // ---- Images blocks: upload pasted/dropped/picked pictures and add them to the block ----
+  const uploadUrl = useMutation(api.docs.generateUploadUrl);
+  const fileUrl = useMutation(api.docs.fileUrl);
+  /** Pictures still uploading, per block (shown faded until they're stored; never saved as-is) */
+  const [uploading, setUploading] = useState<Record<string, Attachment[]>>({});
+  // Keeps pictures in the order they were pasted, even if a later one finishes uploading first
+  const pasteOrder = useRef(new Map<string, number>());
+  const pasteSeq = useRef(0);
+  const addImages = useCallback(
+    (blockId: string, files: File[]) => {
+      const pics = files.filter((f) => f.type.startsWith("image/"));
+      for (const f of pics) {
+        const temp: Attachment = { id: uid(), kind: "image", url: URL.createObjectURL(f), storageId: null, name: f.name || "image", mime: f.type, size: f.size, progress: 0 };
+        pasteOrder.current.set(temp.id, ++pasteSeq.current);
+        setUploading((u) => ({ ...u, [blockId]: [...(u[blockId] ?? []), temp] }));
+        void (async () => {
+          try {
+            const target = await uploadUrl();
+            const storageId = await uploadToUrl(target, f, () => {});
+            const url = await fileUrl({ storageId: storageId as Id<"_storage"> });
+            // eslint-disable-next-line react-hooks/immutability
+            setBlocks((prev) =>
+              prev.map((b) =>
+                b.id === blockId
+                  ? {
+                      ...b,
+                      images: [...(b.images ?? []), { ...temp, url, storageId, progress: undefined }].sort(
+                        (x, y) => (pasteOrder.current.get(x.id) ?? 0) - (pasteOrder.current.get(y.id) ?? 0),
+                      ),
+                    }
+                  : b,
+              ),
+            );
+          } catch {
+            // Upload failed: just drop the preview
+          } finally {
+            setUploading((u) => ({ ...u, [blockId]: (u[blockId] ?? []).filter((x) => x.id !== temp.id) }));
+            URL.revokeObjectURL(temp.url!);
+          }
+        })();
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [uploadUrl, fileUrl],
+  );
+  const makeImagesRef = useRef<(id: string, keepText: string) => string>(() => "");
+  /** Turns a line into an images block (or adds one right after it when the line has text) */
+  const makeImagesBlock = (id: string, keepText: string) => {
+    if (keepText.trim()) {
+      const nb: Block = { id: uid(), type: "images", content: "", images: [] };
+      setBlocks((prev) => {
+        const i = prev.findIndex((b) => b.id === id);
+        return [...prev.slice(0, i), { ...prev[i], content: keepText }, nb, ...prev.slice(i + 1)];
+      });
+      return nb.id;
+    }
+    update(id, { type: "images", content: "", images: [] });
+    return id;
+  };
+  makeImagesRef.current = makeImagesBlock;
 
   // ---- Undo / redo: every change to the lines is a step; typing in one line groups into a single step ----
   const me = useRef({}).current;
@@ -377,8 +453,13 @@ export function DocEditor({
       const el = els.current.get(s.id);
       const text = el ? readText(el) : b.content;
       const end = Math.min(text.length, s.start + 1 + s.query.length);
+      const rest = text.slice(0, s.start) + text.slice(end);
+      if (item.patch.type === "images") {
+        makeImagesRef.current(s.id, rest);
+        return;
+      }
       focusBlock(s.id, s.start);
-      update(s.id, { ...item.patch, content: text.slice(0, s.start) + text.slice(end) });
+      update(s.id, { ...item.patch, content: rest });
     },
     [update, setSlash],
   );
@@ -580,6 +661,11 @@ export function DocEditor({
       e.preventDefault();
       const files = Array.from(e.clipboardData.files);
       if (files.length) {
+        // Pictures pasted on an empty line become an images block; otherwise files go to a comment on the line
+        if (canUpload && !readText(el).trim() && files.every((f) => f.type.startsWith("image/"))) {
+          addImages(makeImagesRef.current(id, ""), files);
+          return;
+        }
         if (canUpload && onFiles) onFiles(id, files);
         return;
       }
@@ -621,7 +707,7 @@ export function DocEditor({
         return [...prev.slice(0, i), { ...prev[i], content: before + lines[0] }, ...rest, ...prev.slice(i + 1)];
       });
     },
-    [canUpload, onFiles, setBlocks, update, variant],
+    [canUpload, onFiles, setBlocks, update, variant, addImages],
   );
 
   const setColor = (id: string, color: BlockColor | null) => {
@@ -629,8 +715,12 @@ export function DocEditor({
     setMenuFor(null);
   };
   const setType = (id: string, type: BlockType) => {
-    update(id, { type });
     setMenuFor(null);
+    if (type === "images") {
+      makeImagesBlock(id, blocksRef.current.find((b) => b.id === id)?.content ?? "");
+      return;
+    }
+    update(id, { type });
     focusBlock(id, "end");
   };
   const duplicate = (id: string) => {
@@ -843,7 +933,8 @@ export function DocEditor({
                 if (e.dataTransfer.files.length && canUpload) {
                   e.preventDefault();
                   setDrop(null);
-                  onFiles?.(b.id, Array.from(e.dataTransfer.files));
+                  if (b.type === "images") addImages(b.id, Array.from(e.dataTransfer.files));
+                  else onFiles?.(b.id, Array.from(e.dataTransfer.files));
                   return;
                 }
                 const dragId = e.dataTransfer.getData("text/x-block");
@@ -861,7 +952,7 @@ export function DocEditor({
               {fileDropId === b.id && (
                 <div className="pointer-events-none absolute -right-2 -top-[30px] z-10 inline-flex h-6 items-center gap-1.5 rounded-full bg-(--c-b-2358d8) px-2.5 text-[12px] font-medium text-white">
                   <IconClip size={12} />
-                  Drop to attach to this block
+                  {b.type === "images" ? "Drop to add images" : "Drop to attach to this block"}
                 </div>
               )}
 
@@ -934,6 +1025,48 @@ export function DocEditor({
                   variant={variant}
                   onToggle={!readOnly || canToggleTodos ? () => update(b.id, { checked: !b.checked }) : undefined}
                 />
+                {b.type === "images" ? (
+                  <ImageStrip
+                    block={b}
+                    uploading={uploading[b.id] ?? []}
+                    readOnly={!!readOnly || !canUpload}
+                    register={(el) => {
+                      if (el) els.current.set(b.id, el);
+                      else els.current.delete(b.id);
+                    }}
+                    onAdd={(files) => addImages(b.id, files)}
+                    onRemove={(imgId) => update(b.id, { images: (b.images ?? []).filter((x) => x.id !== imgId) })}
+                    onKey={(e) => {
+                      const list = blocksRef.current;
+                      const i = list.findIndex((x) => x.id === b.id);
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        newBlockAfter(b.id, "p");
+                      } else if ((e.key === "Backspace" || e.key === "Delete") && !(b.images ?? []).length) {
+                        e.preventDefault();
+                        const prevB = list[i - 1];
+                        if (prevB) focusBlock(prevB.id, "end");
+                        setBlocks((all) => all.filter((x) => x.id !== b.id));
+                      } else if (e.key === "ArrowUp" && list[i - 1]) {
+                        e.preventDefault();
+                        const t = els.current.get(list[i - 1].id);
+                        if (t) setCaret(t, readText(t).length);
+                      } else if (e.key === "ArrowDown" && list[i + 1]) {
+                        e.preventDefault();
+                        const t = els.current.get(list[i + 1].id);
+                        if (t) setCaret(t, 0);
+                      } else if ((e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === "z" || e.key.toLowerCase() === "y")) {
+                        e.preventDefault();
+                        if (e.key.toLowerCase() === "y" || e.shiftKey) undoRef.current.redo();
+                        else undoRef.current.undo();
+                      }
+                    }}
+                    onFocus={() => {
+                      setFocusedId(b.id);
+                      onActivate?.(b.id);
+                    }}
+                  />
+                ) : (
                 <EditableText
                   id={b.id}
                   value={b.content}
@@ -955,6 +1088,7 @@ export function DocEditor({
                     if (id) onActivate?.(id);
                   }}
                 />
+                )}
               </div>
 
               {(count > 0 || (canComment && onOpenComments)) && (!mobile || count > 0 || open || focusedId === b.id) && (
@@ -1392,3 +1526,103 @@ const EditableText = memo(function EditableText({
     />
   );
 });
+
+/**
+ * An images block: small pictures side by side (about three lines tall), no frame or background, so
+ * transparent logos sit right on the page. Paste (⌘V), drop, or click + to add; hover a picture for ×.
+ */
+function ImageStrip({
+  block,
+  uploading,
+  readOnly,
+  register,
+  onAdd,
+  onRemove,
+  onKey,
+  onFocus,
+}: {
+  block: Block;
+  uploading: Attachment[];
+  readOnly: boolean;
+  register: (el: HTMLDivElement | null) => void;
+  onAdd: (files: File[]) => void;
+  onRemove: (id: string) => void;
+  onKey: (e: React.KeyboardEvent<HTMLDivElement>) => void;
+  onFocus: () => void;
+}) {
+  const pick = useRef<HTMLInputElement>(null);
+  const images = [...(block.images ?? []), ...uploading];
+  return (
+    <div
+      ref={register}
+      tabIndex={readOnly ? undefined : 0}
+      onKeyDown={readOnly ? undefined : onKey}
+      onFocus={readOnly ? undefined : onFocus}
+      onPaste={
+        readOnly
+          ? undefined
+          : (e) => {
+              const files = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith("image/"));
+              if (files.length) {
+                e.preventDefault();
+                onAdd(files);
+              }
+            }
+      }
+      aria-label="Images"
+      className="group/images flex min-h-[26px] min-w-0 flex-1 flex-wrap items-end gap-3 rounded-md py-1 outline-none focus-visible:ring-2 focus-visible:ring-(--c-l-2358d8)"
+    >
+      {images.map((a) => (
+        <span key={a.id} className="group/img relative inline-flex">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={a.url ?? ""}
+            alt={a.name ?? ""}
+            draggable={false}
+            className={`block h-[80px] w-auto max-w-[240px] object-contain ${a.progress !== undefined ? "opacity-40" : ""}`}
+          />
+          {!readOnly && a.progress === undefined && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => onRemove(a.id)}
+              aria-label={`Remove ${a.name ?? "image"}`}
+              className="absolute -right-2 -top-2 hidden h-5 w-5 items-center justify-center rounded-full bg-(--c-b-1b1b1b) text-(--c-on-ink) shadow group-hover/img:flex"
+            >
+              <IconX size={11} />
+            </button>
+          )}
+        </span>
+      ))}
+      {!readOnly && (
+        <>
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => pick.current?.click()}
+            aria-label="Add images"
+            title="Add images (or paste / drop them here)"
+            className={`flex items-center justify-center gap-1.5 rounded-lg text-[13px] text-(--c-t-9a9a9a) hover:bg-(--c-b-f4f4f4) hover:text-(--c-t-1b1b1b) ${
+              images.length ? "h-[80px] w-10 opacity-0 group-hover/images:opacity-100 group-focus-within/images:opacity-100" : "h-[80px] border border-dashed border-(--c-l-dcdcdc) px-4"
+            }`}
+          >
+            <IconPlus size={14} />
+            {!images.length && "Add images · paste or drop them here"}
+          </button>
+          <input
+            ref={pick}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              e.target.value = "";
+              if (files.length) onAdd(files);
+            }}
+          />
+        </>
+      )}
+    </div>
+  );
+}

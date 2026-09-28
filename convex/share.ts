@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { blockColor, blockType, comment, textColor } from "./schema";
+import { attachment, blockColor, blockType, comment, textColor } from "./schema";
 import { docBlocks, writeEditedVersion } from "./lib";
 
 async function videoBySlug(ctx: QueryCtx, slug: string) {
@@ -78,6 +78,7 @@ export const saveGuestEdit = mutation({
         checked: v.boolean(),
         color: blockColor,
         textColor: v.optional(textColor),
+        images: v.optional(v.array(attachment)),
         sourceBlockId: v.union(v.string(), v.null()),
         comments: v.optional(v.array(comment)),
       }),
@@ -87,6 +88,7 @@ export const saveGuestEdit = mutation({
     if (token.length < 32) throw new ConvexError("Bad token");
     if (blocks.length > 5000) throw new ConvexError("Too many blocks");
     const video = await checkPasscode(ctx, slug, passcode);
+    if (blocks.some((b) => b.images?.some((a) => a.url && !/^https?:\/\//i.test(a.url)))) throw new ConvexError("Bad image link");
     return writeEditedVersion(ctx, video._id, token, name.trim().slice(0, 80) || "Someone", blocks);
   },
 });

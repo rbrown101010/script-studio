@@ -93,6 +93,7 @@ async function linesOf(ctx: QueryCtx, documentId: Id<"documents"> | undefined) {
     ...(b.type === "todo" ? { checked: b.checked } : {}),
     ...(b.color ? { color: b.color } : {}),
     ...(b.textColor ? { textColor: b.textColor } : {}),
+    ...(b.type === "images" ? { images: (b.images ?? []).map((a) => ({ name: a.name, url: a.url })) } : {}),
   }));
 }
 
@@ -468,6 +469,8 @@ type NewLine = {
   checked?: boolean;
   color?: Doc<"blocks">["color"];
   textColor?: Doc<"blocks">["textColor"];
+  /** Internal only (restoring a version): an images block's pictures */
+  images?: Doc<"blocks">["images"];
 };
 
 /**
@@ -510,6 +513,7 @@ async function replaceScript(ctx: MutationCtx, video: Doc<"videos">, lines: NewL
       textColor: l.textColor !== undefined ? l.textColor : (prev?.textColor ?? null),
       sourceBlockId: null,
       ...(prev?.attachments ? { attachments: prev.attachments } : {}),
+      ...(l.images ? { images: l.images } : prev?.images ? { images: prev.images } : {}),
     });
     out.push({ key, type, text: l.text });
   }
@@ -623,14 +627,19 @@ export const restoreVersion = internalMutation({
     const id = ctx.db.normalizeId("documents", versionId);
     const doc = id ? await ctx.db.get(id) : null;
     if (!doc || doc.videoId !== video._id || doc.kind !== "archived") throw new ConvexError("Version not found. Use list_versions.");
-    // Exactly as it was, colors included
-    const lines = (await linesOf(ctx, doc._id)).map((l) => ({
-      key: l.key,
-      type: l.type,
-      text: l.text,
-      checked: l.checked,
-      color: l.color ?? null,
-      textColor: l.textColor ?? null,
+    // Exactly as it was, colors and images included
+    const blocks = await ctx.db
+      .query("blocks")
+      .withIndex("by_document", (q) => q.eq("documentId", doc._id))
+      .collect();
+    const lines = blocks.map((b) => ({
+      key: b.key,
+      type: b.type,
+      text: b.content,
+      checked: b.checked,
+      color: b.color ?? null,
+      textColor: b.textColor ?? null,
+      ...(b.images ? { images: b.images } : {}),
     }));
     return replaceScript(ctx, video, lines, agentName);
   },

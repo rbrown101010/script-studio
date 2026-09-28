@@ -36,6 +36,7 @@ export const blockType = v.union(
   v.literal("bullet"),
   v.literal("number"),
   v.literal("todo"),
+  v.literal("images"),
 );
 export const blockColor = v.union(v.literal("yellow"), v.literal("blue"), v.literal("green"), v.literal("red"), v.literal("rose"), v.null());
 /** Color of a line's text (separate from the block's background color) */
@@ -73,6 +74,8 @@ export const blockFields = {
   color: blockColor,
   textColor: v.optional(textColor),
   sourceBlockId: v.union(v.string(), v.null()),
+  /** An "images" block's pictures, shown side by side */
+  images: v.optional(v.array(attachment)),
   // Legacy: files attached straight to a block (now they live inside comments)
   attachments: v.optional(v.array(attachment)),
   comments: v.optional(v.array(comment)),

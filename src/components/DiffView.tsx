@@ -50,7 +50,8 @@ export function computeDiff(original: Block[], edited: Block[]) {
           orig.content !== ed.content ||
           orig.type !== ed.type ||
           !!orig.checked !== !!ed.checked ||
-          (orig.color ?? null) !== (ed.color ?? null);
+          (orig.color ?? null) !== (ed.color ?? null) ||
+          JSON.stringify((orig.images ?? []).map((a) => a.url)) !== JSON.stringify((ed.images ?? []).map((a) => a.url));
         if (changed) summary.changed++;
         items.push({ kind: "same", orig, ed, changed });
       }
@@ -138,10 +139,19 @@ export function DiffBlocks({
               {marked && <div className="absolute -left-5 bottom-1 top-1 w-[3px] rounded bg-red-500" />}
               <div className={`flex ${textClass(b.type)}`}>
                 <BlockPrefix type={b.type} n={numbers.get(b.id)} checked={b.checked} className={prefixCls} />
+                {b.type === "images" ? (
+                  <div className="flex min-w-0 flex-1 flex-wrap items-end gap-3 py-1">
+                    {(b.images ?? []).map((a) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={a.id} src={a.url ?? ""} alt={a.name ?? ""} className="block h-[80px] w-auto max-w-[240px] object-contain" />
+                    ))}
+                  </div>
+                ) : (
                 <div className={`min-w-0 flex-1 whitespace-pre-wrap break-words ${b.type === "todo" && b.checked ? "text-(--c-t-9a9a9a)" : ""}`}>
                   {text}
                   {it.kind === "added" && !b.content ? <span className="text-[13px] italic text-red-400">new empty line</span> : null}
                 </div>
+                )}
               </div>
               {count > 0 && (
                 <button

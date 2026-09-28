@@ -384,6 +384,13 @@ function CommentItem({
             timer.current = setTimeout(save, 600);
           }}
           onBlur={save}
+          // Pasting a copied image or video (e.g. a screenshot) attaches it to this comment
+          onPaste={(e) => {
+            const files = Array.from(e.clipboardData.files).filter((f) => /^(image|video|audio)\//.test(f.type) || f.type === "application/pdf");
+            if (!files.length || !actions?.addFiles) return;
+            e.preventDefault();
+            actions.addFiles(c.id, files);
+          }}
           onKeyDown={(e) => {
             if (mind && mindKeys.current?.(e)) return;
             const mod = e.metaKey || e.ctrlKey;

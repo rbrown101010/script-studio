@@ -59,6 +59,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     for (const m of c.text.matchAll(/https?:\/\/[^\s<>"')\]]+/g)) links.push({ url: m[0].replace(/[).,!?]+$/, ""), label: null, line, lineText, commentId: c.id });
   }
 
+  // Pictures in images blocks
+  type ImgBlock = Block & { images?: Att[] };
+  for (const [i, b] of (blocks as ImgBlock[]).entries()) {
+    if (b.type !== "images") continue;
+    for (const a of b.images ?? []) {
+      if (!a.url) continue;
+      const n = files.length + 1;
+      let base = safe(a.name || `image-${a.id.slice(0, 6)}`);
+      if (!/\.[a-z0-9]{2,5}$/i.test(base)) base += `.${a.mime?.split("/")[1] ?? "png"}`;
+      let filename = `${String(n).padStart(2, "0")} - line ${i + 1} - ${base}`;
+      while (used.has(filename)) filename = filename.replace(/^(\d+)/, "$1b");
+      used.add(filename);
+      files.push({ n, filename, kind: "image", url: a.url, mime: a.mime, size: a.size, line: i + 1, lineText: "(images block)", comment: "", commentId: "" });
+    }
+  }
+
   const commentView = (c: Cmt) => ({
     id: c.id,
     author: c.authorName,
@@ -72,6 +88,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     key: b.id,
     type: b.type,
     text: b.content,
+    ...(b.type === "images" ? { images: files.filter((f) => f.line === i + 1 && !f.commentId).map((f) => f.filename) } : {}),
     comments: sorted.filter((c) => c.blockKey === b.id).map(commentView),
   }));
   const downloadScript = [

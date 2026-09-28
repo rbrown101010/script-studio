@@ -15,8 +15,15 @@ type ServerBlock = {
   checked: boolean;
   color: Block["color"];
   textColor?: Block["textColor"];
+  images?: Block["images"];
   source_block_id: string | null;
 };
+
+/** Only what's stored for an image (drops upload progress and errors) */
+export const cleanImages = (list: Block["images"]) =>
+  (list ?? [])
+    .filter((a) => a.url && a.progress === undefined && !a.error)
+    .map((a) => ({ id: a.id, kind: a.kind, url: a.url, storageId: a.storageId as Id<"_storage"> | null, name: a.name, mime: a.mime, size: a.size }));
 
 export const fromServer = (b: ServerBlock): Block => ({ ...b });
 
@@ -29,6 +36,7 @@ export function toServer(b: Block, position: number) {
     checked: !!b.checked,
     color: b.color ?? null,
     textColor: b.textColor ?? null,
+    ...(b.type === "images" ? { images: cleanImages(b.images) } : {}),
     sourceBlockId: b.source_block_id ?? null,
   };
 }
