@@ -5,6 +5,7 @@ import { colorBg, textHex, type Attachment, type Block, type Comment } from "@/l
 import { linkSegments } from "@/lib/scriptLinks";
 import { listNumbers } from "@/lib/util";
 import { LinkCard, linkCardsIn } from "./LinkCard";
+import { MediaViewer } from "./Attachments";
 
 /**
  * Presentation mode: the script full screen, big and calm, for showing an outline while filming.
@@ -24,6 +25,7 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
   const [leaving, setLeaving] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const stepAt = useRef(-1);
+  const [viewing, setViewing] = useState<{ images: Attachment[]; index: number } | null>(null);
 
   const close = useCallback(() => {
     setClosing(true);
@@ -131,9 +133,18 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
                 )}
                 {b.type === "images" && (
                   <div className="flex min-w-0 flex-1 flex-wrap items-end gap-5 py-1">
-                    {(b.images ?? []).map((a) => (
+                    {(b.images ?? []).map((a, n) => (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img key={a.id} src={a.url ?? ""} alt={a.name ?? ""} className="block h-[117px] w-auto max-w-[360px] object-contain" />
+                      <img
+                        key={a.id}
+                        src={a.url ?? ""}
+                        alt={a.name ?? ""}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewing({ images: b.images ?? [], index: n });
+                        }}
+                        className="block h-[117px] w-auto max-w-[360px] cursor-zoom-in object-contain"
+                      />
                     ))}
                   </div>
                 )}
@@ -162,6 +173,10 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
           })}
         </div>
       </div>
+
+      {viewing && (
+        <MediaViewer items={viewing.images} index={viewing.index} onIndex={(index) => setViewing({ ...viewing, index })} onClose={() => setViewing(null)} />
+      )}
 
       <style>{`
         @keyframes pres-in { from { opacity: 0; transform: scale(1.015) } to { opacity: 1; transform: none } }

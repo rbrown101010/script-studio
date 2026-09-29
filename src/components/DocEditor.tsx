@@ -6,6 +6,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { BLOCK_COLORS, TEXT_COLORS, colorBg, textHex, type Attachment, type Block, type BlockColor, type BlockType, type TextColor } from "@/lib/types";
 import { uploadToUrl } from "@/lib/upload";
+import { MediaViewer } from "./Attachments";
 import { caretOnFirstLine, caretOnLastLine, getSelectionOffsets, readText, setCaret, writeText } from "@/lib/caret";
 import { isUrl, linkSegments, renderLinks, toRawOffset, toggleBold, wrapLink } from "@/lib/scriptLinks";
 import { listNumbers, uid } from "@/lib/util";
@@ -1552,6 +1553,8 @@ function ImageStrip({
 }) {
   const pick = useRef<HTMLInputElement>(null);
   const images = [...(block.images ?? []), ...uploading];
+  const stored = block.images ?? [];
+  const [viewing, setViewing] = useState<number | null>(null);
   return (
     <div
       ref={register}
@@ -1579,7 +1582,8 @@ function ImageStrip({
             src={a.url ?? ""}
             alt={a.name ?? ""}
             draggable={false}
-            className={`block h-[80px] w-auto max-w-[240px] object-contain ${a.progress !== undefined ? "opacity-40" : ""}`}
+            onClick={a.progress === undefined ? () => setViewing(stored.findIndex((x) => x.id === a.id)) : undefined}
+            className={`block h-[80px] w-auto max-w-[240px] object-contain ${a.progress !== undefined ? "opacity-40" : "cursor-zoom-in"}`}
           />
           {!readOnly && a.progress === undefined && (
             <button
@@ -1594,6 +1598,7 @@ function ImageStrip({
           )}
         </span>
       ))}
+      {viewing !== null && stored[viewing] && <MediaViewer items={stored} index={viewing} onIndex={setViewing} onClose={() => setViewing(null)} />}
       {!readOnly && (
         <>
           <button

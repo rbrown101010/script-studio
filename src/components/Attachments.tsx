@@ -139,15 +139,19 @@ export function MediaViewer({ items, index, onIndex, onClose }: { items: Attachm
   const a = items[index];
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" && e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      // Handled here only: Esc shouldn't also close what's behind the viewer
+      e.preventDefault();
+      e.stopImmediatePropagation();
       if (e.key === "Escape") onClose();
       if (e.key === "ArrowRight" && index < items.length - 1) onIndex(index + 1);
       if (e.key === "ArrowLeft" && index > 0) onIndex(index - 1);
     };
-    window.addEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
-      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keydown", onKey, true);
       document.body.style.overflow = prev;
     };
   }, [index, items.length, onClose, onIndex]);
