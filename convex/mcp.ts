@@ -38,6 +38,12 @@ const lineArg = {
   required: ["text"],
 };
 
+const tweetMediaArg = {
+  type: "array",
+  description: "A video (one) or up to 4 images for the tweet: upload each with get_upload_url first, then pass {storageId, name, mime}",
+  items: { type: "object", properties: { storageId: { type: "string" }, name: { type: "string" }, mime: { type: "string" } }, required: ["storageId"] },
+};
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Tool = {
   name: string;
@@ -300,6 +306,72 @@ const TOOLS: Tool[] = [
     inputSchema: { type: "object", properties: { query: { type: "string" }, limit: { type: "number" } } },
     annotations: { readOnlyHint: true },
     run: (ctx, a) => ctx.runQuery(internal.agent.listIdeas, a),
+  },
+  {
+    name: "list_tweets",
+    description:
+      "List the Tweet page: suggestions (tweets agents suggested for @agentnative_), drafts (saved for later, any account), scheduled, and posted (with links to X). Optionally one tab. Read this before suggesting so you don't repeat what's already there or was just posted.",
+    inputSchema: { type: "object", properties: { tab: { type: "string", enum: ["suggestions", "drafts", "scheduled", "posted"] } } },
+    annotations: { readOnlyHint: true },
+    run: (ctx, a) => ctx.runQuery(internal.tweets.agentList, a),
+  },
+  {
+    name: "suggest_tweets",
+    description:
+      "Add suggested tweets for @agentnative_ to the Suggestions tab (only that account gets suggestions). Riley reviews them; nothing posts until Riley schedules or posts it. Most should be quote tweets (quoteUrl = the x.com link of the announcement being quoted) or video tweets (attach a video you uploaded via get_upload_url as media, or say in note what video to attach). Use note for why it's worth posting and the source. Keep the account's voice: short, factual, news first (\"X just released Y.\"), plain lists of what launched, no hashtags.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tweets: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              text: { type: "string", description: "The tweet, up to 280 characters (links count as 23)" },
+              quoteUrl: { type: "string", description: "Link to the tweet to quote, e.g. https://x.com/OpenAI/status/123" },
+              note: { type: "string", description: "Why this, the source, and what video to attach if it needs one" },
+              media: tweetMediaArg,
+            },
+            required: ["text"],
+          },
+        },
+        agentName: { type: "string" },
+      },
+      required: ["tweets"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.tweets.agentSuggest, a),
+  },
+  {
+    name: "save_tweet_draft",
+    description: "Save a tweet to Drafts for any connected account (@rileybrown, @agentnative_, or both). Drafts never post by themselves.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        accounts: { type: "array", items: { type: "string" }, description: "e.g. [\"@rileybrown\"]" },
+        text: { type: "string" },
+        quoteUrl: { type: "string", description: "Link to a tweet to quote" },
+        media: tweetMediaArg,
+      },
+      required: ["accounts", "text"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.tweets.agentSaveDraft, a),
+  },
+  {
+    name: "edit_tweet",
+    description: "Change a suggestion or draft (by id from list_tweets): text, quoteUrl (null removes the quote), note, or media (replaces it). Scheduled and posted tweets can't be changed by agents.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "string" }, text: { type: "string" }, quoteUrl: { type: ["string", "null"] }, note: { type: "string" }, media: tweetMediaArg },
+      required: ["id"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.tweets.agentEdit, a),
+  },
+  {
+    name: "remove_tweet",
+    description: "Remove a suggestion or draft (by id from list_tweets). Scheduled and posted tweets can't be removed by agents.",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+    annotations: { destructiveHint: true },
+    run: (ctx, a) => ctx.runMutation(internal.tweets.agentRemove, a),
   },
   {
     name: "add_brief_links",

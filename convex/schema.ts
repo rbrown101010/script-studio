@@ -214,7 +214,25 @@ export default defineSchema({
     accountIds: v.array(v.string()),
     text: v.string(),
     at: v.number(),
-    status: v.union(v.literal("scheduled"), v.literal("posting"), v.literal("posted"), v.literal("failed")),
+    /** draft = saved by a person for later; suggestion = written by an agent for Riley to review (never posts by itself) */
+    status: v.union(
+      v.literal("scheduled"),
+      v.literal("posting"),
+      v.literal("posted"),
+      v.literal("failed"),
+      v.literal("draft"),
+      v.literal("suggestion"),
+    ),
+    /** Link to the tweet this quotes (posted as a quote tweet) */
+    quoteUrl: v.optional(v.union(v.string(), v.null())),
+    /** A video or images uploaded here, attached to the tweet when it posts */
+    media: v.optional(
+      v.array(v.object({ storageId: v.id("_storage"), kind: v.union(v.literal("video"), v.literal("image")), name: v.string(), mime: v.string() })),
+    ),
+    /** Suggestions: why this tweet, and what video to attach if it needs one */
+    note: v.optional(v.union(v.string(), v.null())),
+    /** Suggestions: which agent wrote it */
+    agentName: v.optional(v.union(v.string(), v.null())),
     /** One per account once it's been tried: the new tweet (id and link) or why it failed */
     results: v.array(
       v.object({ accountId: v.string(), tweetId: v.union(v.string(), v.null()), url: v.union(v.string(), v.null()), error: v.union(v.string(), v.null()) }),
@@ -222,7 +240,9 @@ export default defineSchema({
     createdBy: v.union(v.id("users"), v.null()),
     /** The scheduled job that will post it (cancelled on edit/delete) */
     job: v.union(v.id("_scheduled_functions"), v.null()),
-  }).index("by_at", ["at"]),
+  })
+    .index("by_at", ["at"])
+    .index("by_status", ["status", "at"]),
 
   // Library: an index of files pasted into comments (rebuilt from comments; see library.ts)
   assets: defineTable({
