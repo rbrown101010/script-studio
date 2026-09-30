@@ -7,6 +7,7 @@ import { httpAction, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { authorized } from "./agentAuth";
 import { HELP } from "./agentHelp";
+import { attachFiles, resolveAttachments } from "./agentFiles";
 
 const PROTOCOL = "2025-06-18";
 
@@ -44,6 +45,22 @@ type Tool = {
   inputSchema: Record<string, unknown>;
   annotations?: Record<string, boolean>;
   run: (ctx: ActionCtx, a: any) => Promise<unknown>;
+};
+
+const attachmentsArg = {
+  type: "array",
+  description:
+    "Files to attach. Each item is ONE of: {url} a link (image/video URLs show as media); {base64, name} the file's bytes inline, stored in Native Note (under 20 MB); {storageId, name} a file you uploaded via get_upload_url (any size; use this for files on your computer). Optional mime.",
+  items: {
+    type: "object",
+    properties: {
+      url: { type: "string" },
+      base64: { type: "string", description: "Raw base64 or a data: URL" },
+      storageId: { type: "string", description: "From uploading to get_upload_url's uploadUrl" },
+      name: { type: "string", description: "File name, e.g. key-art.png" },
+      mime: { type: "string", description: "e.g. image/png (guessed from the name if left out)" },
+    },
+  },
 };
 
 const TOOLS: Tool[] = [
@@ -154,7 +171,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: "comment_on_script",
-    description: "Comment on a whole script, or on one line (by blockKey from get_script, or by part of the line's text with lineContains). Can attach images, videos or links by URL. Shows with an Agent badge.",
+    description: "Comment on a whole script, or on one line (by blockKey from get_script, or by part of the line's text with lineContains). Can attach images, videos, PDFs or any file: by link, inline base64, or an uploaded file (see get_upload_url). Shows with an Agent badge. Returns the comment id.",
     inputSchema: {
       type: "object",
       properties: {
@@ -163,15 +180,27 @@ const TOOLS: Tool[] = [
         agentName: { type: "string" },
         blockKey: { type: "string" },
         lineContains: { type: "string" },
-        attachments: {
-          type: "array",
-          description: "Images, videos or links to attach, by URL (image/video URLs show as media)",
-          items: { type: "object", properties: { url: { type: "string" }, name: { type: "string" } }, required: ["url"] },
-        },
+        attachments: attachmentsArg,
       },
       required: ["script", "text"],
     },
-    run: async (ctx, a) => ({ id: await ctx.runMutation(internal.comments.addAgent, a) }),
+    run: async (ctx, a) => ({
+      id: await ctx.runMutation(internal.comments.addAgent, { ...a, attachments: await resolveAttachments(ctx, a.attachments) }),
+    }),
+  },
+  {
+    name: "attach_files",
+    description:
+      "Add images, videos, PDFs or any files to an existing comment (comment id from comment_on_script or get_script). Same attachment shapes as comment_on_script. Only adds; never removes.",
+    inputSchema: { type: "object", properties: { comment: { type: "string" }, attachments: attachmentsArg }, required: ["comment", "attachments"] },
+    run: (ctx, a) => attachFiles(ctx, a.comment, a.attachments ?? []),
+  },
+  {
+    name: "get_upload_url",
+    description:
+      "For a file on your own computer (any size): returns a one-time uploadUrl. POST the raw bytes there, e.g. curl -s -X POST -H 'Content-Type: image/png' --data-binary @shot.png '<uploadUrl>', which answers {\"storageId\":\"...\"}. Then attach it with comment_on_script or attach_files: attachments [{storageId, name}].",
+    inputSchema: { type: "object", properties: {} },
+    run: async (ctx) => ({ uploadUrl: await ctx.runMutation(internal.agentFiles.uploadUrl, {}) }),
   },
   {
     name: "move_comment",

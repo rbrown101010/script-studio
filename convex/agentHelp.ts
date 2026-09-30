@@ -38,6 +38,7 @@ text as a version first, so nothing is ever lost and any edit can be undone with
   To edit the video: GET <shareUrl>/agent for the whole script, comments and every file (JSON; ?format=md for Markdown),
   or run: curl -fsSL '<shareUrl>/agent?format=sh' | sh   to download every file into ./assets (no sign-in needed).
   Links to X, YouTube, TikTok, Instagram, Threads, LinkedIn and Facebook in a comment show as preview cards.
+  Agents can attach files to comments too, including files from their own computer (see "Files in comments").
 
 ## Mymind (ideas)
 Separate from scripts: Riley's board of saved ideas. Each idea is a link (tweet/X post, image, YouTube/TikTok/Instagram
@@ -72,7 +73,9 @@ each idea saying what it is and why it's worth keeping. Use list_ideas to search
 | list_versions {script} | Earlier versions of the text |
 | restore_version {script, versionId} | Bring an earlier version back |
 | suggest_script_edit {script, agentName?, lines} | Only if the user wants to approve changes first |
-| comment_on_script {script, text, agentName?, blockKey?, lineContains?, attachments?} | Comment on the script or a line; attach images/videos/links by URL |
+| comment_on_script {script, text, agentName?, blockKey?, lineContains?, attachments?} | Comment on the script or a line, with images, videos, PDFs or any files (see "Files in comments") |
+| attach_files {comment, attachments} | Add files to an existing comment |
+| get_upload_url {} | One-time URL to upload a file from your computer (any size) |
 | move_comment {script, commentId, toKey? or lineContains?} | Put any comment on another line (or the whole script) |
 | update_comment {script, commentId, text} | Rewrite a comment an agent wrote |
 | delete_comment {script, commentId} | Delete a comment an agent wrote |
@@ -102,6 +105,18 @@ The result lists the new lines and keys. Line types: p (text), h1 (heading), bul
 "lines" is the WHOLE script as you want it, in order. Keep a line's key to keep that line (its comments stay
 on it). Leave out key for new lines. Lines you leave out are deleted.
 
+### Files in comments
+"attachments" (on comment_on_script and attach_files) is a list; each item is ONE of:
+- {"url": "https://..."}: a link. Image/video URLs show as media. Nothing is copied.
+- {"base64": "...", "name": "shot.png"}: the file's bytes (raw base64 or a data: URL), stored in Native Note. Under 20 MB.
+- {"storageId": "...", "name": "shot.png"}: a file you uploaded. Best for files on your computer, any size:
+    1. get_upload_url {}                                  -> {"uploadUrl": "..."}
+    2. curl -s -X POST -H "Content-Type: image/png" --data-binary @shot.png "<uploadUrl>"   -> {"storageId": "..."}
+    3. comment_on_script / attach_files with attachments [{"storageId": "...", "name": "shot.png"}]
+"mime" is optional everywhere (guessed from the name). Up to 20 files per call. Stored files show in the app
+like files people drop in: images and videos play inline, anything else is a download.
+With plain HTTP there's also a one-step upload (under 20 MB), see the end.
+
 ### set_caption
 The platform is matched by name (case-insensitive) and added if it's not there yet. Only what you pass changes.
 Custom fields are matched by label: a new label is added, an existing label gets the new value.
@@ -127,6 +142,12 @@ Tighten the second line and add a new line after it:
 Comment on a line with an image:
   comment_on_script {"script":"<id>","lineContains":"B-roll","text":"Use this shot",
                      "attachments":[{"url":"https://example.com/shot.png"}]}
+Put a screenshot from your computer on a line:
+  get_upload_url {}  ->  curl -s -X POST -H "Content-Type: image/png" --data-binary @shot.png "<uploadUrl>"  ->  {"storageId":"kg2..."}
+  comment_on_script {"script":"<id>","lineContains":"Decisions API","text":"Press image",
+                     "attachments":[{"storageId":"kg2...","name":"shot.png"}]}
+Add another file to that comment later:
+  attach_files {"comment":"<comment id>","attachments":[{"storageId":"kg3...","name":"demo.mp4"}]}
 
 ## Plain HTTP (header Authorization: Bearer <key>, from your own secret store; never put a key in a prompt or skill)
 GET  /agent/scripts?q=...              list_scripts
@@ -151,6 +172,12 @@ POST /agent/brief                       set_brief
 POST /agent/brief-links                 add_brief_links
 POST /agent/update                      add_update
 POST /agent/comment                     comment_on_script
+POST /agent/comment/attach              attach_files
+POST /agent/upload-url                  get_upload_url
+POST /agent/file?script=<id>&lineContains=...&text=...&name=shot.png   (or ?comment=<id>)
+     One step: the body is the raw file (Content-Type = its type, under 20 MB); posts the comment with it attached.
+     curl -s -X POST -H "Authorization: Bearer $KEY" -H "Content-Type: image/png" --data-binary @shot.png \\
+       "${SITE}/agent/file?script=<id>&lineContains=Decisions%20API&text=Press%20image&name=shot.png"
 POST /agent/ideas                       add_ideas
 GET  /agent/ideas?q=...                 list_ideas
 Bodies are the same JSON as the tool arguments. Errors come back as {"error": "..."} with a 4xx status.

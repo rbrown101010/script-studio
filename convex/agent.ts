@@ -16,6 +16,7 @@ import { insertUpdate } from "./updates";
 import { insertIdea } from "./ideas";
 import { reattachComments } from "./commentAnchors";
 import { queueAssetSync } from "./library";
+import { attachFiles, resolveAttachments, storeBlob } from "./agentFiles";
 
 /** Agents may still send the old statuses; they're mapped to the new ones. */
 const status = v.union(videoStatus, legacyStatus);
@@ -850,6 +851,41 @@ export const httpMoveComment = route((ctx, b) => ctx.runMutation(internal.agent.
 export const httpUpdateComment = route((ctx, b) => ctx.runMutation(internal.agent.updateComment, b as any));
 export const httpDeleteComment = route((ctx, b) => ctx.runMutation(internal.agent.deleteComment, b as any));
 export const httpComment = route(async (ctx, b) => ({
-  id: await ctx.runMutation(internal.comments.addAgent, b as any),
+  id: await ctx.runMutation(internal.comments.addAgent, { ...(b as any), attachments: await resolveAttachments(ctx, b.attachments as any) }),
 }));
+export const httpAttach = route((ctx, b) => {
+  if (typeof b.comment !== "string" || !Array.isArray(b.attachments)) throw new ConvexError("Send {comment, attachments: [...]}");
+  return attachFiles(ctx, b.comment, b.attachments as any);
+});
+export const httpUploadUrl = route(async (ctx) => ({ uploadUrl: await ctx.runMutation(internal.agentFiles.uploadUrl, {}) }));
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+/**
+ * One-step upload: POST the raw file as the body (Content-Type = its type), up to 20 MB.
+ * ?comment=<id> adds it to that comment; or ?script=<id or share link> (plus optional text, lineContains,
+ * blockKey, agentName) posts a new comment with it. ?name= sets the file name.
+ */
+export const httpFile = httpAction(async (ctx, req) => {
+  if (!authorized(req)) return json({ error: "Unauthorized. Send Authorization: Bearer <NATIVE_NOTE_API_KEY>." }, 401);
+  const q = new URL(req.url).searchParams;
+  try {
+    const storageId = await storeBlob(ctx, await req.blob());
+    const type = (req.headers.get("content-type") ?? "").split(";")[0].trim();
+    const file = { storageId, name: q.get("name") ?? undefined, mime: type && type !== "application/octet-stream" ? type : undefined };
+    const comment = q.get("comment");
+    if (comment) return json(await attachFiles(ctx, comment, [file]));
+    const script = q.get("script");
+    if (!script) throw new ConvexError("Pass ?comment=<id> or ?script=<id or share link>");
+    const id = await ctx.runMutation(internal.comments.addAgent, {
+      script,
+      text: q.get("text") ?? "",
+      agentName: q.get("agentName") ?? undefined,
+      blockKey: q.get("blockKey") ?? undefined,
+      lineContains: q.get("lineContains") ?? undefined,
+      attachments: await resolveAttachments(ctx, [file]),
+    });
+    return json({ id });
+  } catch (e) {
+    return json({ error: errorOf(e) }, 400);
+  }
+});

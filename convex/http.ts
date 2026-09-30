@@ -25,6 +25,9 @@ import {
   httpUpdateInstruction,
   httpSuggestEdit,
   httpUpdateDetails,
+  httpAttach,
+  httpFile,
+  httpUploadUrl,
 } from "./agent";
 import { help } from "./agentHelp";
 import { mcpGet, mcpPost } from "./mcp";
@@ -46,6 +49,9 @@ http.route({ path: "/agent/brief", method: "POST", handler: httpSetBrief });
 http.route({ path: "/agent/brief-links", method: "POST", handler: httpAddBriefLinks });
 http.route({ path: "/agent/update", method: "POST", handler: httpAddUpdate });
 http.route({ path: "/agent/comment", method: "POST", handler: httpComment });
+http.route({ path: "/agent/comment/attach", method: "POST", handler: httpAttach });
+http.route({ path: "/agent/upload-url", method: "POST", handler: httpUploadUrl });
+http.route({ path: "/agent/file", method: "POST", handler: httpFile });
 http.route({ path: "/agent/ideas", method: "POST", handler: httpAddIdeas });
 http.route({ path: "/agent/edit", method: "POST", handler: httpEditScript });
 http.route({ path: "/agent/comment/move", method: "POST", handler: httpMoveComment });

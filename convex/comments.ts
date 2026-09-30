@@ -3,6 +3,7 @@ import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } fr
 import type { Doc, Id } from "./_generated/dataModel";
 import { releaseFiles, requireUser } from "./lib";
 import { attachment } from "./schema";
+import { MAX_ATTACHMENTS, resolvedAttachment, toAttachment } from "./agentFiles";
 import { queueAssetSync } from "./library";
 
 const MAX_TEXT = 10000;
@@ -297,8 +298,8 @@ export const addAgent = internalMutation({
     agentName: v.optional(v.string()),
     blockKey: v.optional(v.string()),
     lineContains: v.optional(v.string()),
-    /** Images, videos or links to attach, by URL */
-    attachments: v.optional(v.array(v.object({ url: v.string(), name: v.optional(v.string()) }))),
+    /** Links by URL, or files already stored (see agentFiles.ts) */
+    attachments: v.optional(v.array(resolvedAttachment)),
   },
   handler: async (ctx, { script, text, agentName, blockKey, lineContains, attachments }) => {
     const videoId = ctx.db.normalizeId("videos", script);
@@ -324,13 +325,9 @@ export const addAgent = internalMutation({
       }
       if (!key) throw new ConvexError(`No line contains "${lineContains}".`);
     }
-    if ((attachments ?? []).length > 20) throw new ConvexError("At most 20 attachments per comment");
-    const files = (attachments ?? []).map((a) => {
-      const url = a.url.trim();
-      if (!/^https?:\/\//i.test(url)) throw new ConvexError(`Attachment links must start with http:// or https:// (${url})`);
-      const kind = /\.(png|jpe?g|gif|webp|avif|svg)(\?|$)/i.test(url) ? ("image" as const) : /\.(mp4|mov|webm|m4v)(\?|$)/i.test(url) ? ("video" as const) : ("link" as const);
-      return { id: crypto.randomUUID(), kind, url, storageId: null, name: a.name?.slice(0, 200) ?? null, mime: null, size: null };
-    });
+    if ((attachments ?? []).length > MAX_ATTACHMENTS) throw new ConvexError(`At most ${MAX_ATTACHMENTS} attachments per comment`);
+    const files = [];
+    for (const a of attachments ?? []) files.push(await toAttachment(ctx, a));
     return insert(ctx, {
       videoId: video._id,
       blockKey: key,
