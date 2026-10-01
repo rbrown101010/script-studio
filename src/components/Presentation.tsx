@@ -125,12 +125,6 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
                   on ? "bg-[#f5c542]/[0.16] px-4 py-1.5 shadow-[inset_0_0_0_1px_rgba(245,197,66,0.35)]" : bg ? "px-4 py-1.5" : ""
                 }`}
               >
-                {has && (
-                  <span
-                    aria-hidden="true"
-                    className={`absolute -left-6 top-[0.62em] h-2 w-2 rounded-full transition-all duration-300 ${on ? "scale-125 bg-[#f5c542]" : "bg-[#f5c542]/60"}`}
-                  />
-                )}
                 {b.type === "images" && (
                   <div className="flex min-w-0 flex-1 flex-wrap items-end gap-5 py-1">
                     {(b.images ?? []).map((a, n) => (
@@ -151,11 +145,11 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
                 {/* List markers at the same size and line height as the text, so they sit on its first line */}
                 {b.type === "bullet" && (
                   <span aria-hidden="true" className="flex h-[39px] w-8 shrink-0 items-center justify-center">
-                    <span className="h-[7px] w-[7px] rounded-full bg-[#9a9a9a]" />
+                    <span className="h-[7px] w-[7px] rounded-full bg-[#e6e6e6]" />
                   </span>
                 )}
                 {b.type === "number" && (
-                  <span aria-hidden="true" className="w-8 shrink-0 select-none text-right text-[26px] leading-[1.5] tabular-nums text-[#9a9a9a]">
+                  <span aria-hidden="true" className="w-8 shrink-0 select-none text-right text-[26px] leading-[1.5] tabular-nums text-[#e6e6e6]">
                     {numbers.get(b.id)}.
                   </span>
                 )}
