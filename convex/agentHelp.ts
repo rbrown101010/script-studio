@@ -11,6 +11,17 @@ You can read every script and change anything about it, including editing, addin
 the script itself. The one thing you can't do is delete a script. Every script edit saves the previous
 text as a version first, so nothing is ever lost and any edit can be undone with restore_version.
 
+## Tweets (the Tweet page)
+Riley writes tweets for the X accounts @rileybrown and @agentnative_ here. Tabs: Suggestions, Scheduled, Posted, Drafts.
+- Suggestions are only for @agentnative_. Add them with suggest_tweets. They never post by themselves: Riley edits,
+  schedules or posts them. Read list_tweets first so you don't repeat what's there or was just posted.
+- Most tweets should be quote tweets (quoteUrl = the x.com link of the announcement) or video tweets (media).
+  @agentnative_'s voice: short and factual, news first ("Grok Bot just released a new feature."), a plain list for
+  launch days ("OpenAI Launched Today:" then "- item" lines), a quick comparison ("Similar to Claude Tag."), no hashtags.
+- Put why it's worth posting, the source link, and what video to attach (if it needs one Riley records) in note.
+- Drafts (save_tweet_draft) work for any account. Agents can edit_tweet / remove_tweet suggestions and drafts only;
+  they can't schedule, post, or touch scheduled/posted tweets.
+
 ## How to connect
 - In Composio: use the Native Note tools (toolkit custom_native_note, slugs CUSTOM_NATIVE_NOTE_*).
   Composio holds the key, so you never need one. Never ask for, look for, or print a key.
