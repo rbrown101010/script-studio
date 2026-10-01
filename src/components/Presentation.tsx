@@ -117,7 +117,7 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
                       }
                     : undefined
                 }
-                className={`transition-opacity duration-300 ${has ? "cursor-pointer" : ""} ${b.type === "h1" ? "mb-2 mt-10" : "my-1.5"} ${active && !on ? "opacity-40" : "opacity-100"}`}
+                className={`transition-opacity duration-300 ${has ? "cursor-pointer" : ""} ${b.type === "h1" ? "mb-2 mt-10" : b.type === "bullet" || b.type === "number" || b.type === "todo" ? "my-0.5" : "my-1.5"} ${active && !on ? "opacity-40" : "opacity-100"}`}
               >
               <div
                 style={{ animationDelay: `${Math.min(i, 24) * 28}ms`, ...(bg && !on ? { background: bg } : {}) }}
@@ -148,9 +148,22 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
                     ))}
                   </div>
                 )}
-                {b.type === "bullet" && <span className="select-none text-[#6a6a6a]">•</span>}
-                {b.type === "number" && <span className="select-none tabular-nums text-[#6a6a6a]">{numbers.get(b.id)}.</span>}
-                {b.type === "todo" && <span className={`mt-[0.35em] h-[0.8em] w-[0.8em] shrink-0 rounded-[4px] border-2 ${b.checked ? "border-[#6a6a6a] bg-[#6a6a6a]" : "border-[#6a6a6a]"}`} />}
+                {/* List markers at the same size and line height as the text, so they sit on its first line */}
+                {b.type === "bullet" && (
+                  <span aria-hidden="true" className="flex h-[39px] w-8 shrink-0 items-center justify-center">
+                    <span className="h-[7px] w-[7px] rounded-full bg-[#9a9a9a]" />
+                  </span>
+                )}
+                {b.type === "number" && (
+                  <span aria-hidden="true" className="w-8 shrink-0 select-none text-right text-[26px] leading-[1.5] tabular-nums text-[#9a9a9a]">
+                    {numbers.get(b.id)}.
+                  </span>
+                )}
+                {b.type === "todo" && (
+                  <span className="flex h-[39px] w-8 shrink-0 items-center justify-center">
+                    <span className={`h-[20px] w-[20px] rounded-[5px] border-2 ${b.checked ? "border-[#8a8a8a] bg-[#8a8a8a]" : "border-[#8a8a8a]"}`} />
+                  </span>
+                )}
                 {b.type !== "images" && <p
                   className={`m-0 min-w-0 flex-1 whitespace-pre-wrap break-words ${
                     b.type === "h1" ? "text-[34px] font-semibold leading-[1.25] tracking-[-0.01em] text-white" : "text-[26px] leading-[1.5] text-[#dedede]"
