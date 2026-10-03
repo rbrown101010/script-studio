@@ -15,6 +15,7 @@ import { usePresence } from "@/lib/usePresence";
 import { PartnerLogo } from "@/components/VideoMeta";
 import { PinnedVideos } from "@/components/PinnedVideos";
 import { BoardsList } from "@/components/BoardsList";
+import { TopicsApp } from "@/components/TopicsApp";
 import { FilterSelect } from "@/components/FeedView";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Tweet } from "@/components/Tweet";
@@ -283,7 +284,7 @@ function ScriptList() {
       const saved = localStorage.getItem("home-view");
       // ?view=… (e.g. coming back from a board) wins over the remembered view
       const asked = new URLSearchParams(window.location.search).get("view") ?? saved;
-      if (asked && ["calendar", "feed", "mymind", "library", "tweet", "brands", "boards", "list"].includes(asked)) setView(asked as View);
+      if (asked && ["calendar", "feed", "mymind", "library", "tweet", "brands", "boards", "topics", "list"].includes(asked)) setView(asked as View);
       if (localStorage.getItem("home-sidebar") === "0") setSidebarOpen(false);
       setFiltersOpen(localStorage.getItem("home-filters") === "1");
       if (localStorage.getItem("home-sidebar") === "0") setSidebarOpen(false);
@@ -423,7 +424,7 @@ function ScriptList() {
         </div>
       )}
 
-      {view === "mymind" || view === "library" || view === "tweet" || view === "brands" || view === "boards" ? (
+      {view === "mymind" || view === "library" || view === "tweet" || view === "brands" || view === "boards" || view === "topics" ? (
         // Mymind is its own light-grey space for ideas, separate from scripts
         <div className="relative min-h-screen min-w-0 flex-1 bg-(--c-b-f7f7f5)">
           <div className="px-5 pb-24 pt-6 sm:px-8">
@@ -441,7 +442,7 @@ function ScriptList() {
               )}
             </div>
             <div className="mt-4">
-              {view === "library" ? <Library /> : view === "tweet" ? <Tweet /> : view === "brands" ? <BrandDeals /> : view === "boards" ? <BoardsList /> : <Mymind />}
+              {view === "library" ? <Library /> : view === "tweet" ? <Tweet /> : view === "brands" ? <BrandDeals /> : view === "boards" ? <BoardsList /> : view === "topics" ? <TopicsApp /> : <Mymind />}
             </div>
           </div>
         </div>

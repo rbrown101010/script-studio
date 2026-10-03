@@ -29,6 +29,8 @@ import type * as migrations from "../migrations.js";
 import type * as partners from "../partners.js";
 import type * as share from "../share.js";
 import type * as socialLinks from "../socialLinks.js";
+import type * as topicFields from "../topicFields.js";
+import type * as topics from "../topics.js";
 import type * as tweets from "../tweets.js";
 import type * as updates from "../updates.js";
 import type * as users from "../users.js";
@@ -62,6 +64,8 @@ declare const fullApi: ApiFromModules<{
   partners: typeof partners;
   share: typeof share;
   socialLinks: typeof socialLinks;
+  topicFields: typeof topicFields;
+  topics: typeof topics;
   tweets: typeof tweets;
   updates: typeof updates;
   users: typeof users;

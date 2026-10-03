@@ -19,6 +19,9 @@ import {
   httpAddIdeas,
   httpListIdeas,
   httpListBoards,
+  httpListTopics,
+  httpAddTopics,
+  httpUpdateTopic,
   httpGetBoard,
   httpAddUpdate,
   httpListScripts,
@@ -68,6 +71,9 @@ http.route({ path: "/agent/brief-links/delete", method: "POST", handler: httpRem
 http.route({ path: "/agent/ideas", method: "GET", handler: httpListIdeas });
 http.route({ path: "/agent/boards", method: "GET", handler: httpListBoards });
 http.route({ path: "/agent/board", method: "GET", handler: httpGetBoard });
+http.route({ path: "/agent/topics", method: "GET", handler: httpListTopics });
+http.route({ path: "/agent/topics", method: "POST", handler: httpAddTopics });
+http.route({ path: "/agent/topic", method: "POST", handler: httpUpdateTopic });
 
 // MCP server (same key, same safe operations). Composio holds the key as a connected account.
 http.route({ path: "/mcp", method: "POST", handler: mcpPost });

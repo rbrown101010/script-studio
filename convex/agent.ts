@@ -850,6 +850,15 @@ export const httpGetBoard = route((ctx, _b, url) => {
   if (!board) throw new ConvexError("Add ?board=<id>");
   return ctx.runQuery(internal.boards.getForAgent, { board, includeElements: url.searchParams.get("elements") === "1" });
 });
+export const httpListTopics = route((ctx, _b, url) =>
+  ctx.runQuery(internal.topics.listForAgent, {
+    status: (url.searchParams.get("status") as "new" | "saved" | "used" | "dismissed" | null) ?? undefined,
+    query: url.searchParams.get("q") ?? undefined,
+    full: url.searchParams.get("full") === "1",
+  }),
+);
+export const httpAddTopics = route((ctx, b) => ctx.runMutation(internal.topics.upsertForAgent, b as any));
+export const httpUpdateTopic = route((ctx, b) => ctx.runMutation(internal.topics.updateForAgent, b as any));
 export const httpEditScript = route((ctx, b) => ctx.runMutation(internal.agent.editScript, b as any));
 export const httpEditLines = route((ctx, b) => ctx.runMutation(internal.agent.editLines, b as any));
 export const httpListVersions = route((ctx, _b, url) => {

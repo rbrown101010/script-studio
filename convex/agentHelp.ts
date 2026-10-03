@@ -56,6 +56,16 @@ Boards can sit inside a script as a board line. get_script already includes each
 script and its boards together. To put a board in a script, add a line {"type":"board","text":"<board id or /b/<id> link>"}
 with edit_lines or edit_script.
 
+## Topic opportunities
+Researched YouTube video ideas for Riley's channel (the Topic opportunities app). Each topic has an angle, a 0-100
+opportunity score, demand and competition (high/medium/low with the evidence), trend, why now, search keywords,
+outlier videos (views vs the channel's usual views, with links), title ideas, hooks and sources. The team saves the
+good ones (status saved), turns some into scripts (used) and dismisses the rest.
+- list_topics to see what's there (full:true for everything). Check before adding so you refresh instead of duplicating.
+- add_topics to add or refresh research: same title = refreshed, and the team's status and notes are kept.
+- update_topic to change one topic's research, status or notes.
+Never invent numbers or videos. Only include view counts you actually saw at that URL; leave unknowns null.
+
 ## Rules
 1. You can't delete a script. Everything else is yours to change.
 2. Edit script text directly with edit_lines (small changes) or edit_script (big rewrites). The previous text is
@@ -102,6 +112,9 @@ with edit_lines or edit_script.
 | add_ideas {ideas:[{url?, note?, date?}]} | Save ideas to Mymind (bulk import OK) |
 | list_ideas {query?, limit?} | Search Mymind |
 | list_boards {query?} | List / search Excalidraw boards |
+| list_topics {status?, query?, full?} | Topic opportunities, best first |
+| add_topics {topics, agentName?} | Add or refresh researched topics (see "Topic opportunities") |
+| update_topic {topic, status?, notes?, research?} | Change one topic |
 | get_board {board, includeElements?} | Read a board: summary of its text, shapes and arrows |
 | create_script {title, format?, status?, liveDate?, sponsored?, lines?, instructions?, brief?, updates?} | New script |
 
@@ -187,6 +200,9 @@ POST /agent/comment                     comment_on_script
 POST /agent/comment/attach              attach_files
 GET  /agent/boards?q=...                list_boards
 GET  /agent/board?board=<id>&elements=1 get_board
+GET  /agent/topics?status=saved&q=...&full=1  list_topics
+POST /agent/topics                      add_topics
+POST /agent/topic                       update_topic
 POST /agent/upload-url                  get_upload_url
 POST /agent/file?script=<id>&lineContains=...&text=...&name=shot.png   (or ?comment=<id>)
      One step: the body is the raw file (Content-Type = its type, under 20 MB); posts the comment with it attached.

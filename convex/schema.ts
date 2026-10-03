@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
+import { research, topicStatus } from "./topicFields";
 import { v } from "convex/values";
 
 /** In production (being made now), Upcoming (future videos), Done, Idea (not committed to yet). */
@@ -227,6 +228,23 @@ export default defineSchema({
   }).index("by_at", ["at"]),
 
   // Excalidraw boards: the scene as JSON plus an AI-readable summary of it (see boards.ts)
+  /** Topic opportunities: researched video ideas (keywords, outliers, why now) that people can save */
+  topics: defineTable({
+    ...research,
+    status: topicStatus,
+    /** Team notes on the idea */
+    notes: v.optional(v.string()),
+    /** The script made from it ("Create script") */
+    videoId: v.optional(v.union(v.id("videos"), v.null())),
+    /** Who added it: a person, or an agent's name */
+    addedBy: v.optional(v.string()),
+    researchedAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_score", ["score"])
+    .index("by_title", ["title"]),
+
   boards: defineTable({
     title: v.string(),
     /** Excalidraw elements, JSON */

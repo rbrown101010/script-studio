@@ -38,6 +38,50 @@ const lineArg = {
   required: ["text"],
 };
 
+const level = { type: "string", enum: ["high", "medium", "low"] };
+/** One researched topic (see Topic opportunities in the guide) */
+const topicArg = {
+  type: "object",
+  properties: {
+    title: { type: "string", description: "Short topic name" },
+    angle: { type: "string", description: "The specific video angle / pitch" },
+    category: { type: "string", description: "News, Tutorial, Comparison, Build, Explainer or Short" },
+    format: { type: "string", enum: ["long", "short", "both"] },
+    score: { type: "number", description: "Opportunity 0-100: demand x low competition x fit for the channel x timeliness" },
+    demand: level,
+    demandNote: { type: "string", description: "Evidence for demand (what you saw)" },
+    competition: level,
+    competitionNote: { type: "string" },
+    trend: { type: "string", enum: ["breakout", "rising", "steady", "falling"] },
+    whyNow: { type: "string", description: "Why this is an opportunity now, including the gap" },
+    keywords: {
+      type: "array",
+      items: { type: "object", properties: { term: { type: "string" }, demand: level, competition: level, note: { type: "string" } }, required: ["term"] },
+    },
+    outliers: {
+      type: "array",
+      description: "Videos that did far better than their channel usually does",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          url: { type: "string" },
+          channel: { type: "string" },
+          views: { type: ["number", "null"] },
+          channelAvgViews: { type: ["number", "null"] },
+          published: { type: "string" },
+          note: { type: "string" },
+        },
+        required: ["title", "url"],
+      },
+    },
+    titleIdeas: { type: "array", items: { type: "string" } },
+    hooks: { type: "array", items: { type: "string" } },
+    sources: { type: "array", items: { type: "object", properties: { label: { type: "string" }, url: { type: "string" } }, required: ["label", "url"] } },
+  },
+  required: ["title", "angle", "category", "format", "score", "demand", "competition", "trend", "whyNow", "keywords", "outliers", "titleIdeas", "hooks", "sources"],
+};
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Tool = {
   name: string;
@@ -315,6 +359,43 @@ const TOOLS: Tool[] = [
     inputSchema: { type: "object", properties: { board: { type: "string", description: "Board id or its /b/<id> link" }, includeElements: { type: "boolean" } }, required: ["board"] },
     annotations: { readOnlyHint: true },
     run: (ctx, a) => ctx.runQuery(internal.boards.getForAgent, a),
+  },
+  {
+    name: "list_topics",
+    description:
+      "List Topic opportunities (researched YouTube video ideas), best score first. Filter by status (new, saved = starred by the team, used = made into a script, dismissed) or search. Set full to get keywords, outlier videos, hooks and sources too.",
+    inputSchema: {
+      type: "object",
+      properties: { status: { type: "string", enum: ["new", "saved", "used", "dismissed"] }, query: { type: "string" }, full: { type: "boolean" } },
+    },
+    annotations: { readOnlyHint: true },
+    run: (ctx, a) => ctx.runQuery(internal.topics.listForAgent, a),
+  },
+  {
+    name: "add_topics",
+    description:
+      "Add researched YouTube topic opportunities (up to 60 at once). A topic whose title matches an existing one is refreshed with the new research; the team's status and notes on it are kept. Never invent numbers: outlier views must be what you actually saw at that URL, and leave views/channelAvgViews null when unknown.",
+    inputSchema: {
+      type: "object",
+      properties: { topics: { type: "array", items: topicArg }, agentName: { type: "string" } },
+      required: ["topics"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.topics.upsertForAgent, a),
+  },
+  {
+    name: "update_topic",
+    description: "Change one topic (by id or exact title): its status, team notes, or any research fields (only the fields you send change).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        topic: { type: "string", description: "Topic id (from list_topics) or its title" },
+        status: { type: "string", enum: ["new", "saved", "used", "dismissed"] },
+        notes: { type: "string" },
+        research: { ...topicArg, required: [] },
+      },
+      required: ["topic"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.topics.updateForAgent, a),
   },
   {
     name: "add_brief_links",

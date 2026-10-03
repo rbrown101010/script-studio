@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { IconSearch } from "./icons";
 
-export type View = "list" | "calendar" | "feed" | "mymind" | "library" | "tweet" | "brands" | "boards";
+export type View = "list" | "calendar" | "feed" | "mymind" | "library" | "tweet" | "brands" | "boards" | "topics";
 export type SponsorFilter = "all" | "sponsored" | "notSponsored";
 
 /** Left sidebar on the Scripts page: search, the script views, and the apps. */
@@ -76,8 +76,20 @@ export function HomeSidebar({
         <Item on={view === "boards"} onClick={() => onView("boards")} icon={<DrawIcon />}>
           Excalidraw
         </Item>
+        <Item on={view === "topics"} onClick={() => onView("topics")} icon={<TrendIcon />}>
+          Topic opportunities
+        </Item>
       </Group>
     </div>
+  );
+}
+
+function TrendIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 12l4-4 2.5 2.5L14 5" />
+      <path d="M10 5h4v4" />
+    </svg>
   );
 }
 
