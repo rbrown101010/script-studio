@@ -302,6 +302,21 @@ const TOOLS: Tool[] = [
     run: (ctx, a) => ctx.runQuery(internal.agent.listIdeas, a),
   },
   {
+    name: "list_boards",
+    description: "List the team's Excalidraw boards (newest first), optionally searching their titles and contents. Returns ids and links.",
+    inputSchema: { type: "object", properties: { query: { type: "string" } } },
+    annotations: { readOnlyHint: true },
+    run: (ctx, a) => ctx.runQuery(internal.boards.listForAgent, a),
+  },
+  {
+    name: "get_board",
+    description:
+      "Read one Excalidraw board: a plain-text summary of everything on it (all text top to bottom, labelled shapes, arrows between shapes, links) and its images. Set includeElements to also get the raw Excalidraw elements (positions, sizes, colors) when layout matters.",
+    inputSchema: { type: "object", properties: { board: { type: "string", description: "Board id or its /b/<id> link" }, includeElements: { type: "boolean" } }, required: ["board"] },
+    annotations: { readOnlyHint: true },
+    run: (ctx, a) => ctx.runQuery(internal.boards.getForAgent, a),
+  },
+  {
     name: "add_brief_links",
     description:
       "Attach links to a video's Brief tab: the sponsor brief doc, contract/SOW, script doc, email thread, Slack thread, tracking link. Give each a short label. A URL that's already there just gets the new label. Internal only.",

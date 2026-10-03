@@ -1,0 +1,178 @@
+"use client";
+
+import "@excalidraw/excalidraw/index.css";
+import { useMutation, useQuery } from "convex/react";
+import dynamic from "next/dynamic";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+import { uploadToUrl } from "@/lib/upload";
+import { IconArrowLeft } from "./icons";
+
+// The real Excalidraw editor (browser only)
+const Excalidraw = dynamic(async () => (await import("@excalidraw/excalidraw")).Excalidraw, {
+  ssr: false,
+  loading: () => <div className="flex h-full items-center justify-center text-[13px] text-(--c-t-9a9a9a)">Loading board…</div>,
+});
+
+type SavedFile = { id: string; url: string; mimeType: string; storageId?: Id<"_storage"> };
+type El = { id: string; version: number; isDeleted?: boolean };
+type BinaryFile = { id: string; dataURL: string; mimeType: string; created: number };
+
+/** View settings worth keeping per board */
+const KEEP = ["viewBackgroundColor", "gridModeEnabled", "gridSize", "gridStep", "scrollX", "scrollY", "zoom"] as const;
+
+/** One Excalidraw board, full page. Saves itself a moment after each change (scene + images + title). */
+export function BoardEditor({ id }: { id: string }) {
+  const board = useQuery(api.boards.get, { id });
+  const save = useMutation(api.boards.save);
+  const uploadUrl = useMutation(api.docs.generateUploadUrl);
+  const fileUrl = useMutation(api.docs.fileUrl);
+  // Load once: later saves come from this editor, so the live copy isn't pushed back into it
+  const [initial, setInitial] = useState<typeof board>(undefined);
+  useEffect(() => {
+    if (board !== undefined && initial === undefined) setInitial(board);
+  }, [board, initial]);
+  const [title, setTitle] = useState<string | null>(null);
+  const [state, setState] = useState<"saved" | "saving" | "error">("saved");
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const el = document.documentElement;
+    const read = () => setDark(el.classList.contains("dark"));
+    read();
+    const mo = new MutationObserver(read);
+    mo.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => mo.disconnect();
+  }, []);
+
+  const boardId = id as Id<"boards">;
+  const files = useRef<SavedFile[]>([]);
+  const uploading = useRef(new Set<string>());
+  const lastKey = useRef<string | null>(null);
+  const pending = useRef<{ elements: string; appState: string } | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flush = useCallback(async () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    const p = pending.current;
+    if (!p) return;
+    pending.current = null;
+    setState("saving");
+    try {
+      await save({ id: boardId, elements: p.elements, appState: p.appState, files: files.current });
+      setState("saved");
+    } catch {
+      setState("error");
+    }
+  }, [save, boardId]);
+
+  useEffect(() => {
+    if (initial) files.current = initial.files as SavedFile[];
+  }, [initial]);
+  // Don't lose the last change when leaving
+  useEffect(() => {
+    const before = () => void flush();
+    window.addEventListener("beforeunload", before);
+    return () => {
+      window.removeEventListener("beforeunload", before);
+      void flush();
+    };
+  }, [flush]);
+
+  /** Pasted or dropped images become files in Native Note storage */
+  const storeFiles = async (map: Record<string, BinaryFile>) => {
+    for (const f of Object.values(map)) {
+      if (!f.dataURL?.startsWith("data:") || files.current.some((x) => x.id === f.id) || uploading.current.has(f.id)) continue;
+      uploading.current.add(f.id);
+      try {
+        const blob = await (await fetch(f.dataURL)).blob();
+        const target = await uploadUrl();
+        const storageId = (await uploadToUrl(target, new File([blob], f.id, { type: f.mimeType }), () => {})) as Id<"_storage">;
+        const url = await fileUrl({ storageId });
+        if (url) files.current = [...files.current, { id: f.id, url, mimeType: f.mimeType, storageId }];
+        lastKey.current = null; // make sure the file list gets saved
+      } catch {
+        setState("error");
+      } finally {
+        uploading.current.delete(f.id);
+      }
+    }
+  };
+
+  const onChange = (elements: readonly El[], appState: Record<string, unknown>, map: Record<string, BinaryFile>) => {
+    // Cheap change check: element versions and the background
+    const key = `${elements.length}:${elements.reduce((n, e) => n + e.version, 0)}:${String(appState.viewBackgroundColor)}:${files.current.length}`;
+    void storeFiles(map);
+    if (key === lastKey.current) return;
+    const first = lastKey.current === null && pending.current === null && state === "saved";
+    lastKey.current = key;
+    if (first && initial && elements.filter((e) => !e.isDeleted).length === JSON.parse(initial.elements).length) return; // the initial render
+    const keep: Record<string, unknown> = {};
+    for (const k of KEEP) keep[k] = appState[k];
+    pending.current = { elements: JSON.stringify(elements.filter((e) => !e.isDeleted)), appState: JSON.stringify(keep) };
+    setState("saving");
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => void flush(), 800);
+  };
+
+  const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const changeTitle = (t: string) => {
+    setTitle(t);
+    if (titleTimer.current) clearTimeout(titleTimer.current);
+    titleTimer.current = setTimeout(() => void save({ id: boardId, title: t }), 600);
+  };
+
+  if (board === null)
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 text-[14px] text-(--c-t-737373)">
+        This board doesn&apos;t exist anymore.
+        <Link href="/" className="font-medium text-(--c-t-2358d8)">
+          Back
+        </Link>
+      </div>
+    );
+
+  return (
+    <div className="flex h-dvh flex-col bg-(--c-b-ffffff)">
+      <div className="flex h-[52px] shrink-0 items-center gap-2 border-b border-(--c-l-ebebeb) px-3">
+        <Link
+          href="/?view=boards"
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[14px] text-(--c-t-6b6b6b) no-underline hover:bg-(--c-b-f4f4f4)"
+        >
+          <IconArrowLeft />
+          Excalidraw
+        </Link>
+        <input
+          value={title ?? initial?.title ?? ""}
+          onChange={(e) => changeTitle(e.target.value)}
+          placeholder="Untitled board"
+          aria-label="Board title"
+          className="h-8 min-w-0 flex-1 rounded-md bg-transparent px-2 text-[15px] font-medium text-(--c-t-1b1b1b) outline-none hover:bg-(--c-b-f4f4f4) focus:bg-(--c-b-f4f4f4)"
+        />
+        <span className={`shrink-0 px-2 text-[12px] ${state === "error" ? "text-(--c-t-b42318)" : "text-(--c-t-9a9a9a)"}`}>
+          {state === "saving" ? "Saving…" : state === "error" ? "Couldn't save, retrying on your next change" : "Saved"}
+        </span>
+      </div>
+      <div className="min-h-0 flex-1">
+        {initial && (
+          <Excalidraw
+            theme={dark ? "dark" : "light"}
+            name={initial.title}
+            initialData={{
+              elements: JSON.parse(initial.elements),
+              appState: { ...JSON.parse(initial.appState || "{}"), collaborators: new Map() },
+              files: Object.fromEntries(
+                (initial.files as SavedFile[]).map((f) => [f.id, { id: f.id, dataURL: f.url, mimeType: f.mimeType, created: 0 }]),
+              ) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+              scrollToContent: !JSON.parse(initial.appState || "{}").scrollX,
+            }}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onChange={onChange as any}
+          />
+        )}
+      </div>
+    </div>
+  );
+}

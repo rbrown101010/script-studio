@@ -1,45 +1,23 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { FORMATS, STATUSES, type VideoFormat, type VideoStatus } from "@/lib/types";
-import { FormatIcon } from "./FormatIcon";
-import { IconPlus, IconSearch } from "./icons";
+import { IconSearch } from "./icons";
 
-export type View = "list" | "calendar" | "feed" | "mymind" | "library" | "tweet" | "brands";
+export type View = "list" | "calendar" | "feed" | "mymind" | "library" | "tweet" | "brands" | "boards";
 export type SponsorFilter = "all" | "sponsored" | "notSponsored";
 
-type Counts = { status: Record<string, number>; sponsor: Record<SponsorFilter, number>; format: Record<string, number> };
-
-/** Left sidebar on the Scripts page: search, new script, views and filters. */
+/** Left sidebar on the Scripts page: search, the script views, and the apps. */
 export function HomeSidebar({
   search,
   onSearch,
-  onNew,
-  creating,
   view,
   onView,
-  status,
-  onStatus,
-  sponsor,
-  onSponsor,
-  format,
-  onFormat,
-  counts,
   onClose,
 }: {
   search: string;
   onSearch: (s: string) => void;
-  onNew: () => void;
-  creating: boolean;
   view: View;
   onView: (v: View) => void;
-  status: "all" | VideoStatus;
-  onStatus: (s: "all" | VideoStatus) => void;
-  sponsor: SponsorFilter;
-  onSponsor: (s: SponsorFilter) => void;
-  format: "all" | VideoFormat;
-  onFormat: (f: "all" | VideoFormat) => void;
-  counts?: Counts;
   onClose: () => void;
 }) {
   return (
@@ -57,29 +35,18 @@ export function HomeSidebar({
         </button>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <label className="flex h-9 items-center gap-2 rounded-lg border border-(--c-l-e0e0e0) bg-(--c-b-ffffff) px-2.5 text-(--c-t-737373) focus-within:border-(--c-l-c9c9c9)">
-          <IconSearch />
-          <input
-            id="sidebar-search"
-            type="search"
-            value={search}
-            onChange={(e) => onSearch(e.target.value)}
-            placeholder="Search scripts"
-            aria-label="Search scripts"
-            className="w-full border-none bg-transparent text-[14px] text-(--c-t-1b1b1b) outline-none"
-          />
-        </label>
-        <button
-          type="button"
-          onClick={onNew}
-          disabled={creating}
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-(--c-b-1b1b1b) px-3 text-[14px] font-medium text-(--c-on-ink) hover:bg-(--c-b-333333) disabled:opacity-50"
-        >
-          <IconPlus color="var(--c-on-ink)" />
-          New script
-        </button>
-      </div>
+      <label className="flex h-9 items-center gap-2 rounded-lg border border-(--c-l-e0e0e0) bg-(--c-b-ffffff) px-2.5 text-(--c-t-737373) focus-within:border-(--c-l-c9c9c9)">
+        <IconSearch />
+        <input
+          id="sidebar-search"
+          type="search"
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder="Search scripts"
+          aria-label="Search scripts"
+          className="w-full border-none bg-transparent text-[14px] text-(--c-t-1b1b1b) outline-none"
+        />
+      </label>
 
       <Group label="Views">
         <Item on={view === "list"} onClick={() => onView("list")} icon={<ListIcon />}>
@@ -91,6 +58,9 @@ export function HomeSidebar({
         <Item on={view === "feed"} onClick={() => onView("feed")} icon={<FeedIcon />}>
           Feed
         </Item>
+      </Group>
+
+      <Group label="Apps">
         <Item on={view === "mymind"} onClick={() => onView("mymind")} icon={<MindIcon />}>
           Mymind
         </Item>
@@ -103,56 +73,20 @@ export function HomeSidebar({
         <Item on={view === "brands"} onClick={() => onView("brands")} icon={<BrandIcon />}>
           Brand deals
         </Item>
+        <Item on={view === "boards"} onClick={() => onView("boards")} icon={<DrawIcon />}>
+          Excalidraw
+        </Item>
       </Group>
-
-      {/* Filters are about scripts; Mymind has its own search */}
-      {view !== "mymind" && view !== "library" && view !== "tweet" && view !== "brands" && view !== "feed" && (
-      <>
-
-      <Group label="Status">
-        {[...STATUSES.map((s) => ({ value: s.value as "all" | VideoStatus, label: s.label, dot: s.dot })), { value: "all" as const, label: "All", dot: "" }].map((s) => (
-          <Item
-            key={s.value}
-            on={status === s.value}
-            onClick={() => onStatus(s.value)}
-            icon={s.dot ? <span className="h-[7px] w-[7px] rounded-full" style={{ background: s.dot }} /> : <span className="h-[7px] w-[7px] rounded-full border border-(--c-l-c4c4c4)" />}
-            count={counts?.status[s.value]}
-          >
-            {s.label}
-          </Item>
-        ))}
-      </Group>
-
-      <Group label="Sponsorship">
-        {(
-          [
-            ["all", "All"],
-            ["sponsored", "Sponsored"],
-            ["notSponsored", "Not sponsored"],
-          ] as const
-        ).map(([value, label]) => (
-          <Item key={value} on={sponsor === value} onClick={() => onSponsor(value)} count={counts?.sponsor[value]}>
-            {label}
-          </Item>
-        ))}
-      </Group>
-
-      <Group label="Format">
-        {(["all", "long", "short"] as const).map((f) => (
-          <Item
-            key={f}
-            on={format === f}
-            onClick={() => onFormat(f)}
-            icon={f === "all" ? undefined : <FormatIcon format={f} size={12} />}
-            count={counts?.format[f]}
-          >
-            {f === "all" ? "All" : FORMATS.find((x) => x.value === f)?.label}
-          </Item>
-        ))}
-      </Group>
-      </>
-      )}
     </div>
+  );
+}
+
+function DrawIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10.5 2.5l3 3-7.5 7.5H3v-3L10.5 2.5Z" />
+      <path d="M2.5 14.5c2-1.2 4-.2 6 .3s3.5.2 5-1" />
+    </svg>
   );
 }
 

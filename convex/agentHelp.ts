@@ -46,6 +46,11 @@ video, video file, any web page) and/or a note. The card type is worked out from
 import many at once (up to 200 per call, e.g. bookmarks); links already saved aren't duplicated. Write a short note on
 each idea saying what it is and why it's worth keeping. Use list_ideas to search what's there.
 
+## Excalidraw boards
+Riley's whiteboards (the Excalidraw app in Native Note, links look like /b/<id>). Read-only for agents: list_boards to
+find one, get_board to read it. The summary lists all text top to bottom, labelled shapes, arrows between shapes
+("A → B") and links; ask for includeElements when you need positions, sizes or colors.
+
 ## Rules
 1. You can't delete a script. Everything else is yours to change.
 2. Edit script text directly with edit_lines (small changes) or edit_script (big rewrites). The previous text is
@@ -91,6 +96,8 @@ each idea saying what it is and why it's worth keeping. Use list_ideas to search
 | add_update {script, title, details?, link?, source?, date?, urgent?} | Log what happened on the Updates tab (urgent: needs a response now, pinned to the top of the Feed) |
 | add_ideas {ideas:[{url?, note?, date?}]} | Save ideas to Mymind (bulk import OK) |
 | list_ideas {query?, limit?} | Search Mymind |
+| list_boards {query?} | List / search Excalidraw boards |
+| get_board {board, includeElements?} | Read a board: summary of its text, shapes and arrows |
 | create_script {title, format?, status?, liveDate?, sponsored?, lines?, instructions?, brief?, updates?} | New script |
 
 ### edit_lines
@@ -173,6 +180,8 @@ POST /agent/brief-links                 add_brief_links
 POST /agent/update                      add_update
 POST /agent/comment                     comment_on_script
 POST /agent/comment/attach              attach_files
+GET  /agent/boards?q=...                list_boards
+GET  /agent/board?board=<id>&elements=1 get_board
 POST /agent/upload-url                  get_upload_url
 POST /agent/file?script=<id>&lineContains=...&text=...&name=shot.png   (or ?comment=<id>)
      One step: the body is the raw file (Content-Type = its type, under 20 MB); posts the comment with it attached.

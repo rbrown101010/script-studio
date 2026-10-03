@@ -14,13 +14,15 @@ import { Library } from "@/components/Library";
 import { usePresence } from "@/lib/usePresence";
 import { PartnerLogo } from "@/components/VideoMeta";
 import { PinnedVideos } from "@/components/PinnedVideos";
+import { BoardsList } from "@/components/BoardsList";
+import { FilterSelect } from "@/components/FeedView";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Tweet } from "@/components/Tweet";
 import { BrandDeals } from "@/components/BrandDeals";
 import { HomeSidebar, SidebarIcon, type View } from "@/components/HomeSidebar";
 import { FormatIcon } from "@/components/FormatIcon";
 import { TeamGate } from "@/components/TeamGate";
-import { IconCheck, IconPencil, IconTrash, IconX, IconPin } from "@/components/icons";
+import { IconCheck, IconPencil, IconTrash, IconX, IconPin, IconPlus } from "@/components/icons";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { FORMATS, SPONSORSHIPS, STATUSES, isPaidSponsor, statusOf, type Sponsorship, type VideoFormat, type VideoStatus } from "@/lib/types";
 
@@ -272,12 +274,18 @@ function ScriptList() {
   const [creating, setCreating] = useState(false);
   const mobile = useIsMobile();
   const [view, setView] = useState<View>("list");
+  /** The status / sponsorship / format filters only show after pressing Filter */
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   // Remember the view and whether the sidebar is shown (desktop), per browser
   useEffect(() => {
     try {
       const saved = localStorage.getItem("home-view");
-      if (saved === "calendar" || saved === "feed" || saved === "mymind" || saved === "library" || saved === "tweet" || saved === "brands") setView(saved);
+      // ?view=… (e.g. coming back from a board) wins over the remembered view
+      const asked = new URLSearchParams(window.location.search).get("view") ?? saved;
+      if (asked && ["calendar", "feed", "mymind", "library", "tweet", "brands", "boards", "list"].includes(asked)) setView(asked as View);
+      if (localStorage.getItem("home-sidebar") === "0") setSidebarOpen(false);
+      setFiltersOpen(localStorage.getItem("home-filters") === "1");
       if (localStorage.getItem("home-sidebar") === "0") setSidebarOpen(false);
     } catch {}
   }, []);
@@ -363,24 +371,16 @@ function ScriptList() {
     <HomeSidebar
       search={search}
       onSearch={setSearch}
-      onNew={newScript}
-      creating={creating}
       view={view}
       onView={(v) => {
         setView(v);
         remember("home-view", v);
         if (mobile) setSidebarOpen(false);
       }}
-      status={statusFilter}
-      onStatus={setStatusFilter}
-      sponsor={sponsorFilter}
-      onSponsor={setSponsorFilter}
-      format={filter}
-      onFormat={setFilter}
-      counts={counts}
       onClose={() => toggleSidebar(false)}
     />
   );
+  const activeFilters = (statusFilter !== "all" ? 1 : 0) + (sponsorFilter !== "all" ? 1 : 0) + (filter !== "all" ? 1 : 0);
   const heading = [
     statusFilter === "all" ? "All scripts" : statusOf(statusFilter).label,
     sponsorFilter === "sponsored" ? "sponsored" : sponsorFilter === "notSponsored" ? "not sponsored" : null,
@@ -423,7 +423,7 @@ function ScriptList() {
         </div>
       )}
 
-      {view === "mymind" || view === "library" || view === "tweet" || view === "brands" ? (
+      {view === "mymind" || view === "library" || view === "tweet" || view === "brands" || view === "boards" ? (
         // Mymind is its own light-grey space for ideas, separate from scripts
         <div className="relative min-h-screen min-w-0 flex-1 bg-(--c-b-f7f7f5)">
           <div className="px-5 pb-24 pt-6 sm:px-8">
@@ -441,7 +441,7 @@ function ScriptList() {
               )}
             </div>
             <div className="mt-4">
-              {view === "library" ? <Library /> : view === "tweet" ? <Tweet /> : view === "brands" ? <BrandDeals /> : <Mymind />}
+              {view === "library" ? <Library /> : view === "tweet" ? <Tweet /> : view === "brands" ? <BrandDeals /> : view === "boards" ? <BoardsList /> : <Mymind />}
             </div>
           </div>
         </div>
@@ -471,8 +471,83 @@ function ScriptList() {
                 {videos && ` · ${shown.length}`}
               </p>}
             </div>
-            {view === "list" && <SortMenu sort={sort} onChange={setSort} />}
+            <div className="flex items-center gap-1.5">
+              {view !== "feed" && (
+                <button
+                  type="button"
+                  aria-pressed={filtersOpen}
+                  onClick={() => {
+                    setFiltersOpen(!filtersOpen);
+                    remember("home-filters", filtersOpen ? "0" : "1");
+                  }}
+                  className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[13px] hover:bg-(--c-b-f4f4f4) ${
+                    activeFilters ? "text-(--c-t-2358d8)" : "text-(--c-t-737373)"
+                  }`}
+                >
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                    <path d="M2.5 4h11M4.5 8h7M6.5 12h3" />
+                  </svg>
+                  Filter{activeFilters ? ` · ${activeFilters}` : ""}
+                </button>
+              )}
+              {view === "list" && <SortMenu sort={sort} onChange={setSort} />}
+              <button
+                type="button"
+                onClick={newScript}
+                disabled={creating}
+                className="ml-1.5 inline-flex h-8 items-center gap-1.5 rounded-lg bg-(--c-b-1b1b1b) px-3 text-[13px] font-medium text-(--c-on-ink) hover:bg-(--c-b-333333) disabled:opacity-50"
+              >
+                <IconPlus size={14} color="var(--c-on-ink)" />
+                New script
+              </button>
+            </div>
           </div>
+
+          {filtersOpen && view !== "feed" && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <FilterSelect
+                label="Status"
+                value={statusFilter}
+                onChange={(v) => setStatusFilter(v as typeof statusFilter)}
+                options={[
+                  { value: "all", label: `All statuses${counts ? ` (${counts.status.all})` : ""}` },
+                  ...STATUSES.map((x) => ({ value: x.value, label: `${x.label}${counts ? ` (${counts.status[x.value] ?? 0})` : ""}` })),
+                ]}
+              />
+              <FilterSelect
+                label="Sponsorship"
+                value={sponsorFilter}
+                onChange={(v) => setSponsorFilter(v as typeof sponsorFilter)}
+                options={[
+                  { value: "all", label: `All sponsorships${counts ? ` (${counts.sponsor.all})` : ""}` },
+                  { value: "sponsored", label: `Sponsored${counts ? ` (${counts.sponsor.sponsored})` : ""}` },
+                  { value: "notSponsored", label: `Not sponsored${counts ? ` (${counts.sponsor.notSponsored})` : ""}` },
+                ]}
+              />
+              <FilterSelect
+                label="Format"
+                value={filter}
+                onChange={(v) => setFilter(v as typeof filter)}
+                options={[
+                  { value: "all", label: `All formats${counts ? ` (${counts.format.all})` : ""}` },
+                  ...FORMATS.map((x) => ({ value: x.value, label: `${x.label}${counts ? ` (${counts.format[x.value] ?? 0})` : ""}` })),
+                ]}
+              />
+              {activeFilters > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter("all");
+                    setSponsorFilter("all");
+                    setFilter("all");
+                  }}
+                  className="h-8 rounded-full px-3 text-[13px] text-(--c-t-737373) hover:bg-(--c-b-f4f4f4) hover:text-(--c-t-1b1b1b)"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
 
           {videos && (
             <PinnedVideos

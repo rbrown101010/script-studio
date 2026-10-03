@@ -13,6 +13,7 @@ import type * as agentAuth from "../agentAuth.js";
 import type * as agentFiles from "../agentFiles.js";
 import type * as agentHelp from "../agentHelp.js";
 import type * as auth from "../auth.js";
+import type * as boards from "../boards.js";
 import type * as commentAnchors from "../commentAnchors.js";
 import type * as comments from "../comments.js";
 import type * as composio from "../composio.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   agentFiles: typeof agentFiles;
   agentHelp: typeof agentHelp;
   auth: typeof auth;
+  boards: typeof boards;
   commentAnchors: typeof commentAnchors;
   comments: typeof comments;
   composio: typeof composio;

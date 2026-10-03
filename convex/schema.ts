@@ -224,6 +224,23 @@ export default defineSchema({
     job: v.union(v.id("_scheduled_functions"), v.null()),
   }).index("by_at", ["at"]),
 
+  // Excalidraw boards: the scene as JSON plus an AI-readable summary of it (see boards.ts)
+  boards: defineTable({
+    title: v.string(),
+    /** Excalidraw elements, JSON */
+    elements: v.string(),
+    /** The few Excalidraw view settings worth keeping (background color, grid), JSON */
+    appState: v.string(),
+    /** Images on the board, stored in Native Note storage */
+    files: v.array(v.object({ id: v.string(), url: v.string(), mimeType: v.string(), storageId: v.optional(v.id("_storage")) })),
+    /** Plain-text description for AI: text, labelled shapes, connections */
+    summary: v.string(),
+    elementCount: v.number(),
+    createdBy: v.union(v.id("users"), v.null()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_updated", ["updatedAt"]),
+
   // Library: an index of files pasted into comments (rebuilt from comments; see library.ts)
   assets: defineTable({
     videoId: v.id("videos"),

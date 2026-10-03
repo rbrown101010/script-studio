@@ -836,6 +836,12 @@ export const httpAddIdeas = route((ctx, b) => ctx.runMutation(internal.agent.add
 export const httpListIdeas = route((ctx, _b, url) =>
   ctx.runQuery(internal.agent.listIdeas, { query: url.searchParams.get("q") ?? undefined, limit: Number(url.searchParams.get("limit")) || undefined }),
 );
+export const httpListBoards = route((ctx, _b, url) => ctx.runQuery(internal.boards.listForAgent, { query: url.searchParams.get("q") ?? undefined }));
+export const httpGetBoard = route((ctx, _b, url) => {
+  const board = url.searchParams.get("board");
+  if (!board) throw new ConvexError("Add ?board=<id>");
+  return ctx.runQuery(internal.boards.getForAgent, { board, includeElements: url.searchParams.get("elements") === "1" });
+});
 export const httpEditScript = route((ctx, b) => ctx.runMutation(internal.agent.editScript, b as any));
 export const httpEditLines = route((ctx, b) => ctx.runMutation(internal.agent.editLines, b as any));
 export const httpListVersions = route((ctx, _b, url) => {

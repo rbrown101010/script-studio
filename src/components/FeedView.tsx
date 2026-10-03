@@ -208,7 +208,7 @@ export function UrgentButton({ urgent, onChange }: { urgent: boolean; onChange: 
   );
 }
 
-function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+export function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
   const on = value !== "all";
   return (
     <label
