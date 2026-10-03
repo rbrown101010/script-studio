@@ -16,6 +16,7 @@ import { insertUpdate } from "./updates";
 import { insertIdea } from "./ideas";
 import { reattachComments } from "./commentAnchors";
 import { queueAssetSync } from "./library";
+import { boardCard, boardIdOf } from "./boards";
 import { attachFiles, resolveAttachments, storeBlob } from "./agentFiles";
 
 /** Agents may still send the old statuses; they're mapped to the new ones. */
@@ -87,7 +88,7 @@ async function linesOf(ctx: QueryCtx, documentId: Id<"documents"> | undefined) {
     .query("blocks")
     .withIndex("by_document", (q) => q.eq("documentId", documentId))
     .collect();
-  return blocks.map((b) => ({
+  return Promise.all(blocks.map((b) => ({
     key: b.key,
     type: b.type,
     text: b.content,
@@ -95,7 +96,7 @@ async function linesOf(ctx: QueryCtx, documentId: Id<"documents"> | undefined) {
     ...(b.color ? { color: b.color } : {}),
     ...(b.textColor ? { textColor: b.textColor } : {}),
     ...(b.type === "images" ? { images: (b.images ?? []).map((a) => ({ name: a.name, url: a.url })) } : {}),
-  }));
+  })).map(async (l, i) => (blocks[i].type === "board" ? { ...l, board: await boardCard(ctx, blocks[i].content) } : l)));
 }
 
 function checkLines(lines: Line[]) {
@@ -502,13 +503,20 @@ async function replaceScript(ctx: MutationCtx, video: Doc<"videos">, lines: NewL
     const key = prev ? prev.key : (reuse ?? crypto.randomUUID());
     used.add(key);
     const type = l.type ?? prev?.type ?? "p";
+    let text = l.text;
+    if (type === "board") {
+      // A board line holds the board's id; agents may give the id or its /b/<id> link
+      const id = boardIdOf(ctx, text);
+      if (!id || !(await ctx.db.get(id))) throw new ConvexError(`"${text.slice(0, 80)}" isn't a board. Use list_boards for ids.`);
+      text = id;
+    }
     await ctx.db.insert("blocks", {
       documentId,
       videoId: video._id,
       key,
       position,
       type,
-      content: l.text.slice(0, MAX_TEXT),
+      content: text.slice(0, MAX_TEXT),
       checked: l.checked ?? prev?.checked ?? false,
       color: l.color !== undefined ? l.color : (prev?.color ?? null),
       textColor: l.textColor !== undefined ? l.textColor : (prev?.textColor ?? null),
@@ -516,7 +524,7 @@ async function replaceScript(ctx: MutationCtx, video: Doc<"videos">, lines: NewL
       ...(prev?.attachments ? { attachments: prev.attachments } : {}),
       ...(l.images ? { images: l.images } : prev?.images ? { images: prev.images } : {}),
     });
-    out.push({ key, type, text: l.text });
+    out.push({ key, type, text });
   }
   // The old text becomes an earlier version; its label says who replaced it
   if (main) await ctx.db.patch(main._id, { kind: "archived", editorName: name, updatedAt: now });

@@ -1,14 +1,15 @@
 "use client";
 
 import "@excalidraw/excalidraw/index.css";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { useBoardData, useIsDark } from "@/lib/boardSource";
 import { uploadToUrl } from "@/lib/upload";
-import { IconArrowLeft } from "./icons";
+import { IconArrowLeft, IconBoard, IconX } from "./icons";
 
 // The real Excalidraw editor (browser only)
 const Excalidraw = dynamic(async () => (await import("@excalidraw/excalidraw")).Excalidraw, {
@@ -23,9 +24,13 @@ type BinaryFile = { id: string; dataURL: string; mimeType: string; created: numb
 /** View settings worth keeping per board */
 const KEEP = ["viewBackgroundColor", "gridModeEnabled", "gridSize", "gridStep", "scrollX", "scrollY", "zoom"] as const;
 
-/** One Excalidraw board, full page. Saves itself a moment after each change (scene + images + title). */
-export function BoardEditor({ id }: { id: string }) {
-  const board = useQuery(api.boards.get, { id });
+/**
+ * One Excalidraw board. Saves itself a moment after each change (scene + images + title).
+ * Full page at /b/<id>, or (with onClose) on top of a script, where Done or Esc goes back to it.
+ * readOnly shows the drawing to look around in without changing it (share links, old versions).
+ */
+export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: () => void; readOnly?: boolean }) {
+  const board = useBoardData(id);
   const save = useMutation(api.boards.save);
   const uploadUrl = useMutation(api.docs.generateUploadUrl);
   const fileUrl = useMutation(api.docs.fileUrl);
@@ -36,15 +41,30 @@ export function BoardEditor({ id }: { id: string }) {
   }, [board, initial]);
   const [title, setTitle] = useState<string | null>(null);
   const [state, setState] = useState<"saved" | "saving" | "error">("saved");
-  const [dark, setDark] = useState(false);
+  const dark = useIsDark();
+  /** Excalidraw's latest view state, so Esc only closes when it isn't busy with a tool, selection or menu */
+  const ui = useRef<Record<string, unknown>>({});
   useEffect(() => {
-    const el = document.documentElement;
-    const read = () => setDark(el.classList.contains("dark"));
-    read();
-    const mo = new MutationObserver(read);
-    mo.observe(el, { attributes: true, attributeFilter: ["class"] });
-    return () => mo.disconnect();
-  }, []);
+    if (!onClose) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const s = ui.current;
+      const busy =
+        Object.keys((s.selectedElementIds as object) ?? {}).length > 0 ||
+        !!s.editingTextElement ||
+        !!s.newElement ||
+        !!s.openDialog ||
+        !!s.openMenu ||
+        !!s.openPopup ||
+        !!s.contextMenu ||
+        ((s.activeTool as { type?: string })?.type ?? "selection") !== "selection";
+      if (busy || (e.target as HTMLElement).closest?.("input, textarea")) return;
+      e.preventDefault();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
 
   const boardId = id as Id<"boards">;
   const files = useRef<SavedFile[]>([]);
@@ -102,6 +122,8 @@ export function BoardEditor({ id }: { id: string }) {
   };
 
   const onChange = (elements: readonly El[], appState: Record<string, unknown>, map: Record<string, BinaryFile>) => {
+    ui.current = appState;
+    if (readOnly) return;
     // Cheap change check: element versions and the background
     const key = `${elements.length}:${elements.reduce((n, e) => n + e.version, 0)}:${String(appState.viewBackgroundColor)}:${files.current.length}`;
     void storeFiles(map);
@@ -126,40 +148,76 @@ export function BoardEditor({ id }: { id: string }) {
 
   if (board === null)
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 text-[14px] text-(--c-t-737373)">
+      <div className={`flex flex-col items-center justify-center gap-3 bg-(--c-b-ffffff) text-[14px] text-(--c-t-737373) ${onClose ? "h-full" : "min-h-screen"}`}>
         This board doesn&apos;t exist anymore.
-        <Link href="/" className="font-medium text-(--c-t-2358d8)">
-          Back
-        </Link>
+        {onClose ? (
+          <button type="button" onClick={onClose} className="font-medium text-(--c-t-2358d8)">
+            Back to the script
+          </button>
+        ) : (
+          <Link href="/" className="font-medium text-(--c-t-2358d8)">
+            Back
+          </Link>
+        )}
       </div>
     );
 
   return (
-    <div className="flex h-dvh flex-col bg-(--c-b-ffffff)">
+    <div className={`flex flex-col bg-(--c-b-ffffff) ${onClose ? "h-full" : "h-dvh"}`}>
       <div className="flex h-[52px] shrink-0 items-center gap-2 border-b border-(--c-l-ebebeb) px-3">
-        <Link
-          href="/?view=boards"
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[14px] text-(--c-t-6b6b6b) no-underline hover:bg-(--c-b-f4f4f4)"
-        >
-          <IconArrowLeft />
-          Excalidraw
-        </Link>
+        {onClose ? (
+          <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center text-(--c-t-6b6b6b)">
+            <IconBoard />
+          </span>
+        ) : (
+          <Link
+            href="/?view=boards"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[14px] text-(--c-t-6b6b6b) no-underline hover:bg-(--c-b-f4f4f4)"
+          >
+            <IconArrowLeft />
+            Excalidraw
+          </Link>
+        )}
         <input
           value={title ?? initial?.title ?? ""}
           onChange={(e) => changeTitle(e.target.value)}
+          readOnly={readOnly}
           placeholder="Untitled board"
           aria-label="Board title"
-          className="h-8 min-w-0 flex-1 rounded-md bg-transparent px-2 text-[15px] font-medium text-(--c-t-1b1b1b) outline-none hover:bg-(--c-b-f4f4f4) focus:bg-(--c-b-f4f4f4)"
+          className={`h-8 min-w-0 flex-1 rounded-md bg-transparent px-2 text-[15px] font-medium text-(--c-t-1b1b1b) outline-none ${readOnly ? "" : "hover:bg-(--c-b-f4f4f4) focus:bg-(--c-b-f4f4f4)"}`}
         />
-        <span className={`shrink-0 px-2 text-[12px] ${state === "error" ? "text-(--c-t-b42318)" : "text-(--c-t-9a9a9a)"}`}>
-          {state === "saving" ? "Saving…" : state === "error" ? "Couldn't save, retrying on your next change" : "Saved"}
-        </span>
+        {!readOnly && (
+          <span className={`shrink-0 px-2 text-[12px] ${state === "error" ? "text-(--c-t-b42318)" : "text-(--c-t-9a9a9a)"}`}>
+            {state === "saving" ? "Saving…" : state === "error" ? "Couldn't save, retrying on your next change" : "Saved"}
+          </span>
+        )}
+        {onClose && !readOnly && (
+          <Link
+            href={`/b/${id}`}
+            target="_blank"
+            className="hidden h-8 shrink-0 items-center rounded-lg px-2.5 text-[13px] text-(--c-t-6b6b6b) no-underline hover:bg-(--c-b-f4f4f4) sm:inline-flex"
+          >
+            Open full page
+          </Link>
+        )}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            title="Back to the script (Esc)"
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-(--c-b-1b1b1b) px-3 text-[13px] font-medium text-(--c-on-ink) hover:bg-(--c-b-333333)"
+          >
+            {readOnly ? <IconX size={13} color="var(--c-on-ink)" /> : null}
+            {readOnly ? "Close" : "Done"}
+          </button>
+        )}
       </div>
       <div className="min-h-0 flex-1">
         {initial && (
           <Excalidraw
             theme={dark ? "dark" : "light"}
             name={initial.title}
+            viewModeEnabled={readOnly}
             initialData={{
               elements: JSON.parse(initial.elements),
               appState: { ...JSON.parse(initial.appState || "{}"), collaborators: new Map() },
@@ -176,3 +234,4 @@ export function BoardEditor({ id }: { id: string }) {
     </div>
   );
 }
+

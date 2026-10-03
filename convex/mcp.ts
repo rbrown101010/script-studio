@@ -30,7 +30,7 @@ const lineArg = {
   type: "object",
   properties: {
     key: { type: "string", description: "Existing line key (keep it when you keep or edit that line; omit for new lines)" },
-    type: { type: "string", enum: ["p", "h1", "bullet", "number", "todo"] },
+    type: { type: "string", enum: ["p", "h1", "bullet", "number", "todo", "board"], description: "board = an Excalidraw board shown in the script; its text is the board id (from list_boards) or its /b/<id> link" },
     text: { type: "string", description: "The line's text. Link words with [words](https://…), bold with **words**." },
     textColor: { type: ["string", "null"], enum: ["gray", "red", "orange", "green", "blue", "purple", null], description: "Color of the text (null = default)" },
     color: { type: ["string", "null"], enum: ["yellow", "blue", "green", "red", "rose", null], description: "Background color of the block (red shows as purple, rose shows as red)" },
@@ -103,7 +103,7 @@ const TOOLS: Tool[] = [
               key: { type: "string" },
               afterKey: { type: ["string", "null"] },
               text: { type: "string" },
-              type: { type: "string", enum: ["p", "h1", "bullet", "number", "todo"] },
+              type: { type: "string", enum: ["p", "h1", "bullet", "number", "todo", "board"], description: "board = an Excalidraw board shown in the script; its text is the board id (from list_boards) or its /b/<id> link" },
               textColor: { type: ["string", "null"], enum: ["gray", "red", "orange", "green", "blue", "purple", null] },
               color: { type: ["string", "null"], enum: ["yellow", "blue", "green", "red", "rose", null] },
               lines: { type: "array", items: lineArg },

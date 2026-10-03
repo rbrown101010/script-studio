@@ -220,3 +220,11 @@ export const IconPin = (p: P & { filled?: boolean }) => (
     <path d="M12 14v6.5" />
   </Svg>
 );
+/** A board (Excalidraw): a shape, a circle and a connector */
+export const IconBoard = (p: P) => (
+  <svg viewBox="0 0 16 16" width={p.size ?? 16} height={p.size ?? 16} fill="none" stroke={p.color ?? "currentColor"} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="1.75" y="2.25" width="7" height="5.5" rx="1.2" />
+    <circle cx="11.5" cy="11" r="2.75" />
+    <path d="M5.25 7.75v3.5h3.5" />
+  </svg>
+);

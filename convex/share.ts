@@ -3,6 +3,7 @@ import { mutation, query, type QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { attachment, blockColor, blockType, comment, textColor } from "./schema";
 import { docBlocks, writeEditedVersion } from "./lib";
+import { boardIdOf } from "./boards";
 
 async function videoBySlug(ctx: QueryCtx, slug: string) {
   return ctx.db
@@ -26,6 +27,14 @@ export const get = query({
     if (!video) return null;
     const main = await docOf(ctx, video._id, "main");
     const ins = await docOf(ctx, video._id, "instructions");
+    const blocks = main ? await docBlocks(ctx, main._id) : [];
+    // Boards shown in the script (title and AI summary; the drawing itself comes from `board`)
+    const boards = [];
+    for (const b of blocks) {
+      const id = b.type === "board" ? boardIdOf(ctx, b.content) : null;
+      const row = id ? await ctx.db.get(id) : null;
+      if (row) boards.push({ id: row._id as string, title: row.title, summary: row.summary });
+    }
     return {
       video: {
         title: video.title,
@@ -36,9 +45,30 @@ export const get = query({
         captions: video.captions ?? [],
         canEdit: video.editPasscode !== null,
       },
-      blocks: main ? await docBlocks(ctx, main._id) : [],
+      blocks,
       instructions: ins ? await docBlocks(ctx, ins._id) : [],
+      boards,
     };
+  },
+});
+
+/** A board drawn in a shared script, for share-link viewers (only boards that script shows). */
+export const board = query({
+  args: { slug: v.string(), id: v.string() },
+  handler: async (ctx, { slug, id }) => {
+    const video = await videoBySlug(ctx, slug);
+    const boardId = boardIdOf(ctx, id);
+    if (!video || !boardId) return null;
+    const main = await docOf(ctx, video._id, "main");
+    if (!main) return null;
+    const blocks = await ctx.db
+      .query("blocks")
+      .withIndex("by_document", (q) => q.eq("documentId", main._id))
+      .collect();
+    if (!blocks.some((b) => b.type === "board" && boardIdOf(ctx, b.content) === boardId)) return null;
+    const b = await ctx.db.get(boardId);
+    if (!b) return null;
+    return { id: b._id, title: b.title, elements: b.elements, appState: b.appState, files: b.files, updatedAt: b.updatedAt };
   },
 });
 

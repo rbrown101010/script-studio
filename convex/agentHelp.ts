@@ -18,7 +18,9 @@ text as a version first, so nothing is ever lost and any edit can be undone with
 - Plain HTTP: the same operations under ${SITE}/agent/... (see the end).
 
 ## What a script has (the tabs under the title)
-- Title, and the script itself: lines, each with a stable key, a type (p text, h1 heading, bullet, number, todo) and text.
+- Title, and the script itself: lines, each with a stable key, a type (p text, h1 heading, bullet, number, todo,
+  images, board) and text. A board line shows an Excalidraw board right in the script: its text is the board id,
+  and get_script adds "board" with the board's title, link and full summary (see "Excalidraw boards").
   Lines can hold links: write [the words](https://example.com) to link words, or paste a bare https:// URL.
   They show as real links in the app (just "the words", underlined). **Bold** is written with double asterisks.
   Each line can have a text color (textColor: gray, red, orange, green, blue, purple) and a background color
@@ -47,9 +49,12 @@ import many at once (up to 200 per call, e.g. bookmarks); links already saved ar
 each idea saying what it is and why it's worth keeping. Use list_ideas to search what's there.
 
 ## Excalidraw boards
-Riley's whiteboards (the Excalidraw app in Native Note, links look like /b/<id>). Read-only for agents: list_boards to
-find one, get_board to read it. The summary lists all text top to bottom, labelled shapes, arrows between shapes
+Riley's whiteboards (the Excalidraw app in Native Note, links look like /b/<id>). Agents can't draw on them: list_boards
+to find one, get_board to read it. The summary lists all text top to bottom, labelled shapes, arrows between shapes
 ("A → B") and links; ask for includeElements when you need positions, sizes or colors.
+Boards can sit inside a script as a board line. get_script already includes each one's summary, so you can read a
+script and its boards together. To put a board in a script, add a line {"type":"board","text":"<board id or /b/<id> link>"}
+with edit_lines or edit_script.
 
 ## Rules
 1. You can't delete a script. Everything else is yours to change.
@@ -106,7 +111,7 @@ Line keys come from get_script. ops run in order as one change:
   {"op":"insert","afterKey":"<key>","lines":[{"text":"..."}]}  add lines after a line (afterKey null = at the top)
   {"op":"delete","key":"<key>"}                                remove a line
   {"op":"move","key":"<key>","afterKey":"<key>"}               move a line
-The result lists the new lines and keys. Line types: p (text), h1 (heading), bullet, number, todo.
+The result lists the new lines and keys. Line types: p (text), h1 (heading), bullet, number, todo, board (text = board id).
 
 ### edit_script
 "lines" is the WHOLE script as you want it, in order. Keep a line's key to keep that line (its comments stay

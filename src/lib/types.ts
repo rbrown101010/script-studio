@@ -1,4 +1,5 @@
-export type BlockType = "p" | "h1" | "bullet" | "number" | "todo" | "images";
+/** "board" embeds an Excalidraw board; its content is the board's id */
+export type BlockType = "p" | "h1" | "bullet" | "number" | "todo" | "images" | "board";
 export type BlockColor = "yellow" | "blue" | "green" | "red" | "rose";
 export type AttachmentKind = "image" | "video" | "audio" | "file" | "link";
 

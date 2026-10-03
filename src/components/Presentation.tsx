@@ -6,6 +6,7 @@ import { linkSegments } from "@/lib/scriptLinks";
 import { listNumbers } from "@/lib/util";
 import { LinkCard, linkCardsIn } from "./LinkCard";
 import { MediaViewer } from "./Attachments";
+import { BoardCard, BoardOverlay } from "./BoardBlock";
 
 /**
  * Presentation mode: the script full screen, big and calm, for showing an outline while filming.
@@ -53,12 +54,16 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
       return key;
     });
   };
+  /** Board opened full screen from a board line (to look around in it) */
+  const [boardOpen, setBoardOpen] = useState<string | null>(null);
   // Click a line to open its notes; click the line again to close them
   const toggle = (key: string) => setOpen(active === key ? null : key);
 
   // ↑/↓ (or j/k) step through the lines that have comments; Esc exits
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // An open board has the keyboard (its own Esc and arrows)
+      if (document.querySelector("[data-board-overlay]")) return;
       if (e.key === "Escape") return close();
       const down = e.key === "ArrowDown" || e.key === "j";
       const up = e.key === "ArrowUp" || e.key === "k";
@@ -158,7 +163,12 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
                     <span className={`h-[20px] w-[20px] rounded-[5px] border-2 ${b.checked ? "border-[#8a8a8a] bg-[#8a8a8a]" : "border-[#8a8a8a]"}`} />
                   </span>
                 )}
-                {b.type !== "images" && <p
+                {b.type === "board" && b.content && (
+                  <div className="min-w-0 flex-1 py-1" onClick={(e) => e.stopPropagation()}>
+                    <BoardCard id={b.content} maxHeight={520} forceDark onOpen={() => setBoardOpen(b.content)} />
+                  </div>
+                )}
+                {b.type !== "images" && b.type !== "board" && <p
                   className={`m-0 min-w-0 flex-1 whitespace-pre-wrap break-words ${
                     b.type === "h1" ? "text-[34px] font-semibold leading-[1.25] tracking-[-0.01em] text-white" : "text-[26px] leading-[1.5] text-[#dedede]"
                   } ${b.checked ? "line-through opacity-50" : ""} ${has ? "decoration-[#f5c542]/40 decoration-2 underline-offset-[6px] [text-decoration-line:underline]" : ""}`}
@@ -181,6 +191,7 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
         </div>
       </div>
 
+      {boardOpen && <BoardOverlay id={boardOpen} readOnly onClose={() => setBoardOpen(null)} />}
       {viewing && (
         <MediaViewer items={viewing.images} index={viewing.index} onIndex={(index) => setViewing({ ...viewing, index })} onClose={() => setViewing(null)} />
       )}

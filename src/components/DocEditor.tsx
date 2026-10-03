@@ -11,7 +11,9 @@ import { caretOnFirstLine, caretOnLastLine, getSelectionOffsets, readText, setCa
 import { isUrl, linkSegments, renderLinks, toRawOffset, toggleBold, wrapLink } from "@/lib/scriptLinks";
 import { listNumbers, uid } from "@/lib/util";
 import { useIsMobile } from "@/lib/useIsMobile";
-import { IconClip, IconComment, IconCopy, IconCheck, IconGrip, IconPlus, IconTrash, IconX } from "./icons";
+import { IconBoard, IconClip, IconComment, IconCopy, IconCheck, IconGrip, IconPlus, IconTrash, IconX } from "./icons";
+import { BoardBlock } from "./BoardBlock";
+import { boardIdFrom, useCanEditBoards } from "@/lib/boardSource";
 
 type SetBlocks = (fn: (prev: Block[]) => Block[]) => void;
 export type Variant = "script" | "instructions";
@@ -105,13 +107,14 @@ const TYPE_WORDS: Record<BlockType, string> = {
   number: "numbered list number ordered",
   todo: "to-do todo checkbox task check",
   images: "images image picture pictures photo photos gallery logos",
+  board: "board excalidraw drawing draw whiteboard diagram sketch canvas flowchart",
 };
 
 /** Everything the / menu can do to a line, filtered by what's typed after the slash. */
-function slashItems(query: string, variant: Variant): SlashItem[] {
+function slashItems(query: string, variant: Variant, boards: boolean): SlashItem[] {
   const all: SlashItem[] = [
     ...(variant === "script"
-      ? TURN_INTO.map((t) => ({ key: t.type, label: t.label, words: TYPE_WORDS[t.type], group: "Turn into", tile: t.tile, patch: { type: t.type } }))
+      ? TURN_INTO.filter((t) => boards || t.type !== "board").map((t) => ({ key: t.type, label: t.label, words: TYPE_WORDS[t.type], group: "Turn into", tile: t.tile, patch: { type: t.type } }))
       : []),
     { key: "text-default", label: "Default text", words: "text color colour", group: "Text color", tile: <span className="text-(--c-t-1b1b1b)">A</span>, patch: { textColor: null } },
     ...TEXT_COLORS.map((c) => ({
@@ -163,6 +166,7 @@ const TURN_INTO: { type: BlockType; label: string; tile: ReactNode }[] = [
       </svg>
     ),
   },
+  { type: "board", label: "Excalidraw board", tile: <IconBoard size={13} /> },
 ];
 
 /** The editor that last changed, so ⌘Z with no line focused (e.g. after deleting selected lines) goes to it */
@@ -206,6 +210,7 @@ export function DocEditor({
   placeholder?: string;
   footer?: ReactNode;
 }) {
+  const canBoards = useCanEditBoards();
   const els = useRef(new Map<string, HTMLDivElement>());
   const blocksRef = useRef(blocks);
   const focusReq = useRef<{ id: string; offset: number | "end" } | null>(null);
@@ -274,18 +279,22 @@ export function DocEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [uploadUrl, fileUrl],
   );
-  const makeImagesRef = useRef<(id: string, keepText: string) => string>(() => "");
-  /** Turns a line into an images block (or adds one right after it when the line has text) */
-  const makeImagesBlock = (id: string, keepText: string) => {
+  const makeImagesRef = useRef<(id: string, keepText: string, type?: "images" | "board", content?: string) => string>(() => "");
+  /**
+   * Turns a line into an images or board block (or adds one right after it when the line has text).
+   * A board block with no content shows the board picker.
+   */
+  const makeImagesBlock = (id: string, keepText: string, type: "images" | "board" = "images", content = "") => {
+    const patch: Partial<Block> = type === "images" ? { type, content: "", images: [] } : { type, content, images: undefined, checked: false };
     if (keepText.trim()) {
-      const nb: Block = { id: uid(), type: "images", content: "", images: [] };
+      const nb: Block = { id: uid(), content: "", ...patch } as Block;
       setBlocks((prev) => {
         const i = prev.findIndex((b) => b.id === id);
         return [...prev.slice(0, i), { ...prev[i], content: keepText }, nb, ...prev.slice(i + 1)];
       });
       return nb.id;
     }
-    update(id, { type: "images", content: "", images: [] });
+    update(id, patch);
     return id;
   };
   makeImagesRef.current = makeImagesBlock;
@@ -436,11 +445,11 @@ export function DocEditor({
         setSlash({ id, start: caret - 1, query: "", top: up ? r.top - 6 : r.bottom + 6, left: r.left, up, active: 0 });
       } else if (open && open.id === id) {
         const query = text.slice(open.start + 1, caret);
-        if (caret <= open.start || text[open.start] !== "/" || query.length > 30 || !slashItems(query, variant).length) setSlash(null);
+        if (caret <= open.start || text[open.start] !== "/" || query.length > 30 || !slashItems(query, variant, canBoards).length) setSlash(null);
         else setSlash({ ...open, query, active: 0 });
       }
     },
-    [update, readOnly, variant, setSlash],
+    [update, readOnly, variant, setSlash, canBoards],
   );
 
   /** Applies a / menu choice to its line and removes the "/words" that were typed */
@@ -455,8 +464,8 @@ export function DocEditor({
       const text = el ? readText(el) : b.content;
       const end = Math.min(text.length, s.start + 1 + s.query.length);
       const rest = text.slice(0, s.start) + text.slice(end);
-      if (item.patch.type === "images") {
-        makeImagesRef.current(s.id, rest);
+      if (item.patch.type === "images" || item.patch.type === "board") {
+        makeImagesRef.current(s.id, rest, item.patch.type);
         return;
       }
       focusBlock(s.id, s.start);
@@ -491,7 +500,7 @@ export function DocEditor({
       // Arrows, Enter and Escape drive the / menu while it's open
       const s = slashRef.current;
       if (s && s.id === id) {
-        const items = slashItems(s.query, variant);
+        const items = slashItems(s.query, variant, canBoards);
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
           e.preventDefault();
           const d = e.key === "ArrowDown" ? 1 : -1;
@@ -654,7 +663,7 @@ export function DocEditor({
       else if (e.key === "ArrowLeft" && !e.shiftKey && collapsed && sel.start === 0) move(list[index - 1], "end");
       else if (e.key === "ArrowRight" && !e.shiftKey && collapsed && sel.start === text.length) move(list[index + 1], 0);
     },
-    [readOnly, setBlocks, update, variant, canComment, onOpenComments, setSlash, applySlash],
+    [readOnly, setBlocks, update, variant, canComment, onOpenComments, setSlash, applySlash, canBoards],
   );
 
   const onPaste = useCallback(
@@ -684,6 +693,12 @@ export function DocEditor({
         update(id, { content: w.text });
         return;
       }
+      // A Native Note board link pasted on an empty line shows that board
+      const boardLink = lines.length === 1 && !text.trim() && variant === "script" && !readOnly ? pasted.trim().match(/^https?:\/\/[^/\s]+\/b\/([a-z0-9]{20,40})\/?$/i) : null;
+      if (boardLink && new URL(pasted.trim()).origin === window.location.origin) {
+        makeImagesRef.current(id, "", "board", boardLink[1]);
+        return;
+      }
       if (lines.length === 1) {
         focusBlock(id, sel.start + pasted.length);
         update(id, { content: before + pasted + after });
@@ -708,8 +723,36 @@ export function DocEditor({
         return [...prev.slice(0, i), { ...prev[i], content: before + lines[0] }, ...rest, ...prev.slice(i + 1)];
       });
     },
-    [canUpload, onFiles, setBlocks, update, variant, addImages],
+    [canUpload, onFiles, setBlocks, update, variant, addImages, readOnly],
   );
+
+  /** Keys on a block that isn't text (images, boards): Enter adds a line, arrows move, Backspace removes it when allowed */
+  const mediaKeys = (b: Block, removable: boolean) => (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    const list = blocksRef.current;
+    const i = list.findIndex((x) => x.id === b.id);
+    if (e.key === "Enter") {
+      e.preventDefault();
+      newBlockAfter(b.id, "p");
+    } else if ((e.key === "Backspace" || e.key === "Delete") && removable) {
+      e.preventDefault();
+      const prevB = list[i - 1];
+      if (prevB) focusBlock(prevB.id, "end");
+      setBlocks((all) => all.filter((x) => x.id !== b.id));
+    } else if (e.key === "ArrowUp" && list[i - 1]) {
+      e.preventDefault();
+      const t = els.current.get(list[i - 1].id);
+      if (t) setCaret(t, readText(t).length);
+    } else if (e.key === "ArrowDown" && list[i + 1]) {
+      e.preventDefault();
+      const t = els.current.get(list[i + 1].id);
+      if (t) setCaret(t, 0);
+    } else if ((e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === "z" || e.key.toLowerCase() === "y")) {
+      e.preventDefault();
+      if (e.key.toLowerCase() === "y" || e.shiftKey) undoRef.current.redo();
+      else undoRef.current.undo();
+    }
+  };
 
   const setColor = (id: string, color: BlockColor | null) => {
     update(id, { color });
@@ -717,11 +760,13 @@ export function DocEditor({
   };
   const setType = (id: string, type: BlockType) => {
     setMenuFor(null);
-    if (type === "images") {
-      makeImagesBlock(id, blocksRef.current.find((b) => b.id === id)?.content ?? "");
+    const cur = blocksRef.current.find((b) => b.id === id);
+    if (type === "images" || type === "board") {
+      makeImagesBlock(id, cur?.type === "board" ? "" : (cur?.content ?? ""), type);
       return;
     }
-    update(id, { type });
+    // A board line's content is the board id, not words, so it starts empty as text
+    update(id, cur?.type === "board" ? { type, content: "" } : { type });
     focusBlock(id, "end");
   };
   const duplicate = (id: string) => {
@@ -855,7 +900,7 @@ export function DocEditor({
 
   return (
     <div className="relative">
-      {slash && <SlashMenu slash={slash} items={slashItems(slash.query, variant)} onPick={applySlash} onHover={(active) => setSlash({ ...slash, active })} />}
+      {slash && <SlashMenu slash={slash} items={slashItems(slash.query, variant, canBoards)} onPick={applySlash} onHover={(active) => setSlash({ ...slash, active })} />}
       {linkBox && (
         <LinkBox
           top={linkBox.top}
@@ -1037,34 +1082,33 @@ export function DocEditor({
                     }}
                     onAdd={(files) => addImages(b.id, files)}
                     onRemove={(imgId) => update(b.id, { images: (b.images ?? []).filter((x) => x.id !== imgId) })}
-                    onKey={(e) => {
-                      const list = blocksRef.current;
-                      const i = list.findIndex((x) => x.id === b.id);
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        newBlockAfter(b.id, "p");
-                      } else if ((e.key === "Backspace" || e.key === "Delete") && !(b.images ?? []).length) {
-                        e.preventDefault();
-                        const prevB = list[i - 1];
-                        if (prevB) focusBlock(prevB.id, "end");
-                        setBlocks((all) => all.filter((x) => x.id !== b.id));
-                      } else if (e.key === "ArrowUp" && list[i - 1]) {
-                        e.preventDefault();
-                        const t = els.current.get(list[i - 1].id);
-                        if (t) setCaret(t, readText(t).length);
-                      } else if (e.key === "ArrowDown" && list[i + 1]) {
-                        e.preventDefault();
-                        const t = els.current.get(list[i + 1].id);
-                        if (t) setCaret(t, 0);
-                      } else if ((e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === "z" || e.key.toLowerCase() === "y")) {
-                        e.preventDefault();
-                        if (e.key.toLowerCase() === "y" || e.shiftKey) undoRef.current.redo();
-                        else undoRef.current.undo();
-                      }
-                    }}
+                    onKey={mediaKeys(b, !(b.images ?? []).length)}
                     onFocus={() => {
                       setFocusedId(b.id);
                       onActivate?.(b.id);
+                    }}
+                  />
+                ) : b.type === "board" ? (
+                  <BoardBlock
+                    block={b}
+                    readOnly={!!readOnly}
+                    register={(el) => {
+                      if (el) els.current.set(b.id, el);
+                      else els.current.delete(b.id);
+                    }}
+                    // Backspace on a chosen board deletes the line (undo brings it back)
+                    onKey={mediaKeys(b, true)}
+                    onFocus={() => {
+                      setFocusedId(b.id);
+                      onActivate?.(b.id);
+                    }}
+                    onPick={(boardId) => {
+                      update(b.id, { content: boardIdFrom(boardId) });
+                      requestAnimationFrame(() => els.current.get(b.id)?.focus());
+                    }}
+                    onCancel={() => {
+                      update(b.id, { type: "p", content: "" });
+                      focusBlock(b.id, 0);
                     }}
                   />
                 ) : (
@@ -1189,6 +1233,7 @@ function BlockMenu({
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
+  const canBoards = useCanEditBoards();
   return (
     <div
       role="menu"
@@ -1198,7 +1243,7 @@ function BlockMenu({
       {variant === "script" && (
         <>
           <div className="px-2 pb-1 pt-2 text-[12px] text-(--c-t-737373)">Turn into</div>
-          {TURN_INTO.map((t) => (
+          {TURN_INTO.filter((t) => canBoards || t.type !== "board").map((t) => (
             <button
               key={t.type}
               type="button"

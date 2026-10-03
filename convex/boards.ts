@@ -2,7 +2,7 @@
 // also writes a plain-text summary of what's on the board (its text, shapes, labels and arrows) so AI can read it.
 
 import { ConvexError, v } from "convex/values";
-import { internalQuery, mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireUser } from "./lib";
 
@@ -150,6 +150,19 @@ export const remove = mutation({
   },
 });
 
+/** A board id from an id or a /b/<id> link (null if it isn't one) */
+export function boardIdOf(ctx: QueryCtx, text: string) {
+  return ctx.db.normalizeId("boards", text.trim().replace(/[?#].*$/, "").split("/").filter(Boolean).pop() ?? "");
+}
+
+/** What agents see for a board block in a script: enough to understand the board without another call */
+export async function boardCard(ctx: QueryCtx, text: string) {
+  const id = boardIdOf(ctx, text);
+  const b = id ? await ctx.db.get(id) : null;
+  if (!b) return { id: text, missing: true as const, note: "This board was deleted or isn't chosen yet." };
+  return { id: b._id, title: b.title, url: `${process.env.SITE_URL ?? ""}/b/${b._id}`, summary: b.summary };
+}
+
 // ---------- For agents (see agent.ts / mcp.ts) ----------
 
 export const listForAgent = internalQuery({
@@ -166,7 +179,7 @@ export const listForAgent = internalQuery({
 export const getForAgent = internalQuery({
   args: { board: v.string(), includeElements: v.optional(v.boolean()) },
   handler: async (ctx, { board, includeElements }) => {
-    const id = ctx.db.normalizeId("boards", board.split("/").pop() ?? board);
+    const id = boardIdOf(ctx, board);
     const b = id ? await ctx.db.get(id) : null;
     if (!b) throw new ConvexError("Board not found. Use list_boards for ids.");
     return {

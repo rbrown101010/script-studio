@@ -89,6 +89,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     type: b.type,
     text: b.content,
     ...(b.type === "images" ? { images: files.filter((f) => f.line === i + 1 && !f.commentId).map((f) => f.filename) } : {}),
+    // An Excalidraw board shown on this line: its title and a plain-text summary of everything drawn on it
+    ...(b.type === "board"
+      ? (() => {
+          const board = shared.boards?.find((x) => x.id === b.content);
+          return { board: board ? { title: board.title, summary: board.summary } : { missing: true } };
+        })()
+      : {}),
     comments: sorted.filter((c) => c.blockKey === b.id).map(commentView),
   }));
   const downloadScript = [

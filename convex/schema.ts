@@ -37,6 +37,8 @@ export const blockType = v.union(
   v.literal("number"),
   v.literal("todo"),
   v.literal("images"),
+  /** An Excalidraw board shown in the script; its content is the board's id */
+  v.literal("board"),
 );
 export const blockColor = v.union(v.literal("yellow"), v.literal("blue"), v.literal("green"), v.literal("red"), v.literal("rose"), v.null());
 /** Color of a line's text (separate from the block's background color) */

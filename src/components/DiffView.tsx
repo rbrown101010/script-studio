@@ -1,12 +1,13 @@
 "use client";
 
 import { diffArrays, diffWordsWithSpace } from "diff";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { colorBg, type Block } from "@/lib/types";
 import { listNumbers } from "@/lib/util";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { BlockPrefix, rowOuterClass, textClass } from "./DocEditor";
 import { IconComment } from "./icons";
+import { BoardCard, BoardOverlay } from "./BoardBlock";
 
 
 export type DiffSummary = { changed: number; added: number; removed: number };
@@ -77,9 +78,11 @@ export function DiffBlocks({
   const { items } = computeDiff(original, edited);
   const numbers = listNumbers(edited);
   const mobile = useIsMobile();
+  const [boardOpen, setBoardOpen] = useState<string | null>(null);
 
   return (
     <div>
+      {boardOpen && <BoardOverlay id={boardOpen} readOnly onClose={() => setBoardOpen(null)} />}
       {items.map((it, idx) => {
         if (it.kind === "removed") {
           const b = it.orig;
@@ -88,7 +91,7 @@ export function DiffBlocks({
               <div className={`flex py-[3px] ${textClass(b.type)} text-red-400`}>
                 <BlockPrefix type={b.type} checked={b.checked} className="text-red-300" />
                 <div className="min-w-0 flex-1 whitespace-pre-wrap break-words line-through decoration-red-300">
-                  {b.content || <span className="text-[13px] italic">empty line removed</span>}
+                  {b.type === "board" ? <span className="text-[13px] italic">board removed</span> : b.content || <span className="text-[13px] italic">empty line removed</span>}
                 </div>
               </div>
             </div>
@@ -139,7 +142,11 @@ export function DiffBlocks({
               {marked && <div className="absolute -left-5 bottom-1 top-1 w-[3px] rounded bg-red-500" />}
               <div className={`flex ${textClass(b.type)}`}>
                 <BlockPrefix type={b.type} n={numbers.get(b.id)} checked={b.checked} className={prefixCls} />
-                {b.type === "images" ? (
+                {b.type === "board" ? (
+                  <div className="min-w-0 flex-1 py-1">
+                    {b.content ? <BoardCard id={b.content} maxHeight={240} onOpen={() => setBoardOpen(b.content)} /> : null}
+                  </div>
+                ) : b.type === "images" ? (
                   <div className="flex min-w-0 flex-1 flex-wrap items-end gap-3 py-1">
                     {(b.images ?? []).map((a) => (
                       // eslint-disable-next-line @next/next/no-img-element

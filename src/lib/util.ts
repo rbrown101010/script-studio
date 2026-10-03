@@ -96,6 +96,7 @@ export function scriptToText(title: string, blocks: Block[]) {
     if (b.type === "bullet") return `- ${b.content}`;
     if (b.type === "number") return `${numbers.get(b.id)}. ${b.content}`;
     if (b.type === "todo") return `[${b.checked ? "x" : " "}] ${b.content}`;
+    if (b.type === "board") return b.content ? `[Excalidraw board: ${typeof window === "undefined" ? "" : window.location.origin}/b/${b.content}]` : "";
     return b.content;
   });
   return [title ? `# ${title}\n` : "", ...lines].join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";

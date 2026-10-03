@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
+import { BoardSourceProvider } from "@/lib/boardSource";
 import { ConvexError } from "convex/values";
 import { useConvex } from "convex/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -226,7 +227,7 @@ export function SharedScript({ slug }: { slug: string }) {
   const originalKeys = new Set([...instructions, ...original].map((b) => b.id));
 
   return (
-    <>
+    <BoardSourceProvider slug={slug}>
       <ScriptLayout
         left={
           <div className="inline-flex h-7 items-center gap-1.5 rounded-full border border-(--c-l-ebebeb) px-2.5 text-[13px] text-(--c-t-6b6b6b)">
@@ -408,7 +409,7 @@ export function SharedScript({ slug }: { slug: string }) {
       </ScriptLayout>
       {askPass && <PasscodeDialog onCancel={() => setAskPass(false)} onSubmit={startEditing} />}
       <Lightbox url={lightbox} onClose={() => setLightbox(null)} />
-    </>
+    </BoardSourceProvider>
   );
 }
 
