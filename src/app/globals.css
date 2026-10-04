@@ -71,3 +71,15 @@ body {
 
 /* ⌘K switcher */
 @keyframes palette-in { from { opacity: 0; transform: translateY(-6px) scale(0.985) } to { opacity: 1; transform: none } }
+
+/* Boards: Excalidraw's buttons a size smaller and the canvas hint hidden, so the drawing has the room */
+.nn-board .excalidraw {
+  --default-button-size: 1.875rem;
+  --default-icon-size: 0.95rem;
+  --lg-button-size: 2rem;
+  --lg-icon-size: 0.95rem;
+  --editor-container-padding: 0.625rem;
+}
+.nn-board .excalidraw .HintViewer {
+  display: none;
+}

@@ -9,7 +9,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useBoardData, useIsDark } from "@/lib/boardSource";
 import { uploadToUrl } from "@/lib/upload";
-import { IconArrowLeft, IconBoard, IconX } from "./icons";
+import { IconArrowLeft, IconX } from "./icons";
 
 // The real Excalidraw editor (browser only)
 const Excalidraw = dynamic(async () => (await import("@excalidraw/excalidraw")).Excalidraw, {
@@ -200,56 +200,64 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
       </div>
     );
 
-  return (
-    <div className={`flex flex-col bg-(--c-b-ffffff) ${onClose ? "h-full" : "h-dvh"}`}>
-      <div className="flex h-[52px] shrink-0 items-center gap-2 border-b border-(--c-l-ebebeb) px-3">
-        {onClose ? (
-          <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center text-(--c-t-6b6b6b)">
-            <IconBoard />
-          </span>
-        ) : (
-          <Link
-            href="/?view=boards"
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[14px] text-(--c-t-6b6b6b) no-underline hover:bg-(--c-b-f4f4f4)"
-          >
-            <IconArrowLeft />
-            Excalidraw
-          </Link>
-        )}
-        <input
-          value={title ?? initial?.title ?? ""}
-          onChange={(e) => changeTitle(e.target.value)}
-          readOnly={readOnly}
-          placeholder="Untitled board"
-          aria-label="Board title"
-          className={`h-8 min-w-0 flex-1 rounded-md bg-transparent px-2 text-[15px] font-medium text-(--c-t-1b1b1b) outline-none ${readOnly ? "" : "hover:bg-(--c-b-f4f4f4) focus:bg-(--c-b-f4f4f4)"}`}
+  // A small floating control instead of a bar: back (or Done), the title, and a save dot, beside Excalidraw's own buttons
+  const controls = (
+    <div className="nn-board-controls flex h-(--lg-button-size) items-center gap-0.5 rounded-lg bg-(--island-bg-color) px-1 shadow-(--shadow-island)">
+      {onClose ? null : (
+        <Link
+          href="/?view=boards"
+          title="Back to Excalidraw"
+          aria-label="Back to Excalidraw"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-(--c-t-6b6b6b)! no-underline hover:bg-(--button-hover-bg)"
+        >
+          <IconArrowLeft size={15} />
+        </Link>
+      )}
+      <input
+        value={title ?? initial?.title ?? ""}
+        onChange={(e) => changeTitle(e.target.value)}
+        readOnly={readOnly}
+        placeholder="Untitled board"
+        aria-label="Board title"
+        size={Math.min(28, Math.max(8, (title ?? initial?.title ?? "").length + 1))}
+        className={`h-7 min-w-0 rounded-md bg-transparent px-1.5 text-[13px] font-medium text-(--c-t-1b1b1b) outline-none ${readOnly ? "" : "hover:bg-(--button-hover-bg) focus:bg-(--button-hover-bg)"}`}
+      />
+      {!readOnly && (
+        <span
+          title={state === "saving" ? "Saving…" : state === "error" ? "Couldn't save, retrying on your next change" : "Saved"}
+          aria-label={state === "saving" ? "Saving" : state === "error" ? "Not saved" : "Saved"}
+          className={`mx-1.5 h-1.5 w-1.5 shrink-0 rounded-full transition-colors ${state === "error" ? "bg-[#e03131]" : state === "saving" ? "bg-[#f08c00]" : "bg-[#40c057]"}`}
         />
-        {!readOnly && (
-          <span className={`shrink-0 px-2 text-[12px] ${state === "error" ? "text-(--c-t-b42318)" : "text-(--c-t-9a9a9a)"}`}>
-            {state === "saving" ? "Saving…" : state === "error" ? "Couldn't save, retrying on your next change" : "Saved"}
-          </span>
-        )}
-        {onClose && !readOnly && (
-          <Link
-            href={`/b/${id}`}
-            target="_blank"
-            className="hidden h-8 shrink-0 items-center rounded-lg px-2.5 text-[13px] text-(--c-t-6b6b6b) no-underline hover:bg-(--c-b-f4f4f4) sm:inline-flex"
-          >
-            Open full page
-          </Link>
-        )}
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            title="Back to the script (Esc)"
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-(--c-b-1b1b1b) px-3 text-[13px] font-medium text-(--c-on-ink) hover:bg-(--c-b-333333)"
-          >
-            {readOnly ? <IconX size={13} color="var(--c-on-ink)" /> : null}
-            {readOnly ? "Close" : "Done"}
-          </button>
-        )}
-      </div>
+      )}
+      {onClose && !readOnly && (
+        <Link
+          href={`/b/${id}`}
+          target="_blank"
+          title="Open full page"
+          aria-label="Open full page"
+          className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-md text-(--c-t-6b6b6b)! no-underline hover:bg-(--button-hover-bg) sm:flex"
+        >
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M9 2.5h4.5V7M13.5 2.5 8 8M6.5 3.5H3.5v9h9v-3" />
+          </svg>
+        </Link>
+      )}
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          title="Back to the script (Esc)"
+          className="ml-0.5 inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-(--c-b-1b1b1b) px-2.5 text-[12px] font-medium text-(--c-on-ink) hover:bg-(--c-b-333333)"
+        >
+          {readOnly ? <IconX size={12} color="var(--c-on-ink)" /> : null}
+          {readOnly ? "Close" : "Done"}
+        </button>
+      )}
+    </div>
+  );
+
+  return (
+    <div className={`nn-board flex flex-col bg-(--c-b-ffffff) ${onClose ? "h-full" : "h-dvh"}`}>
       <div className="min-h-0 flex-1">
         {initial && (
           <Excalidraw
@@ -257,6 +265,7 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
             name={initial.title}
             viewModeEnabled={readOnly}
             excalidrawAPI={(api) => (excalidraw.current = api)}
+            renderTopRightUI={() => controls}
             initialData={{
               elements: JSON.parse(initial.elements),
               appState: { ...JSON.parse(initial.appState || "{}"), collaborators: new Map() },

@@ -15,7 +15,7 @@ export const openCommandPalette = () => window.dispatchEvent(new Event("native-n
 type View = "list" | "calendar" | "feed" | "library" | "tweet" | "brands" | "boards" | "topics" | "mymind";
 type Item = {
   key: string;
-  group: "Recent" | "Scripts" | "Boards" | "Pages" | "Create";
+  group: "Recent" | "Scripts" | "Boards" | "Views" | "Apps" | "Create";
   title: string;
   /** Extra words to match on (status, kind) */
   words?: string;
@@ -31,16 +31,17 @@ const svg = (d: ReactNode) => (
     {d}
   </svg>
 );
+/** The sidebar's Views and Apps, in the same order */
 const PAGES: { view: View; title: string; words: string; icon: ReactNode }[] = [
   { view: "list", title: "Scripts", words: "list all scripts home", icon: svg(<path d="M3 4h10M3 8h10M3 12h7" />) },
   { view: "calendar", title: "Calendar", words: "schedule dates live", icon: svg(<><rect x="2.5" y="3.5" width="11" height="10" rx="2" /><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" /></>) },
   { view: "feed", title: "Feed", words: "updates urgent", icon: svg(<path d="M3 4h10M3 8h10M3 12h10" />) },
-  { view: "boards", title: "Excalidraw", words: "boards whiteboard drawings", icon: <IconBoard size={16} /> },
-  { view: "topics", title: "Topic opportunities", words: "ideas research youtube outliers keywords", icon: svg(<><path d="M2 12l4-4 2.5 2.5L14 5" /><path d="M10 5h4v4" /></>) },
+  { view: "mymind", title: "Mymind", words: "ideas bookmarks saved", icon: svg(<><circle cx="5" cy="5" r="2.2" /><circle cx="11" cy="5" r="2.2" /><circle cx="5" cy="11" r="2.2" /><circle cx="11" cy="11" r="2.2" /></>) },
   { view: "library", title: "Library", words: "assets files footage", icon: svg(<><rect x="2.5" y="2.5" width="4" height="11" rx="1" /><rect x="8" y="2.5" width="4" height="11" rx="1" transform="rotate(-12 10 8)" /></>) },
   { view: "tweet", title: "Tweet", words: "x twitter post drafts", icon: svg(<path d="M3 3l10 10M13 3L3 13" />) },
   { view: "brands", title: "Brand deals", words: "sponsors partners sponsorships", icon: svg(<><path d="M8.5 2.5H13.5V7.5L7.5 13.5 2.5 8.5z" /><circle cx="10.75" cy="5.25" r="1" /></>) },
-  { view: "mymind", title: "Mymind", words: "ideas bookmarks saved", icon: svg(<><circle cx="5" cy="5" r="2.2" /><circle cx="11" cy="5" r="2.2" /><circle cx="5" cy="11" r="2.2" /><circle cx="11" cy="11" r="2.2" /></>) },
+  { view: "boards", title: "Excalidraw", words: "boards whiteboard drawings", icon: <IconBoard size={16} /> },
+  { view: "topics", title: "Topic opportunities", words: "ideas research youtube outliers keywords", icon: svg(<><path d="M2 12l4-4 2.5 2.5L14 5" /><path d="M10 5h4v4" /></>) },
 ];
 
 const RECENT_KEY = "palette-recent";
@@ -266,7 +267,14 @@ function Palette({
       href: `/b/${b.id}`,
       at: b.updatedAt,
     }));
-    const pages: Item[] = PAGES.map((p) => ({ key: `p:${p.view}`, group: "Pages", title: p.title, words: p.words, icon: p.icon, run: () => goView(p.view) }));
+    const pages: Item[] = PAGES.map((p) => ({
+      key: `p:${p.view}`,
+      group: p.view === "list" || p.view === "calendar" || p.view === "feed" ? "Views" : "Apps",
+      title: p.title,
+      words: `${p.words} app page`,
+      icon: p.icon,
+      run: () => goView(p.view),
+    }));
     const create: Item[] = [
       {
         key: "new-script",
@@ -321,7 +329,7 @@ function Palette({
         // Ties go to the one touched most recently
         .sort((a, b) => b.score - a.score || (b.item.at ?? 0) - (a.item.at ?? 0))
         .slice(0, limit);
-    const groups = [scored(all.scripts, 8), scored(all.bs, 5), scored(all.pages, 4), scored(all.create, 2)];
+    const groups = [scored(all.scripts, 8), scored(all.bs, 5), scored(all.pages.filter((p) => p.group === "Views"), 3), scored(all.pages.filter((p) => p.group === "Apps"), 6), scored(all.create, 2)];
     // The group with the best match comes first
     groups.sort((a, b) => (b[0]?.score ?? -1e9) - (a[0]?.score ?? -1e9));
     return groups.flat();
