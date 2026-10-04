@@ -311,6 +311,18 @@ function ScriptList() {
       localStorage.setItem("home-prefs", JSON.stringify({ status: statusFilter, sponsor: sponsorFilter, format: filter, sort }));
     } catch {}
   }, [prefsLoaded, statusFilter, sponsorFilter, filter, sort]);
+  // The ⌘K switcher asks for a view while this page is already open
+  useEffect(() => {
+    const onView = (e: Event) => {
+      const v = (e as CustomEvent<View>).detail;
+      setView(v);
+      try {
+        localStorage.setItem("home-view", v);
+      } catch {}
+    };
+    window.addEventListener("native-note:view", onView);
+    return () => window.removeEventListener("native-note:view", onView);
+  }, []);
   const remember = (k: string, v: string) => {
     try {
       localStorage.setItem(k, v);

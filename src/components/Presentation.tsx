@@ -63,7 +63,7 @@ export function Presentation({ title, blocks, comments, onClose }: { title: stri
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // An open board has the keyboard (its own Esc and arrows)
-      if (document.querySelector("[data-board-overlay]")) return;
+      if (document.querySelector("[data-board-overlay], [data-command-palette]")) return;
       if (e.key === "Escape") return close();
       const down = e.key === "ArrowDown" || e.key === "j";
       const up = e.key === "ArrowUp" || e.key === "k";

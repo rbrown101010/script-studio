@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { IconSearch } from "./icons";
+import { openCommandPalette } from "./CommandPalette";
 
 export type View = "list" | "calendar" | "feed" | "mymind" | "library" | "tweet" | "brands" | "boards" | "topics";
 export type SponsorFilter = "all" | "sponsored" | "notSponsored";
@@ -46,6 +47,14 @@ export function HomeSidebar({
           aria-label="Search scripts"
           className="w-full border-none bg-transparent text-[14px] text-(--c-t-1b1b1b) outline-none"
         />
+        <button
+          type="button"
+          onClick={openCommandPalette}
+          title="Jump to any script, board or page"
+          className="shrink-0 rounded-md border border-(--c-l-e3e3e0) px-1.5 py-0.5 text-[11px] text-(--c-t-9a9a9a) hover:bg-(--c-b-f4f4f4) hover:text-(--c-t-1b1b1b)"
+        >
+          ⌘K
+        </button>
       </label>
 
       <Group label="Views">

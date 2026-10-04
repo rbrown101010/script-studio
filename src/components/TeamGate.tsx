@@ -5,13 +5,19 @@ import { ConvexError } from "convex/values";
 import { useConvexAuth } from "convex/react";
 import { useState, type ReactNode } from "react";
 import { IconScript } from "./icons";
+import { CommandPalette } from "./CommandPalette";
 
 /** Only signed-in team members get past this. Signing up needs the team code. */
 export function TeamGate({ children }: { children: ReactNode }) {
   const { isLoading, isAuthenticated } = useConvexAuth();
   if (isLoading) return <div className="min-h-screen bg-(--c-b-ffffff)" />;
   if (!isAuthenticated) return <AuthScreen />;
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <CommandPalette />
+    </>
+  );
 }
 
 const inputCls =

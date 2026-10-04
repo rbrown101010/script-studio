@@ -47,7 +47,7 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
   useEffect(() => {
     if (!onClose) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+      if (e.key !== "Escape" || document.querySelector("[data-command-palette]")) return;
       const s = ui.current;
       const busy =
         Object.keys((s.selectedElementIds as object) ?? {}).length > 0 ||
