@@ -205,7 +205,7 @@ export const getForAgent = internalQuery({
 const level = v.optional(v.union(v.literal("s"), v.literal("m"), v.literal("l"), v.literal("xl")));
 const num = v.optional(v.number());
 export const boardItem = v.union(
-  v.object({ type: v.literal("text"), id: v.optional(v.string()), text: v.string(), size: level, color: v.optional(v.string()), x: num, y: num, link: v.optional(v.string()) }),
+  v.object({ type: v.literal("text"), id: v.optional(v.string()), text: v.string(), size: level, fontSize: num, color: v.optional(v.string()), x: num, y: num, link: v.optional(v.string()) }),
   v.object({
     type: v.literal("shape"),
     id: v.optional(v.string()),
@@ -226,6 +226,8 @@ const drawOptions = {
   layout: v.optional(v.union(v.literal("auto"), v.literal("flow"), v.literal("row"), v.literal("column"), v.literal("grid"))),
   direction: v.optional(v.union(v.literal("right"), v.literal("down"))),
   placement: v.optional(v.union(v.literal("right"), v.literal("below"))),
+  /** Copy the look of another board (id or link) */
+  styleFrom: v.optional(v.string()),
 };
 
 /** Saves a changed scene and its new AI summary */
@@ -237,7 +239,14 @@ async function store(ctx: MutationCtx, b: Doc<"boards">, elements: unknown[], fi
   return { id: b._id, url: `${process.env.SITE_URL ?? ""}/b/${b._id}`, summary };
 }
 
-async function addItems(ctx: MutationCtx, b: Doc<"boards">, items: Item[], opts: Options) {
+async function addItems(ctx: MutationCtx, b: Doc<"boards">, items: Item[], { styleFrom, ...rest }: Omit<Options, "styleFrom"> & { styleFrom?: string }) {
+  let opts: Options = rest;
+  if (styleFrom) {
+    const sid = boardIdOf(ctx, styleFrom);
+    const src = sid ? await ctx.db.get(sid) : null;
+    if (!src) throw new ConvexError("styleFrom board not found. Use list_boards for ids.");
+    opts = { ...rest, styleFrom: JSON.parse(src.elements) };
+  }
   if (items.length > 300) throw new ConvexError("At most 300 items at once");
   for (const it of items) if ((it.type === "image" || ("link" in it && it.link)) && !/^https?:\/\//i.test(it.type === "image" ? it.url : (it as { link: string }).link)) throw new ConvexError("Links and image URLs must start with http:// or https://");
   const existing = JSON.parse(b.elements) as Parameters<typeof draw>[1];

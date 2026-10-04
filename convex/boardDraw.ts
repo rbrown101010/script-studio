@@ -6,7 +6,7 @@
 type El = Record<string, any> & { id: string; type: string; x: number; y: number; width: number; height: number };
 
 export type Item =
-  | { type: "text"; id?: string; text: string; size?: "s" | "m" | "l" | "xl"; color?: string; x?: number; y?: number; link?: string }
+  | { type: "text"; id?: string; text: string; size?: "s" | "m" | "l" | "xl"; fontSize?: number; color?: string; x?: number; y?: number; link?: string }
   | {
       type: "shape";
       id?: string;
@@ -30,6 +30,8 @@ export type Options = {
   direction?: "right" | "down";
   /** Where the new group goes relative to what's there; defaults to the board's direction */
   placement?: "right" | "below";
+  /** Another board's elements to copy the style from ("in the style of my X board") */
+  styleFrom?: El[];
 };
 
 /** Named colors → Excalidraw's palette (background fill and a matching stroke) */
@@ -352,7 +354,9 @@ type Node = { key: string; parts: El[]; w: number; h: number; sticky?: boolean; 
  * which get the arrow added to their boundElements and a version bump).
  */
 export function draw(items: Item[], existing: El[], opts: Options = {}) {
-  const s = styleProfile(existing);
+  // The look comes from this board, or from another board when asked; placement always from this one
+  const own = styleProfile(existing);
+  const s = opts.styleFrom ? { ...styleProfile(opts.styleFrom), bounds: own.bounds, hasContent: own.hasContent } : own;
   const live = existing.filter((e) => !e.isDeleted);
   const byId = new Map(live.map((e) => [e.id, e]));
   const labelOf = (e: El) => {
@@ -374,9 +378,13 @@ export function draw(items: Item[], existing: El[], opts: Options = {}) {
     const key = it.id ?? `#${i}`;
     let node: Node;
     if (it.type === "text") {
-      const fontSize = it.size ? (it.size === "xl" || it.size === "l" ? Math.max(FONT_SIZE[it.size], s.headingSize) : FONT_SIZE[it.size]) : s.fontSize;
+      // xl = the board's heading size, l = a subheading between that and the text size
+      const sub = Math.round(s.fontSize + (s.headingSize - s.fontSize) * 0.6);
+      const fontSize =
+        it.fontSize ??
+        (it.size === "xl" ? Math.max(FONT_SIZE.xl, s.headingSize) : it.size === "l" ? Math.max(FONT_SIZE.l, sub) : it.size ? FONT_SIZE[it.size] : s.fontSize);
       const c = colorOf(it.color);
-      const t = textEl(wrap(it.text, it.size === "xl" ? 40 : 60), 0, 0, fontSize, s, c ? { strokeColor: c.stroke } : {});
+      const t = textEl(it.x !== undefined ? it.text : wrap(it.text, it.size === "xl" ? 40 : 60), 0, 0, fontSize, s, c ? { strokeColor: c.stroke } : {});
       if (it.link) t.link = it.link;
       node = { key, parts: [t], w: t.width, h: t.height, heading: it.size === "l" || it.size === "xl" };
     } else if (it.type === "image") {

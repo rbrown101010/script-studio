@@ -74,6 +74,8 @@ How to draw boards that look like Riley's:
    decisions, ellipse for start/end, dashed arrows for "maybe".
 5. Brainstorms: stickies (they go in a grid). Lists: text items in a column.
 6. To change existing things use edit_board with ids from get_board items; don't redraw them.
+7. A new board that should look like another one: create_board with styleFrom set to that board's id. For layouts
+   the auto layout can't do (panels with notes inside), give items x/y (relative to the group's start) and width/height.
 Boards can sit inside a script as a board line. get_script already includes each one's summary, so you can read a
 script and its boards together. To put a board in a script, add a line {"type":"board","text":"<board id or /b/<id> link>"}
 with edit_lines or edit_script.

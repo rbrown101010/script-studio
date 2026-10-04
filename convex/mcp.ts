@@ -49,7 +49,8 @@ const boardItemArg = {
     text: { type: "string", description: "text and sticky: the words (\\n for new lines)" },
     label: { type: "string", description: "shape: the words inside it" },
     shape: { type: "string", enum: ["rectangle", "ellipse", "diamond"], description: "shape: defaults to the board's usual shape" },
-    size: { type: "string", enum: ["s", "m", "l", "xl"], description: "text: l/xl for headings; defaults to the board's text size" },
+    size: { type: "string", enum: ["s", "m", "l", "xl"], description: "text: xl = the board's heading size, l = subheading; defaults to the board's text size" },
+    fontSize: { type: "number", description: "text: exact font size (overrides size)" },
     color: colorArg,
     from: { type: "string", description: "arrow: item id, element id, or the label of something on the board" },
     to: { type: "string", description: "arrow: item id, element id, or the label of something on the board" },
@@ -67,6 +68,7 @@ const drawOptionArgs = {
   layout: { type: "string", enum: ["auto", "flow", "row", "column", "grid"], description: "auto = flowchart when there are arrows, grid for stickies, else a row/column" },
   direction: { type: "string", enum: ["right", "down"], description: "Which way a flowchart runs; defaults to the board's direction" },
   placement: { type: "string", enum: ["right", "below"], description: "Where the group goes next to what's there; defaults to the board's direction" },
+  styleFrom: { type: "string", description: "Draw in the style of another board (its id or link), e.g. for a new board that should look like an existing one" },
 };
 /** One researched topic (see Topic opportunities in the guide) */
 const topicArg = {
