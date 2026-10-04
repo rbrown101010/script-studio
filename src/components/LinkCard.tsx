@@ -42,20 +42,22 @@ export function LinkCard({
 }) {
   const tweetId = tweetIdOf(url);
   const platform = socialPlatformOf(url);
-  if (compact) return <CompactCard url={url} tweetId={tweetId} platform={platform} plain={plain} />;
+  if (compact) return <CompactCard url={url} plain={plain} />;
   if (tweetId) return <TweetCard id={tweetId} url={url} inert={inert} />;
   return platform ? <SocialCard url={url} platform={platform} inert={inert} /> : null;
 }
 
-/** A small one-row card (thumbnail, who, two lines of text) so comment threads stay short. */
-function CompactCard({ url, tweetId, platform, plain }: { url: string; tweetId: string | null; platform: SocialPlatform | null; plain?: boolean }) {
+/** Thumbnail, author and a line of text for a social link, fetching it once if it isn't cached yet. */
+export function useLinkSummary(url: string | null) {
+  const tweetId = tweetIdOf(url);
+  const platform = socialPlatformOf(url);
   const tweet = useQuery(api.links.tweet, tweetId ? { id: tweetId } : "skip");
-  const prev = useQuery(api.links.preview, !tweetId && platform ? { url } : "skip");
+  const prev = useQuery(api.links.preview, url && !tweetId && platform ? { url } : "skip");
   const fetchTweet = useAction(api.links.fetchTweet);
   const fetchPreview = useAction(api.links.fetchPreview);
   const asked = useRef(false);
   useEffect(() => {
-    if (asked.current) return;
+    if (asked.current || !url) return;
     if (tweetId && tweet && (tweet.status === "missing" || (tweet.status === "ok" && tweet.stale))) {
       asked.current = true;
       void fetchTweet({ id: tweetId });
@@ -68,19 +70,28 @@ function CompactCard({ url, tweetId, platform, plain }: { url: string; tweetId: 
 
   let thumb: string | null = null;
   let who = "";
-  let text = shortUrl(url);
-  let label = tweetId ? "X" : platform ? PLATFORM_NAMES[platform] : "";
+  let text = url ? shortUrl(url) : "";
+  let video = false;
+  const label = tweetId ? "X" : platform ? PLATFORM_NAMES[platform] : "Link";
   if (tweet?.status === "ok") {
     const t = tweet.card;
     thumb = t.media.find((m) => m.type === "photo")?.url ?? t.media[0]?.thumbnail ?? t.avatarUrl;
+    video = !t.media.some((m) => m.type === "photo") && t.media.length > 0;
     who = `${t.authorName} @${t.authorHandle}`;
     text = t.text || text;
   } else if (prev?.status === "ok") {
     thumb = prev.card.image;
+    video = prev.card.video;
     who = prev.card.author;
     text = prev.card.title || prev.card.description || text;
   }
-  if (!label) label = "Link";
+  const loading = (!!tweetId && (!tweet || tweet.status === "missing")) || (!tweetId && !!platform && (!prev || prev.status === "missing"));
+  return { thumb, who, text, label, platform, video, loading };
+}
+
+/** A small one-row card (thumbnail, who, two lines of text) so comment threads stay short. */
+function CompactCard({ url, plain }: { url: string; plain?: boolean }) {
+  const { thumb, who, text, label } = useLinkSummary(url);
   const body = (
     <>
       <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-md bg-(--c-b-f1f1ef) text-[11px] font-semibold text-(--c-t-6b6b6b)">

@@ -6,7 +6,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { uploadToUrl } from "@/lib/upload";
 import { linkify } from "./Brief";
-import { LinkCard, OpenLink, hasLinkCard } from "./LinkCard";
+import { LinkCard, OpenLink, hasLinkCard, useLinkSummary } from "./LinkCard";
 import { IconSearch, IconTrash, IconUpload, IconX } from "./icons";
 
 export type Idea = {
@@ -122,14 +122,37 @@ export function Mymind() {
             ))}
           </div>
         ) : (
-          <div className="mx-auto flex max-w-[860px] flex-col gap-3">
-            {!debounced && !onlyBookmarked && <AddIdea />}
-            {(ideas ?? []).map((i) => (
-              <IdeaRow key={i.id} idea={i} onOpen={() => setOpen(i)} />
-            ))}
+          <div className="mx-auto max-w-[760px]">
+            {!debounced && !onlyBookmarked && (
+              <div className="mb-6">
+                <AddIdea />
+              </div>
+            )}
+            <div className="-mx-2.5 flex flex-col gap-1 sm:-mx-3">
+              {ideas === undefined
+                ? [0, 1, 2, 3].map((n) => <IdeaRowSkeleton key={n} />)
+                : ideas.map((i) => <IdeaRow key={i.id} idea={i} onOpen={() => setOpen(i)} />)}
+            </div>
+            {ideas && ideas.length === 0 && (
+              <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-(--c-l-e0e0dd) px-6 py-12 text-center">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-(--c-b-ffffff) text-(--c-t-8a8a8a) ring-1 ring-(--c-l-e8e8e5)">
+                  {debounced ? <IconSearch /> : onlyBookmarked ? <BookmarkIcon /> : <NoteIcon />}
+                </span>
+                <p className="m-0 mt-3 text-[15px] font-medium text-(--c-t-1b1b1b)">
+                  {debounced ? `Nothing matches "${debounced}"` : onlyBookmarked ? "No bookmarks yet" : "Nothing saved yet"}
+                </p>
+                <p className="m-0 mt-1 max-w-[340px] text-[13px] leading-[1.5] text-(--c-t-737373)">
+                  {debounced
+                    ? "Try a different word, or clear the search to see everything."
+                    : onlyBookmarked
+                      ? "Hover over an idea and press the bookmark on its right to keep it here."
+                      : "Paste a link, drop an image or write a note above."}
+                </p>
+              </div>
+            )}
           </div>
         )}
-        {ideas && ideas.length === 0 && (
+        {layout === "grid" && ideas && ideas.length === 0 && (
           <p className="mt-10 text-center text-[14px] text-(--c-t-737373)">
             {debounced
               ? `Nothing matches "${debounced}".`
@@ -337,36 +360,121 @@ export function IdeaCard({ idea, onOpen }: { idea: Idea; onOpen: () => void }) {
   );
 }
 
+const KIND_LABEL: Record<Idea["kind"], string> = { tweet: "Post", video: "Video", image: "Image", link: "Link", note: "Note" };
+
 export function IdeaRow({ idea, onOpen }: { idea: Idea; onOpen: () => void }) {
-  const hasPreview = idea.kind !== "note";
+  const social = idea.url && hasLinkCard(idea.url) ? idea.url : null;
+  const link = useLinkSummary(social);
+  const note = idea.note.trim();
+  const source = social ? link.label : idea.url ? hostOf(idea.url) : KIND_LABEL[idea.kind];
+  const who = social ? link.who : idea.kind === "note" ? "" : idea.authorName ?? "";
+  // The note is the headline; without one, what was saved stands in for it
+  const fallback = social ? link.text : idea.url ? idea.url.replace(/^https?:\/\/(www\.)?/, "") : idea.kind === "image" ? "Untitled image" : idea.kind === "video" ? "Untitled video" : "";
+  const title = note || fallback;
+  const excerpt = note && social && !link.loading ? link.text : "";
+  const original = idea.url ?? idea.fileUrl;
   return (
     <article
       role="button"
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && onOpen()}
-      className="group/card flex cursor-pointer flex-col gap-4 overflow-hidden rounded-2xl bg-(--c-b-ffffff) p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-(--c-l-e8e8e5) hover:ring-(--c-l-d9d9d6) sm:flex-row"
+      className="group/card relative flex cursor-pointer items-start gap-3.5 rounded-2xl px-2.5 py-2.5 outline-none transition-colors hover:bg-(--c-b-ffffff) hover:shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:ring-1 hover:ring-(--c-l-e8e8e5) focus-visible:bg-(--c-b-ffffff) focus-visible:ring-1 focus-visible:ring-(--c-l-2358d8) sm:gap-4 sm:px-3"
     >
-      {hasPreview && (
-        <div className="max-h-[220px] w-full shrink-0 overflow-hidden rounded-xl sm:w-[300px]">
-          <Preview idea={idea} inert />
+      <RowThumb idea={idea} thumb={social ? link.thumb : null} video={social ? link.video : idea.kind === "video"} loading={!!social && link.loading} />
+      <div className="min-w-0 flex-1 py-0.5">
+        <div className="flex min-w-0 items-center gap-1.5 text-[12px] text-(--c-t-8a8a8a)">
+          <span className="shrink-0 font-medium text-(--c-t-4a4a4a)">{source}</span>
+          {who && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="truncate">{who}</span>
+            </>
+          )}
         </div>
-      )}
-      <div className="relative min-w-0 flex-1 py-1 pr-8">
-        <span className="absolute -right-1 bottom-0">
-          <BookmarkButton idea={idea} />
-        </span>
-        {idea.note.trim() ? (
-          <p className="m-0 line-clamp-6 whitespace-pre-wrap break-words text-[15px] leading-[1.55] text-(--c-t-2e2e2e)">{idea.note}</p>
+        {social && link.loading && !note ? (
+          <div className="mt-2 space-y-1.5" aria-hidden="true">
+            <div className="h-3 w-4/5 animate-pulse rounded bg-(--c-b-ececea)" />
+            <div className="h-3 w-1/2 animate-pulse rounded bg-(--c-b-f1f1ef)" />
+          </div>
         ) : (
-          <p className="m-0 text-[14px] text-(--c-t-9a9a9a)">No note</p>
+          <p
+            className={`m-0 mt-0.5 line-clamp-2 whitespace-pre-wrap break-words text-[15px] leading-[1.45] ${
+              note ? "font-medium text-(--c-t-1b1b1b)" : idea.url && !social ? "text-(--c-t-2358d8)" : "text-(--c-t-2e2e2e)"
+            }`}
+          >
+            {title}
+          </p>
         )}
-        <div className="mt-2 text-[12px] text-(--c-t-9a9a9a)">
-          {addedOn(idea.createdAt)}
-          {idea.url && ` · ${hostOf(idea.url)}`}
-        </div>
+        {excerpt && <p className="m-0 mt-1 line-clamp-1 break-words text-[13px] leading-[1.45] text-(--c-t-737373)">{excerpt}</p>}
+      </div>
+      <div className="flex shrink-0 items-center gap-0.5 self-center">
+        <span className="hidden pr-1.5 text-[12px] tabular-nums text-(--c-t-9a9a9a) sm:inline">{addedOn(idea.createdAt)}</span>
+        {original ? (
+          <a
+            href={original}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            aria-label="Open original"
+            title="Open original"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-(--c-t-8a8a8a) opacity-0 transition-opacity hover:bg-(--c-b-f4f4f2) hover:text-(--c-t-1b1b1b) focus-visible:opacity-100 group-hover/card:opacity-100 pointer-coarse:hidden"
+          >
+            <OpenIcon />
+          </a>
+        ) : (
+          <span className="h-8 w-8 pointer-coarse:hidden" aria-hidden="true" />
+        )}
+        <BookmarkButton idea={idea} />
       </div>
     </article>
+  );
+}
+
+/** A fixed-size square so every row lines up, whatever was saved. */
+function RowThumb({ idea, thumb, video, loading }: { idea: Idea; thumb: string | null; video: boolean; loading: boolean }) {
+  const box = "relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl ring-1 ring-(--c-l-e8e8e5) sm:h-16 sm:w-16";
+  let media: React.ReactNode = null;
+  if (idea.kind === "image" && (idea.fileUrl ?? idea.url))
+    // eslint-disable-next-line @next/next/no-img-element
+    media = <img src={(idea.fileUrl ?? idea.url)!} alt="" loading="lazy" className="h-full w-full object-cover" />;
+  else if (idea.kind === "video" && idea.fileUrl) media = <video src={`${idea.fileUrl}#t=0.1`} muted playsInline preload="metadata" className="h-full w-full object-cover" />;
+  else if (thumb)
+    // eslint-disable-next-line @next/next/no-img-element
+    media = <img src={thumb} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />;
+  if (media)
+    return (
+      <div className={`${box} bg-(--c-b-ececea)`}>
+        {media}
+        {video && (
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white">
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" aria-hidden="true">
+                <path d="M8 5.5v13l11-6.5z" />
+              </svg>
+            </span>
+          </span>
+        )}
+      </div>
+    );
+  if (loading) return <div className={`${box} animate-pulse bg-(--c-b-ececea)`} aria-hidden="true" />;
+  return (
+    <div className={`${box} bg-(--c-b-f4f4f2) text-(--c-t-8a8a8a)`} aria-hidden="true">
+      {idea.url && idea.kind !== "note" ? <LinkIcon /> : <NoteIcon />}
+    </div>
+  );
+}
+
+function IdeaRowSkeleton() {
+  return (
+    <div className="flex items-center gap-3.5 px-2.5 py-2.5 sm:gap-4 sm:px-3" aria-hidden="true">
+      <div className="h-14 w-14 shrink-0 animate-pulse rounded-xl bg-(--c-b-ececea) sm:h-16 sm:w-16" />
+      <div className="flex-1 space-y-2">
+        <div className="h-2.5 w-20 animate-pulse rounded bg-(--c-b-ececea)" />
+        <div className="h-3 w-3/4 animate-pulse rounded bg-(--c-b-ececea)" />
+        <div className="h-3 w-2/5 animate-pulse rounded bg-(--c-b-f1f1ef)" />
+      </div>
+    </div>
   );
 }
 
@@ -523,6 +631,32 @@ function GridIcon() {
       <rect x="9.25" y="2.25" width="4.5" height="4" rx="1.2" />
       <rect x="2.25" y="11.25" width="4.5" height="2.5" rx="1.2" />
       <rect x="9.25" y="8.75" width="4.5" height="5" rx="1.2" />
+    </svg>
+  );
+}
+
+function OpenIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 3.5H3.5v9h9V10M9 2.5h4.5V7M13.5 2.5 7 9" />
+    </svg>
+  );
+}
+
+function NoteIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 2.25h5.5L12.75 5.5v8.25H4z" />
+      <path d="M6 8h4.5M6 10.5h3" />
+    </svg>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6.75 9.25a2.6 2.6 0 0 0 3.7 0l2.1-2.1a2.6 2.6 0 0 0-3.7-3.7l-.6.6" />
+      <path d="M9.25 6.75a2.6 2.6 0 0 0-3.7 0l-2.1 2.1a2.6 2.6 0 0 0 3.7 3.7l.6-.6" />
     </svg>
   );
 }
