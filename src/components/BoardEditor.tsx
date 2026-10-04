@@ -45,6 +45,17 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
   useDocumentTitle(onClose ? null : board === null ? "Board not found" : (title ?? initial?.title ?? null));
   const [state, setState] = useState<"saved" | "saving" | "error">("saved");
   const dark = useIsDark();
+  // Phone layout: the same breakpoint Excalidraw uses for its own phone UI
+  const [phone, setPhone] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 599px), (max-height: 499px) and (max-width: 1000px)");
+    const update = () => setPhone(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  /** What's selected right now (drives the phone action bar) */
+  const [picked, setPicked] = useState({ count: 0, styleOpen: false });
   /** Excalidraw's latest view state, so Esc only closes when it isn't busy with a tool, selection or menu */
   const ui = useRef<Record<string, unknown>>({});
   useEffect(() => {
@@ -164,6 +175,9 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
 
   const onChange = (elements: readonly El[], appState: Record<string, unknown>, map: Record<string, BinaryFile>) => {
     ui.current = appState;
+    const count = appState.editingTextElement ? 0 : Object.keys((appState.selectedElementIds as object) ?? {}).length;
+    const styleOpen = appState.openMenu === "shape";
+    if (count !== picked.count || styleOpen !== picked.styleOpen) setPicked({ count, styleOpen });
     if (readOnly) return;
     // Cheap change check: element versions and the background
     const key = `${elements.length}:${elements.reduce((n, e) => n + e.version, 0)}:${String(appState.viewBackgroundColor)}:${files.current.length}`;
@@ -205,7 +219,11 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
 
   // A small floating control instead of a bar: back (or Done), the title, and a save dot, beside Excalidraw's own buttons
   const controls = (
-    <div className="nn-board-controls flex h-(--lg-button-size) items-center gap-0.5 rounded-lg bg-(--island-bg-color) px-1 shadow-(--shadow-island)">
+    <div
+      className={`nn-board-controls flex items-center gap-0.5 ${
+        phone ? "h-11 shrink-0 border-b border-(--c-l-ebebeb) bg-(--c-b-ffffff) px-1.5 [&_input]:flex-1" : "h-(--lg-button-size) rounded-lg bg-(--island-bg-color) px-1 shadow-(--shadow-island)"
+      }`}
+    >
       {onClose ? null : (
         <Link
           href="/?view=boards"
@@ -261,14 +279,17 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
 
   return (
     <div className={`nn-board flex flex-col bg-(--c-b-ffffff) ${onClose ? "h-full" : "h-dvh"}`}>
-      <div className="min-h-0 flex-1">
+      {/* Phones: the title row sits above the canvas so Excalidraw's toolbar gets the full width */}
+      {phone && controls}
+      <div className="relative min-h-0 flex-1">
+        {phone && !readOnly && picked.count > 0 && <PhoneActions api={excalidraw} styleOpen={picked.styleOpen} />}
         {initial && (
           <Excalidraw
             theme={dark ? "dark" : "light"}
             name={initial.title}
             viewModeEnabled={readOnly}
             excalidrawAPI={(api) => (excalidraw.current = api)}
-            renderTopRightUI={() => controls}
+            renderTopRightUI={() => (phone ? null : controls)}
             initialData={{
               elements: JSON.parse(initial.elements),
               appState: { ...JSON.parse(initial.appState || "{}"), collaborators: new Map() },
@@ -286,3 +307,76 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
   );
 }
 
+
+/**
+ * Phones: big, labelled buttons for whatever is selected, above Excalidraw's bottom bar. Style opens Excalidraw's
+ * own style panel; Duplicate and Delete use Excalidraw's own actions (so undo works); Front/Back reorder;
+ * More opens the full menu (copy, paste, group, lock, flip, link…), the same as a long press.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function PhoneActions({ api, styleOpen }: { api: React.RefObject<any>; styleOpen: boolean }) {
+  const click = (selector: string) => document.querySelector<HTMLButtonElement>(`.nn-board .App-toolbar-content ${selector}`)?.click();
+  const reorder = async (toFront: boolean) => {
+    const a = api.current;
+    if (!a) return;
+    const { CaptureUpdateAction } = await import("@excalidraw/excalidraw");
+    const all = a.getSceneElementsIncludingDeleted() as { id: string; containerId?: string | null }[];
+    const pick = new Set(Object.keys(a.getAppState().selectedElementIds ?? {}));
+    for (const e of all) if (e.containerId && pick.has(e.containerId)) pick.add(e.id);
+    const moving = all.filter((e) => pick.has(e.id));
+    const rest = all.filter((e) => !pick.has(e.id));
+    a.updateScene({ elements: toFront ? [...rest, ...moving] : [...moving, ...rest], captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+  };
+  const more = () => {
+    const a = api.current;
+    if (!a) return;
+    const st = a.getAppState();
+    const sel = (a.getSceneElements() as { id: string; x: number; y: number; width: number; height: number }[]).filter((e) => st.selectedElementIds?.[e.id]);
+    if (!sel.length) return;
+    const minX = Math.min(...sel.map((e) => e.x));
+    const minY = Math.min(...sel.map((e) => e.y));
+    const maxX = Math.max(...sel.map((e) => e.x + e.width));
+    const x = ((minX + maxX) / 2 + st.scrollX) * st.zoom.value + st.offsetLeft;
+    const y = (minY + st.scrollY) * st.zoom.value + st.offsetTop + 8;
+    const canvas = document.querySelector(".nn-board canvas.interactive") ?? document.querySelectorAll(".nn-board .excalidraw canvas")[1];
+    canvas?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: x, clientY: Math.max(60, y) }));
+  };
+  const btn = "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl py-1.5 text-[11px] font-medium text-(--c-t-4a4a4a) active:bg-(--c-b-f1f1ef)";
+  const icon = (d: React.ReactNode) => (
+    <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {d}
+    </svg>
+  );
+  return (
+    <div
+      role="toolbar"
+      aria-label="Selected"
+      className="absolute inset-x-2 bottom-[calc(env(safe-area-inset-bottom)+68px)] z-10 flex items-stretch gap-0.5 rounded-2xl bg-(--c-b-ffffff) p-1 shadow-[0_0_0_1px_var(--c-l-e3e3e0),0_8px_28px_rgba(0,0,0,0.18)] animate-[board-pop_180ms_cubic-bezier(0.2,0,0,1)_both]"
+    >
+      <button type="button" onClick={() => click('button[aria-label="Edit"]')} aria-pressed={styleOpen} className={`${btn} ${styleOpen ? "bg-(--c-b-f1f1ef) text-(--c-t-1b1b1b)" : ""}`}>
+        {icon(<><circle cx="10" cy="10" r="7" /><circle cx="7" cy="8" r="1" fill="currentColor" /><circle cx="11" cy="6.5" r="1" fill="currentColor" /><circle cx="13.5" cy="10" r="1" fill="currentColor" /><path d="M10 17a2 2 0 0 1 0-4h1" /></>)}
+        Style
+      </button>
+      <button type="button" onClick={() => click('button[aria-label="Duplicate"]')} className={btn}>
+        {icon(<><rect x="6.5" y="6.5" width="10" height="10" rx="2" /><path d="M13.5 6.5V5a1.5 1.5 0 0 0-1.5-1.5H5A1.5 1.5 0 0 0 3.5 5v7A1.5 1.5 0 0 0 5 13.5h1.5" /></>)}
+        Duplicate
+      </button>
+      <button type="button" onClick={() => void reorder(true)} className={btn}>
+        {icon(<><rect x="7" y="7" width="9.5" height="9.5" rx="1.5" fill="currentColor" fillOpacity="0.25" /><path d="M3.5 12.5v-7a2 2 0 0 1 2-2h7" /></>)}
+        Front
+      </button>
+      <button type="button" onClick={() => void reorder(false)} className={btn}>
+        {icon(<><rect x="3.5" y="3.5" width="9.5" height="9.5" rx="1.5" /><path d="M16.5 7.5v7a2 2 0 0 1-2 2h-7" strokeDasharray="2 2" /></>)}
+        Back
+      </button>
+      <button type="button" onClick={() => click('button[aria-label="Delete"]')} className={`${btn} text-[#e03131]!`}>
+        {icon(<><path d="M4 6h12M8 6V4.5h4V6M6 6l.7 10h6.6L14 6" /></>)}
+        Delete
+      </button>
+      <button type="button" onClick={more} className={btn}>
+        {icon(<><circle cx="5" cy="10" r="1.2" fill="currentColor" /><circle cx="10" cy="10" r="1.2" fill="currentColor" /><circle cx="15" cy="10" r="1.2" fill="currentColor" /></>)}
+        More
+      </button>
+    </div>
+  );
+}

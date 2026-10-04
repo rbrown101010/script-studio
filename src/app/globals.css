@@ -83,3 +83,14 @@ body {
 .nn-board .excalidraw .HintViewer {
   display: none;
 }
+
+/* Boards on phones: the selected-item buttons live in our own action bar, so Excalidraw's tiny copies are hidden */
+.nn-board .excalidraw--mobile .App-toolbar-content > button[aria-label="Edit"],
+.nn-board .excalidraw--mobile .App-toolbar-content > button[aria-label="Duplicate"],
+.nn-board .excalidraw--mobile .App-toolbar-content > button[aria-label="Delete"] {
+  display: none;
+}
+/* …and the style panel scrolls clear of that action bar */
+.nn-board .excalidraw--mobile .App-mobile-menu {
+  padding-bottom: 76px;
+}
