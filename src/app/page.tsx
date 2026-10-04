@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -275,6 +276,9 @@ function ScriptList() {
   const [creating, setCreating] = useState(false);
   const mobile = useIsMobile();
   const [view, setView] = useState<View>("list");
+  useDocumentTitle(
+    { list: "Scripts", calendar: "Calendar", feed: "Feed", mymind: "Mymind", library: "Library", tweet: "Tweet", brands: "Brand deals", boards: "Excalidraw", topics: "Topic opportunities" }[view],
+  );
   /** The status / sponsorship / format filters only show after pressing Filter */
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);

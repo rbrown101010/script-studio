@@ -1,6 +1,7 @@
 "use client";
 
 import "@excalidraw/excalidraw/index.css";
+import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import { useMutation } from "convex/react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -40,6 +41,8 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
     if (board !== undefined && initial === undefined) setInitial(board);
   }, [board, initial]);
   const [title, setTitle] = useState<string | null>(null);
+  // On a script (opened over it) the tab keeps the script's name
+  useDocumentTitle(onClose ? null : board === null ? "Board not found" : (title ?? initial?.title ?? null));
   const [state, setState] = useState<"saved" | "saving" | "error">("saved");
   const dark = useIsDark();
   /** Excalidraw's latest view state, so Esc only closes when it isn't busy with a tool, selection or menu */

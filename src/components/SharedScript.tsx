@@ -90,7 +90,7 @@ export function SharedScript({ slug }: { slug: string }) {
   );
 
   useEffect(() => {
-    if (shared?.video) document.title = `${shared.video.title || "Untitled script"} · Native Note`;
+    if (shared?.video) document.title = shared.video.title || "Untitled script";
   }, [shared?.video]);
 
   // Same browser session: pick up an earlier edit

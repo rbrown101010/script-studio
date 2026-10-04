@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
+import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -70,6 +71,7 @@ export function VideoEditor({ id }: { id: string }) {
   const removeDoc = useMutation(api.docs.remove);
 
   const [meta, setMeta] = useState<Meta | null>(null);
+  useDocumentTitle(meta ? meta.title || "Untitled script" : null);
   const [mainId, setMainId] = useState<string | null>(null);
   const [insId, setInsId] = useState<string | null>(null);
   const [mainBlocks, setMainBlocks] = useState<Block[] | null>(null);
