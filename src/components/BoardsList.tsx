@@ -2,10 +2,12 @@
 
 import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { IconPlus, IconTrash } from "./icons";
+import { useBoardData, useIsDark } from "@/lib/boardSource";
+import { BoardDrawing } from "./BoardBlock";
+import { IconBoard, IconPlus, IconTrash } from "./icons";
 
 const ago = (t: number) => {
   const d = new Date(t);
@@ -33,7 +35,7 @@ export function BoardsList() {
   };
 
   return (
-    <div className="mx-auto max-w-[1080px]">
+    <div className="mx-auto max-w-[760px]">
       <div className="mb-6 flex items-center gap-3">
         <h1 className="m-0 flex-1 text-[28px] font-semibold tracking-[-0.015em] text-(--c-t-1b1b1b)">Excalidraw</h1>
         <button
@@ -47,50 +49,84 @@ export function BoardsList() {
         </button>
       </div>
       {!boards ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="h-[150px] animate-pulse rounded-2xl bg-(--c-b-ececea)" />
+        <div className="flex flex-col gap-4">
+          {Array.from({ length: 3 }, (_, i) => (
+            <div key={i} className="h-[288px] animate-pulse rounded-2xl bg-(--c-b-ececea)" />
           ))}
         </div>
       ) : boards.length === 0 ? (
         <p className="mt-16 text-center text-[14px] text-(--c-t-8a8a8a)">No boards yet. Start one with New board.</p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {boards.map((b) => {
-            // The summary's text lines make a quick preview of what's on the board
-            const preview = b.summary
-              .split("\n")
-              .filter((l) => l.startsWith("- "))
-              .slice(0, 4)
-              .map((l) => l.slice(2));
-            return (
-              <div key={b.id} className="group relative">
-                <button
-                  type="button"
-                  onClick={() => router.push(`/b/${b.id}`)}
-                  className="flex h-full min-h-[150px] w-full flex-col gap-2 rounded-2xl bg-(--c-b-ffffff) p-4 text-left ring-1 ring-(--c-l-e3e3e0) transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)]"
-                >
-                  <span className="truncate pr-8 text-[15px] font-medium text-(--c-t-1b1b1b)">{b.title}</span>
-                  <span className="flex flex-1 flex-col gap-0.5 text-[13px] leading-[1.45] text-(--c-t-737373)">
-                    {preview.length ? preview.map((l, i) => <span key={i} className="truncate">{l}</span>) : <span className="text-(--c-t-9a9a9a)">{b.elementCount ? `${b.elementCount} shapes` : "Empty"}</span>}
-                  </span>
-                  <span className="text-[12px] text-(--c-t-9a9a9a)">{ago(b.updatedAt)}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm(`Delete "${b.title}"? This can't be undone.`)) void remove({ id: b.id as Id<"boards"> });
-                  }}
-                  aria-label={`Delete ${b.title}`}
-                  className="absolute right-2.5 top-2.5 hidden h-7 w-7 items-center justify-center rounded-md text-(--c-t-9a9a9a) hover:bg-(--c-b-f4f4f4) hover:text-(--c-t-b42318) group-hover:flex pointer-coarse:flex"
-                >
-                  <IconTrash size={14} />
-                </button>
-              </div>
-            );
-          })}
+        <div className="flex flex-col gap-4">
+          {boards.map((b) => (
+            <BoardRow
+              key={b.id}
+              board={b}
+              onOpen={() => router.push(`/b/${b.id}`)}
+              onDelete={() => {
+                if (confirm(`Delete "${b.title}"? This can't be undone.`)) void remove({ id: b.id as Id<"boards"> });
+              }}
+            />
+          ))}
         </div>
       )}
+    </div>
+  );
+}
+
+type BoardItem = { id: string; title: string; updatedAt: number; elementCount: number };
+
+/**
+ * One board in the list: its drawing in a frame, like Excalidraw's scene thumbnails, with the title
+ * underneath. The scene only loads once the row scrolls near the screen, so long lists stay quick.
+ */
+function BoardRow({ board, onOpen, onDelete }: { board: BoardItem; onOpen: () => void; onDelete: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || seen) return;
+    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && setSeen(true), { rootMargin: "400px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [seen]);
+
+  return (
+    <div ref={ref} className="group relative">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="block w-full overflow-hidden rounded-2xl bg-(--c-b-ffffff) text-left ring-1 ring-(--c-l-e3e3e0) transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)]"
+      >
+        <div className="flex h-[232px] items-center justify-center overflow-hidden bg-(--c-b-fafaf9) px-4 py-3">
+          {seen ? <RowPreview id={board.id} empty={!board.elementCount} /> : null}
+        </div>
+        <div className="flex items-center gap-2 border-t border-(--c-l-ebebeb) px-4 py-3 text-(--c-t-8a8a8a)">
+          <IconBoard size={14} />
+          <span className="min-w-0 flex-1 truncate pr-8 text-[15px] font-medium text-(--c-t-1b1b1b)">{board.title}</span>
+          <span className="shrink-0 text-[12px] text-(--c-t-9a9a9a)">{ago(board.updatedAt)}</span>
+        </div>
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        aria-label={`Delete ${board.title}`}
+        className="absolute right-2.5 top-2.5 hidden h-7 w-7 items-center justify-center rounded-md bg-(--c-b-ffffff) text-(--c-t-9a9a9a) shadow-sm ring-1 ring-(--c-l-ebebeb) hover:text-(--c-t-b42318) group-hover:flex pointer-coarse:flex"
+      >
+        <IconTrash size={14} />
+      </button>
+    </div>
+  );
+}
+
+function RowPreview({ id, empty }: { id: string; empty: boolean }) {
+  const scene = useBoardData(id);
+  const dark = useIsDark();
+  if (empty) return <span className="text-[13px] text-(--c-t-9a9a9a)">Empty board</span>;
+  if (!scene) return <div className="h-full w-full animate-pulse rounded-xl bg-(--c-b-f4f4f4)" />;
+  return (
+    <div className="w-full">
+      <BoardDrawing scene={scene} maxHeight={206} dark={dark} />
     </div>
   );
 }
