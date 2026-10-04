@@ -2,9 +2,10 @@
 // also writes a plain-text summary of what's on the board (its text, shapes, labels and arrows) so AI can read it.
 
 import { ConvexError, v } from "convex/values";
-import { internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireUser } from "./lib";
+import { describeStyle, draw, edit, itemsOf, styleProfile, type EditOp, type Item, type Options } from "./boardDraw";
 
 const MAX_SCENE = 900_000; // Convex documents top out at 1 MB
 
@@ -188,9 +189,114 @@ export const getForAgent = internalQuery({
       updatedAt: new Date(b.updatedAt).toISOString(),
       url: `${process.env.SITE_URL ?? ""}/b/${b._id}`,
       summary: b.summary,
+      // How it's drawn (colors, stroke, font, sizes, spacing, direction): add_to_board copies this by default
+      style: describeStyle(styleProfile(JSON.parse(b.elements))),
+      // Everything on it with ids, so arrows and edits can point at things
+      items: itemsOf(JSON.parse(b.elements)),
       // The raw Excalidraw elements (positions, sizes, colors, bindings), only when asked: they can be long
-      ...(includeElements ? { elements: JSON.parse(b.elements) } : {}),
+      ...(includeElements ? { elements: (JSON.parse(b.elements) as { isDeleted?: boolean }[]).filter((e) => !e.isDeleted) } : {}),
       images: b.files.map((f) => ({ id: f.id, url: f.url, mimeType: f.mimeType })),
     };
+  },
+});
+
+// ---------- Agents drawing on boards (see boardDraw.ts) ----------
+
+const level = v.optional(v.union(v.literal("s"), v.literal("m"), v.literal("l"), v.literal("xl")));
+const num = v.optional(v.number());
+export const boardItem = v.union(
+  v.object({ type: v.literal("text"), id: v.optional(v.string()), text: v.string(), size: level, color: v.optional(v.string()), x: num, y: num, link: v.optional(v.string()) }),
+  v.object({
+    type: v.literal("shape"),
+    id: v.optional(v.string()),
+    shape: v.optional(v.union(v.literal("rectangle"), v.literal("ellipse"), v.literal("diamond"))),
+    label: v.optional(v.string()),
+    color: v.optional(v.string()),
+    width: num,
+    height: num,
+    x: num,
+    y: num,
+    link: v.optional(v.string()),
+  }),
+  v.object({ type: v.literal("sticky"), id: v.optional(v.string()), text: v.string(), color: v.optional(v.string()), x: num, y: num }),
+  v.object({ type: v.literal("arrow"), id: v.optional(v.string()), from: v.string(), to: v.string(), label: v.optional(v.string()), dashed: v.optional(v.boolean()) }),
+  v.object({ type: v.literal("image"), id: v.optional(v.string()), url: v.string(), width: num, height: num, x: num, y: num }),
+);
+const drawOptions = {
+  layout: v.optional(v.union(v.literal("auto"), v.literal("flow"), v.literal("row"), v.literal("column"), v.literal("grid"))),
+  direction: v.optional(v.union(v.literal("right"), v.literal("down"))),
+  placement: v.optional(v.union(v.literal("right"), v.literal("below"))),
+};
+
+/** Saves a changed scene and its new AI summary */
+async function store(ctx: MutationCtx, b: Doc<"boards">, elements: unknown[], files = b.files, title = b.title) {
+  const json = JSON.stringify(elements);
+  if (json.length + b.appState.length > MAX_SCENE) throw new ConvexError("The board would be too big. Start a new board for this.");
+  const { summary, elementCount } = summarize(title, json);
+  await ctx.db.patch(b._id, { title, elements: json, files, summary, elementCount, updatedAt: Date.now() });
+  return { id: b._id, url: `${process.env.SITE_URL ?? ""}/b/${b._id}`, summary };
+}
+
+async function addItems(ctx: MutationCtx, b: Doc<"boards">, items: Item[], opts: Options) {
+  if (items.length > 300) throw new ConvexError("At most 300 items at once");
+  for (const it of items) if ((it.type === "image" || ("link" in it && it.link)) && !/^https?:\/\//i.test(it.type === "image" ? it.url : (it as { link: string }).link)) throw new ConvexError("Links and image URLs must start with http:// or https://");
+  const existing = JSON.parse(b.elements) as Parameters<typeof draw>[1];
+  let res: ReturnType<typeof draw>;
+  try {
+    res = draw(items, existing, opts);
+  } catch (e) {
+    throw new ConvexError((e as Error).message);
+  }
+  // Nothing already there is lost: existing elements stay, a few get an arrow binding (new version)
+  const changed = new Map(res.changed.map((e) => [e.id, e]));
+  const elements = [...existing.map((e) => changed.get(e.id) ?? e), ...res.added];
+  const saved = await store(ctx, b, elements, [...b.files, ...res.files]);
+  return { ...saved, added: res.added.length, ids: res.ids, styleUsed: describeStyle(res.style) };
+}
+
+export const createForAgent = internalMutation({
+  args: { title: v.string(), items: v.optional(v.array(boardItem)), ...drawOptions, agentName: v.optional(v.string()) },
+  handler: async (ctx, { title, items, agentName: _a, ...opts }) => {
+    const now = Date.now();
+    const t = title.trim().slice(0, 200) || "Untitled board";
+    // Made by an agent, not a signed-in person
+    const id = await ctx.db.insert("boards", { title: t, elements: "[]", appState: "{}", files: [], summary: summarize(t, "[]").summary, elementCount: 0, createdBy: null, createdAt: now, updatedAt: now });
+    const b = (await ctx.db.get(id))!;
+    if (!items?.length) return { id, url: `${process.env.SITE_URL ?? ""}/b/${id}`, added: 0, ids: {} };
+    return addItems(ctx, b, items as Item[], opts);
+  },
+});
+
+export const addForAgent = internalMutation({
+  args: { board: v.string(), items: v.array(boardItem), ...drawOptions, agentName: v.optional(v.string()) },
+  handler: async (ctx, { board, items, agentName: _a, ...opts }) => {
+    const id = boardIdOf(ctx, board);
+    const b = id ? await ctx.db.get(id) : null;
+    if (!b) throw new ConvexError("Board not found. Use list_boards for ids.");
+    return addItems(ctx, b, items as Item[], opts);
+  },
+});
+
+const editOp = v.union(
+  v.object({ op: v.literal("setText"), id: v.string(), text: v.string() }),
+  v.object({ op: v.literal("setColor"), id: v.string(), color: v.string() }),
+  v.object({ op: v.literal("move"), id: v.string(), dx: v.number(), dy: v.number() }),
+  v.object({ op: v.literal("delete"), id: v.string() }),
+);
+
+export const editForAgent = internalMutation({
+  args: { board: v.string(), ops: v.optional(v.array(editOp)), title: v.optional(v.string()), agentName: v.optional(v.string()) },
+  handler: async (ctx, { board, ops, title }) => {
+    const id = boardIdOf(ctx, board);
+    const b = id ? await ctx.db.get(id) : null;
+    if (!b) throw new ConvexError("Board not found. Use list_boards for ids.");
+    if ((ops?.length ?? 0) > 300) throw new ConvexError("At most 300 changes at once");
+    let elements: unknown[];
+    try {
+      elements = edit(JSON.parse(b.elements), (ops ?? []) as EditOp[]);
+    } catch (e) {
+      throw new ConvexError((e as Error).message);
+    }
+    return store(ctx, b, elements, b.files, title !== undefined ? title.trim().slice(0, 200) || "Untitled board" : b.title);
   },
 });

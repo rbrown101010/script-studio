@@ -49,9 +49,31 @@ import many at once (up to 200 per call, e.g. bookmarks); links already saved ar
 each idea saying what it is and why it's worth keeping. Use list_ideas to search what's there.
 
 ## Excalidraw boards
-Riley's whiteboards (the Excalidraw app in Native Note, links look like /b/<id>). Agents can't draw on them: list_boards
-to find one, get_board to read it. The summary lists all text top to bottom, labelled shapes, arrows between shapes
-("A → B") and links; ask for includeElements when you need positions, sizes or colors.
+Riley's whiteboards (the Excalidraw app in Native Note, links look like /b/<id>). list_boards to find one, get_board to
+read it: a summary (all text top to bottom, labelled shapes, arrows "A → B", links), its style, and items (everything
+on it with ids). Agents can draw too:
+- create_board {title, items?} makes a board (and draws on it).
+- add_to_board {board, items} adds to a board and never removes or moves what's there.
+- edit_board {board, ops} changes existing things by id: setText, setColor, move, delete.
+Items are simple; the server makes the real Excalidraw shapes and lays them out:
+  {"type":"text","text":"Launch plan","size":"xl"}               heading (size s/m/l/xl)
+  {"type":"shape","id":"a","label":"Record intro","shape":"rectangle"}   labelled box (rectangle/ellipse/diamond)
+  {"type":"sticky","text":"Idea: open on the result"}            sticky note (yellow unless color is set)
+  {"type":"arrow","from":"a","to":"b","label":"then"}            arrow between new items (your ids) or existing
+                                                                 things (element id, or their label)
+  {"type":"image","url":"https://…/thumb.jpg","width":320}       picture
+How to draw boards that look like Riley's:
+1. Always get_board first. Its style says how the board is drawn (stroke and fill colors, fill style, roughness,
+   corners, font, text and heading sizes, usual box size, spacing, direction). add_to_board copies all of it by
+   default, so leave color and size out unless you mean to differ. Reuse the board's own fill colors for meaning
+   (e.g. the same color for the same kind of thing).
+2. New content goes beside what's there, in the board's direction (to the right for left-to-right boards, below for
+   top-to-bottom). Put one group per call: a heading text first, then its boxes and arrows.
+3. Keep labels short (2-6 words); details go in stickies or a text under the box. One idea per box.
+4. Flows: give every box an id and connect them with arrows; layout auto draws them as a flowchart. Use diamond for
+   decisions, ellipse for start/end, dashed arrows for "maybe".
+5. Brainstorms: stickies (they go in a grid). Lists: text items in a column.
+6. To change existing things use edit_board with ids from get_board items; don't redraw them.
 Boards can sit inside a script as a board line. get_script already includes each one's summary, so you can read a
 script and its boards together. To put a board in a script, add a line {"type":"board","text":"<board id or /b/<id> link>"}
 with edit_lines or edit_script.
@@ -115,7 +137,10 @@ Never invent numbers or videos. Only include view counts you actually saw at tha
 | list_topics {status?, query?, full?} | Topic opportunities, best first |
 | add_topics {topics, agentName?} | Add or refresh researched topics (see "Topic opportunities") |
 | update_topic {topic, status?, notes?, research?} | Change one topic |
-| get_board {board, includeElements?} | Read a board: summary of its text, shapes and arrows |
+| get_board {board, includeElements?} | Read a board: summary, style and items (with ids) |
+| create_board {title, items?, layout?, direction?} | New board, optionally drawn on |
+| add_to_board {board, items, layout?, direction?, placement?} | Draw on a board in its style (never removes anything) |
+| edit_board {board, ops?, title?} | Change existing things by id: setText, setColor, move, delete |
 | create_script {title, format?, status?, liveDate?, sponsored?, lines?, instructions?, brief?, updates?} | New script |
 
 ### edit_lines
@@ -200,6 +225,9 @@ POST /agent/comment                     comment_on_script
 POST /agent/comment/attach              attach_files
 GET  /agent/boards?q=...                list_boards
 GET  /agent/board?board=<id>&elements=1 get_board
+POST /agent/board/create                create_board
+POST /agent/board/add                   add_to_board
+POST /agent/board/edit                  edit_board
 GET  /agent/topics?status=saved&q=...&full=1  list_topics
 POST /agent/topics                      add_topics
 POST /agent/topic                       update_topic

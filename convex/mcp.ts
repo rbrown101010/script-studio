@@ -39,6 +39,35 @@ const lineArg = {
 };
 
 const level = { type: "string", enum: ["high", "medium", "low"] };
+const colorArg = { type: "string", description: "yellow, orange, red, pink, purple, blue, teal, green, gray, or #hex. Leave out to match the board." };
+/** One thing to draw on a board (see add_to_board) */
+const boardItemArg = {
+  type: "object",
+  properties: {
+    type: { type: "string", enum: ["text", "shape", "sticky", "arrow", "image"] },
+    id: { type: "string", description: "Your own name for this item so arrows can point at it (e.g. \"idea\")" },
+    text: { type: "string", description: "text and sticky: the words (\\n for new lines)" },
+    label: { type: "string", description: "shape: the words inside it" },
+    shape: { type: "string", enum: ["rectangle", "ellipse", "diamond"], description: "shape: defaults to the board's usual shape" },
+    size: { type: "string", enum: ["s", "m", "l", "xl"], description: "text: l/xl for headings; defaults to the board's text size" },
+    color: colorArg,
+    from: { type: "string", description: "arrow: item id, element id, or the label of something on the board" },
+    to: { type: "string", description: "arrow: item id, element id, or the label of something on the board" },
+    dashed: { type: "boolean" },
+    url: { type: "string", description: "image: https link to the picture" },
+    link: { type: "string", description: "text or shape: makes it a clickable link" },
+    width: { type: "number" },
+    height: { type: "number" },
+    x: { type: "number", description: "Optional: position relative to where the new group starts" },
+    y: { type: "number" },
+  },
+  required: ["type"],
+};
+const drawOptionArgs = {
+  layout: { type: "string", enum: ["auto", "flow", "row", "column", "grid"], description: "auto = flowchart when there are arrows, grid for stickies, else a row/column" },
+  direction: { type: "string", enum: ["right", "down"], description: "Which way a flowchart runs; defaults to the board's direction" },
+  placement: { type: "string", enum: ["right", "below"], description: "Where the group goes next to what's there; defaults to the board's direction" },
+};
 /** One researched topic (see Topic opportunities in the guide) */
 const topicArg = {
   type: "object",
@@ -355,10 +384,66 @@ const TOOLS: Tool[] = [
   {
     name: "get_board",
     description:
-      "Read one Excalidraw board: a plain-text summary of everything on it (all text top to bottom, labelled shapes, arrows between shapes, links) and its images. Set includeElements to also get the raw Excalidraw elements (positions, sizes, colors) when layout matters.",
+      "Read one Excalidraw board: a plain-text summary (all text top to bottom, labelled shapes, arrows between shapes, links), its style (colors, stroke, roughness, corners, font, sizes, spacing, direction: new items copy it), and items (everything on it with ids, labels, positions) to point arrows and edits at. Set includeElements for the raw Excalidraw elements. Read a board before drawing on it.",
     inputSchema: { type: "object", properties: { board: { type: "string", description: "Board id or its /b/<id> link" }, includeElements: { type: "boolean" } }, required: ["board"] },
     annotations: { readOnlyHint: true },
     run: (ctx, a) => ctx.runQuery(internal.boards.getForAgent, a),
+  },
+  {
+    name: "create_board",
+    description:
+      "Make a new Excalidraw board, optionally drawing items on it straight away (same items as add_to_board). Returns its id and link.",
+    inputSchema: {
+      type: "object",
+      properties: { title: { type: "string" }, items: { type: "array", items: boardItemArg }, ...drawOptionArgs, agentName: { type: "string" } },
+      required: ["title"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.boards.createForAgent, a),
+  },
+  {
+    name: "add_to_board",
+    description:
+      "Draw on an existing board without touching what's there. Describe simple items (text, shape with a label, sticky, arrow, image) and they become real Excalidraw elements, laid out together (a flowchart when there are arrows) and placed beside the existing content in the board's own style (its colors, stroke, roughness, corners, font, sizes, spacing and direction) unless you set a color. Arrows connect new items (by your item id) or things already on the board (by element id from get_board, or by their label). Returns the new elements' ids.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        board: { type: "string", description: "Board id or its /b/<id> link" },
+        items: { type: "array", items: boardItemArg },
+        ...drawOptionArgs,
+        agentName: { type: "string" },
+      },
+      required: ["board", "items"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.boards.addForAgent, a),
+  },
+  {
+    name: "edit_board",
+    description:
+      "Change things already on a board by element id (ids from get_board items): setText (a text or a shape's label), setColor, move by dx/dy, or delete (a shape's label and arrows go with it). Can also rename the board with title.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        board: { type: "string" },
+        title: { type: "string" },
+        ops: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              op: { type: "string", enum: ["setText", "setColor", "move", "delete"] },
+              id: { type: "string" },
+              text: { type: "string" },
+              color: { type: "string" },
+              dx: { type: "number" },
+              dy: { type: "number" },
+            },
+            required: ["op", "id"],
+          },
+        },
+      },
+      required: ["board"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.boards.editForAgent, a),
   },
   {
     name: "list_topics",

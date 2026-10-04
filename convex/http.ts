@@ -20,6 +20,9 @@ import {
   httpListIdeas,
   httpListBoards,
   httpListTopics,
+  httpCreateBoard,
+  httpAddToBoard,
+  httpEditBoard,
   httpAddTopics,
   httpUpdateTopic,
   httpGetBoard,
@@ -71,6 +74,9 @@ http.route({ path: "/agent/brief-links/delete", method: "POST", handler: httpRem
 http.route({ path: "/agent/ideas", method: "GET", handler: httpListIdeas });
 http.route({ path: "/agent/boards", method: "GET", handler: httpListBoards });
 http.route({ path: "/agent/board", method: "GET", handler: httpGetBoard });
+http.route({ path: "/agent/board/create", method: "POST", handler: httpCreateBoard });
+http.route({ path: "/agent/board/add", method: "POST", handler: httpAddToBoard });
+http.route({ path: "/agent/board/edit", method: "POST", handler: httpEditBoard });
 http.route({ path: "/agent/topics", method: "GET", handler: httpListTopics });
 http.route({ path: "/agent/topics", method: "POST", handler: httpAddTopics });
 http.route({ path: "/agent/topic", method: "POST", handler: httpUpdateTopic });

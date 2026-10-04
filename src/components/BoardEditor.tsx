@@ -91,6 +91,44 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
   useEffect(() => {
     if (initial) files.current = initial.files as SavedFile[];
   }, [initial]);
+
+  // Changes made elsewhere (an agent drawing, another person) flow into the open editor: newer versions of an
+  // element win, new ones are added, and nothing drawn here is dropped
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const excalidraw = useRef<any>(null);
+  const seen = useRef<string | null>(null);
+  useEffect(() => {
+    if (!board || !initial) return;
+    if (seen.current === null) seen.current = initial.elements;
+    if (board.elements === seen.current) return;
+    seen.current = board.elements;
+    const api = excalidraw.current;
+    if (!api) return;
+    void (async () => {
+      const { restoreElements, CaptureUpdateAction } = await import("@excalidraw/excalidraw");
+      const remote = restoreElements(JSON.parse(board.elements), null) as unknown as El[];
+      const local = api.getSceneElementsIncludingDeleted() as El[];
+      const at = new Map(local.map((e, i) => [e.id, i]));
+      const merged = [...local];
+      let changed = false;
+      for (const r of remote) {
+        const i = at.get(r.id);
+        if (i === undefined) {
+          merged.push(r);
+          changed = true;
+        } else if (r.version > local[i].version) {
+          merged[i] = r;
+          changed = true;
+        }
+      }
+      const fresh = (board.files as SavedFile[]).filter((f) => !files.current.some((x) => x.id === f.id));
+      if (fresh.length) {
+        files.current = [...files.current, ...fresh];
+        api.addFiles(fresh.map((f) => ({ id: f.id, dataURL: f.url, mimeType: f.mimeType, created: Date.now() })));
+      }
+      if (changed) api.updateScene({ elements: merged, captureUpdate: CaptureUpdateAction.NEVER });
+    })();
+  }, [board, initial]);
   // Don't lose the last change when leaving
   useEffect(() => {
     const before = () => void flush();
@@ -218,6 +256,7 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
             theme={dark ? "dark" : "light"}
             name={initial.title}
             viewModeEnabled={readOnly}
+            excalidrawAPI={(api) => (excalidraw.current = api)}
             initialData={{
               elements: JSON.parse(initial.elements),
               appState: { ...JSON.parse(initial.appState || "{}"), collaborators: new Map() },
