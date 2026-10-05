@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../../convex/_generated/api";
-import { boardIdFrom, useBoardData, useCanEditBoards, useIsDark } from "@/lib/boardSource";
+import { PICK_FRAME, boardIdFrom, boardRef, frameIdFrom, useBoardData, useCanEditBoards, useIsDark } from "@/lib/boardSource";
 import type { Block } from "@/lib/types";
 import { IconBoard, IconPlus, IconRefresh, IconSearch } from "./icons";
 
@@ -29,15 +29,29 @@ const ago = (t: number) => {
  * The drawing itself, as crisp SVG at its natural size (never blown up), shrunk to fit the width and
  * `maxHeight`. Redraws whenever the board changes, so edits (anyone's) show up live.
  */
-export function BoardDrawing({ scene, maxHeight, dark }: { scene: Scene; maxHeight: number; dark: boolean }) {
+type Shape = { id: string; type: string; isDeleted?: boolean; frameId?: string | null; containerId?: string | null; name?: string | null };
+
+/** The frame and everything inside it (with the labels of the things inside) */
+export function frameParts(all: Shape[], frameId: string) {
+  const frame = all.find((e) => e.id === frameId && !e.isDeleted && (e.type === "frame" || e.type === "magicframe"));
+  if (!frame) return null;
+  const inside = new Set(all.filter((e) => !e.isDeleted && e.frameId === frameId).map((e) => e.id));
+  const parts = all.filter((e) => !e.isDeleted && (e.id === frameId || inside.has(e.id) || (e.containerId && inside.has(e.containerId))));
+  return { frame, parts };
+}
+
+export function BoardDrawing({ scene, maxHeight, dark, frameId }: { scene: Scene; maxHeight: number; dark: boolean; frameId?: string | null }) {
   const box = useRef<HTMLDivElement>(null);
-  const [empty, setEmpty] = useState(false);
+  const [empty, setEmpty] = useState<string | null>(null);
   useEffect(() => {
     let dead = false;
     void (async () => {
-      const elements = (JSON.parse(scene.elements || "[]") as { isDeleted?: boolean }[]).filter((e) => !e.isDeleted);
+      const all = (JSON.parse(scene.elements || "[]") as Shape[]).filter((e) => !e.isDeleted);
+      // Just one frame: only what's inside it, cropped to the frame
+      const one = frameId ? frameParts(all, frameId) : null;
+      const elements = frameId ? (one?.parts ?? []) : all;
       if (!elements.length) {
-        setEmpty(true);
+        setEmpty(frameId ? (one ? "Empty frame" : "This frame was removed from the board") : "Empty board");
         box.current?.replaceChildren();
         return;
       }
@@ -48,7 +62,9 @@ export function BoardDrawing({ scene, maxHeight, dark }: { scene: Scene; maxHeig
         elements: elements as any,
         appState: { ...appState, exportBackground: false, exportWithDarkMode: dark, exportEmbedScene: false },
         files: Object.fromEntries(scene.files.map((f) => [f.id, { id: f.id, dataURL: f.url, mimeType: f.mimeType, created: 0 }])) as never,
-        exportPadding: 12,
+        exportPadding: frameId ? 0 : 12,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ...(one ? { exportingFrame: one.frame as any } : {}),
       });
       if (dead || !box.current) return;
       const w = parseFloat(svg.getAttribute("width") ?? "0") || 1;
@@ -57,17 +73,17 @@ export function BoardDrawing({ scene, maxHeight, dark }: { scene: Scene; maxHeig
       svg.removeAttribute("height");
       // Natural size, but no wider than the page and no taller than maxHeight
       svg.style.cssText = `display:block;margin:0 auto;height:auto;aspect-ratio:${w}/${h};width:min(100%, ${w}px, ${(maxHeight * w) / h}px)`;
-      setEmpty(false);
+      setEmpty(null);
       box.current.replaceChildren(svg);
     })();
     return () => {
       dead = true;
     };
-  }, [scene.elements, scene.appState, scene.files, dark, maxHeight]);
+  }, [scene.elements, scene.appState, scene.files, dark, maxHeight, frameId]);
   return (
     <>
       <div ref={box} />
-      {empty && <div className="flex h-[120px] items-center justify-center text-[13px] text-(--c-t-9a9a9a)">Empty board</div>}
+      {empty && <div className="flex h-[120px] items-center justify-center text-[13px] text-(--c-t-9a9a9a)">{empty}</div>}
     </>
   );
 }
@@ -91,7 +107,7 @@ export function BoardOverlay({ id, readOnly, onClose }: { id: string; readOnly?:
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="h-full overflow-hidden bg-(--c-b-ffffff) shadow-[0_24px_80px_rgba(0,0,0,0.25)] animate-[board-in_260ms_cubic-bezier(0.2,0,0,1)] sm:rounded-2xl">
-        <BoardEditor id={boardIdFrom(id)} readOnly={readOnly} onClose={onClose} />
+        <BoardEditor id={boardIdFrom(id)} focus={frameIdFrom(id)} readOnly={readOnly} onClose={onClose} />
       </div>
     </div>,
     document.body,
@@ -129,12 +145,15 @@ export function BoardBlock({
   const [open, setOpen] = useState(false);
   const [changing, setChanging] = useState(false);
 
-  if (!block.content || changing) {
+  const waitingForFrame = block.content === PICK_FRAME;
+  if (!block.content || waitingForFrame || changing) {
     if (!canEdit) return null;
     return (
       <BoardPicker
         register={register}
-        current={block.content || null}
+        current={waitingForFrame ? null : boardIdFrom(block.content) || null}
+        // From the / menu's "Excalidraw frame", or changing a frame block: go on to pick a frame
+        framesOnly={waitingForFrame || (changing && !!frameIdFrom(block.content))}
         newBoardName={newBoardName}
         onPick={(id, fresh) => {
           setChanging(false);
@@ -178,6 +197,12 @@ export function BoardCard({
   const scene = useBoardData(id);
   const themeDark = useIsDark();
   const dark = forceDark ?? themeDark;
+  const frameId = frameIdFrom(id);
+  const frameName = useMemo(() => {
+    if (!frameId || !scene) return null;
+    const f = (JSON.parse(scene.elements || "[]") as Shape[]).find((e) => e.id === frameId);
+    return f ? f.name?.trim() || "Frame" : null;
+  }, [frameId, scene]);
 
   if (scene === undefined) return <div className="h-[180px] animate-pulse rounded-xl bg-(--c-b-f4f4f4)" />;
   if (scene === null)
@@ -203,18 +228,20 @@ export function BoardCard({
           forceDark ? "bg-white/[0.03] ring-white/10 hover:ring-white/25" : "bg-(--c-b-fafaf9) ring-(--c-l-ebebeb) hover:ring-(--c-l-dcdcdc) hover:shadow-[0_6px_24px_rgba(0,0,0,0.06)]"
         }`}
       >
-        <BoardDrawing scene={scene} maxHeight={maxHeight} dark={dark} />
+        <BoardDrawing scene={scene} maxHeight={maxHeight} dark={dark} frameId={frameId} />
         <span
           className={`pointer-events-none absolute right-2.5 top-2.5 rounded-full px-2.5 py-1 text-[12px] font-medium opacity-0 shadow-sm transition-opacity duration-150 group-hover/board:opacity-100 ${
             forceDark ? "bg-white text-black" : "bg-(--c-b-1b1b1b) text-(--c-on-ink)"
           }`}
         >
-          {onChange ? "Edit board" : "Open"}
+          {onChange ? (frameId ? "Edit frame" : "Edit board") : "Open"}
         </span>
       </button>
       <div className={`mt-1.5 flex h-6 items-center gap-1.5 px-1 text-[12.5px] ${forceDark ? "text-[#9a9a9a]" : "text-(--c-t-8a8a8a)"}`}>
-        <IconBoard size={13} />
-        <span className={`truncate font-medium ${forceDark ? "text-[#cfcfcf]" : "text-(--c-t-4a4a4a)"}`}>{scene.title}</span>
+        {frameId ? <FrameGlyph /> : <IconBoard size={13} />}
+        {frameId && <span className={`truncate font-medium ${forceDark ? "text-[#cfcfcf]" : "text-(--c-t-4a4a4a)"}`}>{frameName ?? "Frame"}</span>}
+        {frameId && <span className="shrink-0">in</span>}
+        <span className={`truncate ${frameId ? "" : "font-medium"} ${forceDark ? "text-[#cfcfcf]" : "text-(--c-t-4a4a4a)"}`}>{scene.title}</span>
         <span className="shrink-0">· {ago(scene.updatedAt)}</span>
         {onChange && (
           <button
@@ -224,7 +251,7 @@ export function BoardCard({
             className="ml-auto inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 opacity-0 transition-opacity hover:bg-(--c-b-f4f4f4) hover:text-(--c-t-1b1b1b) group-hover/board:opacity-100 group-focus-within/board:opacity-100 pointer-coarse:opacity-100"
           >
             <IconRefresh size={12} />
-            Change board
+            {frameId ? "Change frame" : "Change board"}
           </button>
         )}
       </div>
@@ -236,14 +263,17 @@ export function BoardCard({
 function BoardPicker({
   register,
   current,
+  framesOnly,
   newBoardName,
   onPick,
   onCancel,
 }: {
   register: (el: HTMLDivElement | null) => void;
   current: string | null;
+  framesOnly?: boolean;
   newBoardName?: string;
-  onPick: (id: string, fresh: boolean) => void;
+  /** ref = the board id, or "<board>#frame=<frame>" for one frame */
+  onPick: (ref: string, fresh: boolean) => void;
   onCancel: () => void;
 }) {
   const boards = useQuery(api.boards.list);
@@ -270,7 +300,16 @@ function BoardPicker({
       setBusy(false);
     }
   };
-  const choose = (i: number) => (i === 0 ? void makeNew() : onPick(matches[i - 1].id, false));
+  /** A board picked from the list: next, choose the whole board or one of its frames (when it has any) */
+  const [chosen, setChosen] = useState<string | null>(null);
+  const choose = (i: number) => (i === 0 ? void makeNew() : setChosen(matches[i - 1].id));
+
+  if (chosen)
+    return (
+      <div ref={register} className="min-w-0 flex-1 py-1">
+        <FrameStep boardId={chosen} framesOnly={!!framesOnly} onPick={(ref) => onPick(ref, false)} onBack={() => setChosen(null)} />
+      </div>
+    );
 
   return (
     <div ref={register} className="min-w-0 flex-1 py-1">
@@ -351,5 +390,90 @@ function PickerRow({ active, onHover, onClick, children }: { active: boolean; on
     >
       {children}
     </button>
+  );
+}
+
+/** A frame: a square with its corner marks */
+function FrameGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden="true">
+      <path d="M4.5 1.5v13M11.5 1.5v13M1.5 4.5h13M1.5 11.5h13" />
+    </svg>
+  );
+}
+
+/**
+ * Second step of the picker: the whole board, or one of its frames (frames are listed left to right, top to
+ * bottom, the way they sit on the board). Skipped when the board has no frames, unless a frame was asked for.
+ */
+function FrameStep({ boardId, framesOnly, onPick, onBack }: { boardId: string; framesOnly: boolean; onPick: (ref: string) => void; onBack: () => void }) {
+  const scene = useBoardData(boardId);
+  const frames = useMemo(() => {
+    if (!scene) return null;
+    const all = JSON.parse(scene.elements || "[]") as (Shape & { x: number; y: number })[];
+    return all
+      .filter((e) => !e.isDeleted && (e.type === "frame" || e.type === "magicframe"))
+      .sort((a, b) => a.y - b.y || a.x - b.x)
+      .map((f, i) => ({ id: f.id, name: f.name?.trim() || `Frame ${i + 1}` }));
+  }, [scene]);
+  const [active, setActive] = useState(0);
+  const list = useRef<HTMLDivElement>(null);
+  const rows = useMemo(() => [...(framesOnly ? [] : [{ id: "", name: "Whole board" }]), ...(frames ?? [])], [frames, framesOnly]);
+
+  // Nothing to choose: use the whole board straight away
+  useEffect(() => {
+    if (frames && !frames.length && !framesOnly) onPick(boardId);
+  }, [frames, framesOnly, boardId, onPick]);
+  useEffect(() => list.current?.focus(), [frames]);
+
+  const pick = (i: number) => onPick(boardRef(boardId, rows[i]?.id || null));
+  return (
+    <div className="overflow-hidden rounded-xl bg-(--c-b-ffffff) shadow-[0_0_0_1px_var(--c-l-e3e3e0),0_8px_28px_rgba(0,0,0,0.07)] animate-[board-pop_220ms_cubic-bezier(0.2,0,0,1)_both]">
+      <div className="flex h-11 items-center gap-2 border-b border-(--c-l-ebebeb) px-2">
+        <button type="button" onClick={onBack} aria-label="Back to boards" className="flex h-8 w-8 items-center justify-center rounded-lg text-(--c-t-6b6b6b) hover:bg-(--c-b-f4f4f4)">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M10 3.5 5.5 8l4.5 4.5" />
+          </svg>
+        </button>
+        <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-(--c-t-1b1b1b)">{scene ? scene.title : "Loading…"}</span>
+        <span className="shrink-0 pr-2 text-[12px] text-(--c-t-9a9a9a)">{framesOnly ? "Pick a frame" : "Whole board or a frame"}</span>
+      </div>
+      <div
+        ref={list}
+        tabIndex={-1}
+        role="listbox"
+        aria-label="Frames"
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            setActive((a) => (rows.length ? (a + (e.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length : 0));
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            if (rows.length) pick(active);
+          } else if (e.key === "Escape" || e.key === "Backspace") {
+            e.preventDefault();
+            onBack();
+          }
+        }}
+        className="max-h-[300px] overflow-y-auto p-1.5 outline-none"
+      >
+        {frames && !frames.length && framesOnly && (
+          <div className="flex flex-col items-start gap-2 px-3 py-3 text-[13px] text-(--c-t-8a8a8a)">
+            This board has no frames yet. Open it and draw one with the frame tool (F), or use the whole board.
+            <button type="button" onClick={() => onPick(boardId)} className="font-medium text-(--c-t-2358d8)">
+              Use the whole board
+            </button>
+          </div>
+        )}
+        {rows.map((r, i) => (
+          <PickerRow key={r.id || "whole"} active={active === i} onHover={() => setActive(i)} onClick={() => pick(i)}>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-(--c-b-f4f4f4) text-(--c-t-6b6b6b)">
+              {r.id ? <FrameGlyph /> : <IconBoard size={14} />}
+            </span>
+            <span className="min-w-0 flex-1 truncate">{r.name}</span>
+          </PickerRow>
+        ))}
+      </div>
+    </div>
   );
 }

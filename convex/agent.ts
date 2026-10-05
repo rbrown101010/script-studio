@@ -508,7 +508,9 @@ async function replaceScript(ctx: MutationCtx, video: Doc<"videos">, lines: NewL
       // A board line holds the board's id; agents may give the id or its /b/<id> link
       const id = boardIdOf(ctx, text);
       if (!id || !(await ctx.db.get(id))) throw new ConvexError(`"${text.slice(0, 80)}" isn't a board. Use list_boards for ids.`);
-      text = id;
+      // One frame of the board: "<board>#frame=<frame id>" (frame ids from get_board items)
+      const frame = text.match(/[#?&](?:frame|element)=([\w-]+)/)?.[1];
+      text = frame ? `${id}#frame=${frame}` : id;
     }
     await ctx.db.insert("blocks", {
       documentId,

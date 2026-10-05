@@ -161,7 +161,19 @@ export async function boardCard(ctx: QueryCtx, text: string) {
   const id = boardIdOf(ctx, text);
   const b = id ? await ctx.db.get(id) : null;
   if (!b) return { id: text, missing: true as const, note: "This board was deleted or isn't chosen yet." };
-  return { id: b._id, title: b.title, url: `${process.env.SITE_URL ?? ""}/b/${b._id}`, summary: b.summary };
+  const url = `${process.env.SITE_URL ?? ""}/b/${b._id}`;
+  // A frame block: just that frame, and a summary of only what's inside it
+  const frameId = text.match(/[#?&](?:frame|element)=([\w-]+)/)?.[1];
+  if (frameId) {
+    const els = (JSON.parse(b.elements) as El[]).filter((e) => !e.isDeleted);
+    const frame = els.find((e) => e.id === frameId);
+    if (!frame) return { id: b._id, title: b.title, url, frame: { id: frameId, missing: true }, note: "This frame was removed from the board." };
+    const inside = new Set(els.filter((e) => e.frameId === frameId).map((e) => e.id));
+    const parts = els.filter((e) => e.id === frameId || inside.has(e.id) || (e.containerId && inside.has(e.containerId)));
+    const name = frame.name?.trim() || "Frame";
+    return { id: b._id, title: b.title, url: `${url}#frame=${frameId}`, frame: { id: frameId, name }, summary: summarize(`${name} (a frame in ${b.title})`, JSON.stringify(parts)).summary };
+  }
+  return { id: b._id, title: b.title, url, summary: b.summary };
 }
 
 // ---------- For agents (see agent.ts / mcp.ts) ----------

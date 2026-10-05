@@ -13,7 +13,7 @@ import { listNumbers, uid } from "@/lib/util";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { IconBoard, IconClip, IconComment, IconCopy, IconCheck, IconGrip, IconPlus, IconTrash, IconX } from "./icons";
 import { BoardBlock } from "./BoardBlock";
-import { boardIdFrom, useCanEditBoards } from "@/lib/boardSource";
+import { PICK_FRAME, boardIdFrom, boardRef, frameIdFrom, useCanEditBoards } from "@/lib/boardSource";
 
 type SetBlocks = (fn: (prev: Block[]) => Block[]) => void;
 export type Variant = "script" | "instructions";
@@ -115,6 +115,23 @@ function slashItems(query: string, variant: Variant, boards: boolean): SlashItem
   const all: SlashItem[] = [
     ...(variant === "script"
       ? TURN_INTO.filter((t) => boards || t.type !== "board").map((t) => ({ key: t.type, label: t.label, words: TYPE_WORDS[t.type], group: "Turn into", tile: t.tile, patch: { type: t.type } }))
+      : []),
+    ...(variant === "script" && boards
+      ? [
+          {
+            key: "frame",
+            label: "Excalidraw frame",
+            words: "frame excalidraw board part section slide",
+            group: "Turn into",
+            tile: (
+              <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                <path d="M4.5 1.5v13M11.5 1.5v13M1.5 4.5h13M1.5 11.5h13" />
+              </svg>
+            ),
+            // A board block that asks for a frame
+            patch: { type: "board" as BlockType, content: PICK_FRAME },
+          },
+        ]
       : []),
     { key: "text-default", label: "Default text", words: "text color colour", group: "Text color", tile: <span className="text-(--c-t-1b1b1b)">A</span>, patch: { textColor: null } },
     ...TEXT_COLORS.map((c) => ({
@@ -468,7 +485,7 @@ export function DocEditor({
       const end = Math.min(text.length, s.start + 1 + s.query.length);
       const rest = text.slice(0, s.start) + text.slice(end);
       if (item.patch.type === "images" || item.patch.type === "board") {
-        makeImagesRef.current(s.id, rest, item.patch.type);
+        makeImagesRef.current(s.id, rest, item.patch.type, item.patch.content ?? "");
         return;
       }
       focusBlock(s.id, s.start);
@@ -697,9 +714,13 @@ export function DocEditor({
         return;
       }
       // A Native Note board link pasted on an empty line shows that board
-      const boardLink = lines.length === 1 && !text.trim() && variant === "script" && !readOnly ? pasted.trim().match(/^https?:\/\/[^/\s]+\/b\/([a-z0-9]{20,40})\/?$/i) : null;
+      // …and a frame link (from Copy frame, or Excalidraw's "Copy link to object" on a frame) shows that frame
+      const boardLink =
+        lines.length === 1 && !text.trim() && variant === "script" && !readOnly
+          ? pasted.trim().match(/^https?:\/\/[^/\s]+\/b\/([a-z0-9]{20,40})\/?(?:[?#](?:frame|element)=([\w-]+))?$/i)
+          : null;
       if (boardLink && new URL(pasted.trim()).origin === window.location.origin) {
-        makeImagesRef.current(id, "", "board", boardLink[1]);
+        makeImagesRef.current(id, "", "board", boardRef(boardLink[1], boardLink[2]));
         return;
       }
       if (lines.length === 1) {
@@ -1115,7 +1136,8 @@ export function DocEditor({
                       onActivate?.(b.id);
                     }}
                     onPick={(boardId) => {
-                      update(b.id, { content: boardIdFrom(boardId) });
+                      // The board, or "<board>#frame=<id>" for one frame
+                      update(b.id, { content: boardRef(boardIdFrom(boardId), frameIdFrom(boardId)) });
                       requestAnimationFrame(() => els.current.get(b.id)?.focus());
                     }}
                     onCancel={() => {

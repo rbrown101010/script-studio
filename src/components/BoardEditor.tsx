@@ -30,7 +30,7 @@ const KEEP = ["viewBackgroundColor", "gridModeEnabled", "gridSize", "gridStep", 
  * Full page at /b/<id>, or (with onClose) on top of a script, where Done or Esc goes back to it.
  * readOnly shows the drawing to look around in without changing it (share links, old versions).
  */
-export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: () => void; readOnly?: boolean }) {
+export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onClose?: () => void; readOnly?: boolean; /** A frame to zoom to on open */ focus?: string | null }) {
   const board = useBoardData(id);
   const save = useMutation(api.boards.save);
   const uploadUrl = useMutation(api.docs.generateUploadUrl);
@@ -55,7 +55,15 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
     return () => mq.removeEventListener("change", update);
   }, []);
   /** What's selected right now (drives the phone action bar) */
-  const [picked, setPicked] = useState({ count: 0, styleOpen: false });
+  const [picked, setPicked] = useState<{ count: number; styleOpen: boolean; frame: string | null }>({ count: 0, styleOpen: false, frame: null });
+  const [copied, setCopied] = useState(false);
+  /** Copy a link to the selected frame; pasted on an empty line in a script it becomes a frame block */
+  const copyFrame = () => {
+    if (!picked.frame) return;
+    void navigator.clipboard.writeText(`${window.location.origin}/b/${id}#frame=${picked.frame}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  };
   /** Excalidraw's latest view state, so Esc only closes when it isn't busy with a tool, selection or menu */
   const ui = useRef<Record<string, unknown>>({});
   useEffect(() => {
@@ -110,6 +118,18 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
   // element win, new ones are added, and nothing drawn here is dropped
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const excalidraw = useRef<any>(null);
+  // Opened from a frame block: zoom to that frame once the board is up
+  useEffect(() => {
+    if (!focus || !initial) return;
+    let tries = 0;
+    const t = setInterval(() => {
+      const api = excalidraw.current;
+      const el = api?.getSceneElements().find((e: { id: string }) => e.id === focus);
+      if (el) api.scrollToContent(el, { fitToViewport: true, viewportZoomFactor: 0.85, animate: false });
+      if (el || ++tries > 30) clearInterval(t);
+    }, 100);
+    return () => clearInterval(t);
+  }, [focus, initial]);
   const seen = useRef<string | null>(null);
   useEffect(() => {
     if (!board || !initial) return;
@@ -177,7 +197,9 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
     ui.current = appState;
     const count = appState.editingTextElement ? 0 : Object.keys((appState.selectedElementIds as object) ?? {}).length;
     const styleOpen = appState.openMenu === "shape";
-    if (count !== picked.count || styleOpen !== picked.styleOpen) setPicked({ count, styleOpen });
+    const only = count === 1 ? Object.keys(appState.selectedElementIds as object)[0] : null;
+    const frame = only && elements.some((e) => e.id === only && ((e as { type?: string }).type === "frame" || (e as { type?: string }).type === "magicframe")) ? only : null;
+    if (count !== picked.count || styleOpen !== picked.styleOpen || frame !== picked.frame) setPicked({ count, styleOpen, frame });
     if (readOnly) return;
     // Cheap change check: element versions and the background
     const key = `${elements.length}:${elements.reduce((n, e) => n + e.version, 0)}:${String(appState.viewBackgroundColor)}:${files.current.length}`;
@@ -250,6 +272,16 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
           className={`mx-1.5 h-1.5 w-1.5 shrink-0 rounded-full transition-colors ${state === "error" ? "bg-[#e03131]" : state === "saving" ? "bg-[#f08c00]" : "bg-[#40c057]"}`}
         />
       )}
+      {picked.frame && (
+        <button
+          type="button"
+          onClick={copyFrame}
+          title="Copy this frame, then paste it on an empty line in a script to show it there"
+          className="ml-0.5 inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-(--c-b-1b1b1b) px-2.5 text-[12px] font-medium text-(--c-on-ink) hover:bg-(--c-b-333333)"
+        >
+          {copied ? "Copied" : "Copy frame"}
+        </button>
+      )}
       {onClose && !readOnly && (
         <Link
           href={`/b/${id}`}
@@ -282,7 +314,7 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
       {/* Phones: the title row sits above the canvas so Excalidraw's toolbar gets the full width */}
       {phone && controls}
       <div className="relative min-h-0 flex-1">
-        {phone && !readOnly && picked.count > 0 && <PhoneActions api={excalidraw} styleOpen={picked.styleOpen} />}
+        {phone && !readOnly && picked.count > 0 && <PhoneActions api={excalidraw} styleOpen={picked.styleOpen} onCopyFrame={picked.frame ? copyFrame : undefined} copied={copied} />}
         {initial && (
           <Excalidraw
             theme={dark ? "dark" : "light"}
@@ -314,7 +346,7 @@ export function BoardEditor({ id, onClose, readOnly }: { id: string; onClose?: (
  * More opens the full menu (copy, paste, group, lock, flip, link…), the same as a long press.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function PhoneActions({ api, styleOpen }: { api: React.RefObject<any>; styleOpen: boolean }) {
+function PhoneActions({ api, styleOpen, onCopyFrame, copied }: { api: React.RefObject<any>; styleOpen: boolean; onCopyFrame?: () => void; copied: boolean }) {
   const click = (selector: string) => document.querySelector<HTMLButtonElement>(`.nn-board .App-toolbar-content ${selector}`)?.click();
   const reorder = async (toFront: boolean) => {
     const a = api.current;
@@ -365,10 +397,18 @@ function PhoneActions({ api, styleOpen }: { api: React.RefObject<any>; styleOpen
         {icon(<><rect x="7" y="7" width="9.5" height="9.5" rx="1.5" fill="currentColor" fillOpacity="0.25" /><path d="M3.5 12.5v-7a2 2 0 0 1 2-2h7" /></>)}
         Front
       </button>
-      <button type="button" onClick={() => void reorder(false)} className={btn}>
-        {icon(<><rect x="3.5" y="3.5" width="9.5" height="9.5" rx="1.5" /><path d="M16.5 7.5v7a2 2 0 0 1-2 2h-7" strokeDasharray="2 2" /></>)}
-        Back
-      </button>
+      {onCopyFrame ? (
+        // A frame is selected: copy it (paste it into a script to show just this frame)
+        <button type="button" onClick={onCopyFrame} className={btn}>
+          {icon(<path d="M6 3v14M14 3v14M3 6h14M3 14h14" />)}
+          {copied ? "Copied" : "Copy frame"}
+        </button>
+      ) : (
+        <button type="button" onClick={() => void reorder(false)} className={btn}>
+          {icon(<><rect x="3.5" y="3.5" width="9.5" height="9.5" rx="1.5" /><path d="M16.5 7.5v7a2 2 0 0 1-2 2h-7" strokeDasharray="2 2" /></>)}
+          Back
+        </button>
+      )}
       <button type="button" onClick={() => click('button[aria-label="Delete"]')} className={`${btn} text-[#e03131]!`}>
         {icon(<><path d="M4 6h12M8 6V4.5h4V6M6 6l.7 10h6.6L14 6" /></>)}
         Delete

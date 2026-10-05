@@ -21,6 +21,18 @@ export const useCanEditBoards = () => useContext(BoardSource).kind === "team";
 /** A board block's id: stored as the id, but a pasted /b/<id> link works too */
 export const boardIdFrom = (text: string) => text.trim().replace(/[?#].*$/, "").split("/").filter(Boolean).pop() ?? "";
 
+/**
+ * A frame inside the board, when the block shows just one frame: "<board>#frame=<id>" (what Copy frame gives),
+ * or Excalidraw's own "Copy link to object" link (?element=<id>)
+ */
+export const frameIdFrom = (text: string) => text.match(/[#?&](?:frame|element)=([\w-]+)/)?.[1] ?? null;
+
+/** What a board block stores: the board id, plus the frame when it shows one frame */
+export const boardRef = (boardId: string, frameId?: string | null) => (frameId ? `${boardId}#frame=${frameId}` : boardId);
+
+/** A board block that's waiting for a frame to be picked (made from the / menu's Excalidraw frame) */
+export const PICK_FRAME = "frame:";
+
 /** The board's scene (undefined while loading, null if it's gone or not visible here) */
 export function useBoardData(id: string) {
   const source = useContext(BoardSource);
