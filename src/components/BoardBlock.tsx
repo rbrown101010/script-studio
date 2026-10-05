@@ -200,7 +200,7 @@ export function BoardCard({
   const frameId = frameIdFrom(id);
   const frameName = useMemo(() => {
     if (!frameId || !scene) return null;
-    const f = (JSON.parse(scene.elements || "[]") as Shape[]).find((e) => e.id === frameId);
+    const f = (JSON.parse(scene.elements || "[]") as Shape[]).find((e) => e.id === frameId && !e.isDeleted);
     return f ? f.name?.trim() || "Frame" : null;
   }, [frameId, scene]);
 

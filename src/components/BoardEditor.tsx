@@ -2,7 +2,7 @@
 
 import "@excalidraw/excalidraw/index.css";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -20,8 +20,21 @@ const Excalidraw = dynamic(async () => (await import("@excalidraw/excalidraw")).
 });
 
 type SavedFile = { id: string; url: string; mimeType: string; storageId?: Id<"_storage"> };
-type El = { id: string; version: number; isDeleted?: boolean };
+type El = { id: string; version: number; versionNonce: number; isDeleted?: boolean; updated?: number };
 type BinaryFile = { id: string; dataURL: string; mimeType: string; created: number };
+
+/** How long a deleted element is kept in the saved scene, so other open copies of the board learn it was deleted */
+const TOMBSTONE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The scene as saved: everything, including deleted elements (with their bumped versions), so another tab that
+ * still has an element sees the newer, deleted copy and removes it instead of saving it back. Old deletions are
+ * dropped to keep the board small.
+ */
+function sceneJson(elements: readonly El[]) {
+  const cutoff = Date.now() - TOMBSTONE_MS;
+  return JSON.stringify(elements.filter((e) => !e.isDeleted || (e.updated ?? 0) > cutoff));
+}
 
 /** View settings worth keeping per board */
 const KEEP = ["viewBackgroundColor", "gridModeEnabled", "gridSize", "gridStep", "scrollX", "scrollY", "zoom"] as const;
@@ -37,6 +50,7 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
   const appSidebar = useMaybeAppSidebar();
   const sidebarToggle = !onClose && !readOnly ? appSidebar : null;
   const save = useMutation(api.boards.save);
+  const convex = useConvex();
   const pinnedList = useQuery(api.boards.pinned, readOnly ? "skip" : {});
   const isPinned = !!pinnedList?.some((p) => p.id === id);
   const setPinned = useMutation(api.boards.setPinned);
@@ -102,29 +116,61 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
   const pending = useRef<{ elements: string; appState: string } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const flush = useCallback(async () => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
-    const p = pending.current;
-    if (!p) return;
-    pending.current = null;
-    setState("saving");
-    try {
-      await save({ id: boardId, elements: p.elements, appState: p.appState, files: files.current });
-      setState("saved");
-    } catch {
-      setState("error");
-    }
-  }, [save, boardId]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const excalidraw = useRef<any>(null);
+
+  /**
+   * Brings another copy of the scene (the saved board, changed by another tab, an agent or another person) into
+   * the open editor, element by element: whichever copy of an element has the higher version wins (deletions
+   * included), new ones are added, and nothing drawn here is dropped. Excalidraw's own collaboration merge.
+   */
+  const mergeIn = useCallback(async (json: string) => {
+    const ex = excalidraw.current;
+    if (!ex) return;
+    const { restoreElements, reconcileElements, CaptureUpdateAction } = await import("@excalidraw/excalidraw");
+    const remote = restoreElements(JSON.parse(json), null) as unknown as El[];
+    const local = ex.getSceneElementsIncludingDeleted() as El[];
+    const byId = new Map(local.map((e) => [e.id, e]));
+    const newer = remote.some((r) => {
+      const l = byId.get(r.id);
+      return !l || r.version > l.version || (r.version === l.version && r.versionNonce < l.versionNonce);
+    });
+    if (!newer) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const merged = reconcileElements(local as any, remote as any, ex.getAppState());
+    ex.updateScene({ elements: merged, captureUpdate: CaptureUpdateAction.NEVER });
+  }, []);
+
+  /** Saves the scene. First picks up anything saved meanwhile (another tab), so a save never undoes it. */
+  const flush = useCallback(
+    async (fresh = true) => {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = null;
+      const p = pending.current;
+      if (!p) return;
+      pending.current = null;
+      setState("saving");
+      try {
+        let elements = p.elements;
+        if (fresh && excalidraw.current) {
+          const latest = await convex.query(api.boards.get, { id: boardId });
+          if (latest) await mergeIn(latest.elements);
+          if (excalidraw.current) elements = sceneJson(excalidraw.current.getSceneElementsIncludingDeleted());
+        }
+        await save({ id: boardId, elements, appState: p.appState, files: files.current });
+        setState("saved");
+      } catch {
+        setState("error");
+      }
+    },
+    [save, boardId, convex, mergeIn],
+  );
 
   useEffect(() => {
     if (initial) files.current = initial.files as SavedFile[];
   }, [initial]);
 
-  // Changes made elsewhere (an agent drawing, another person) flow into the open editor: newer versions of an
-  // element win, new ones are added, and nothing drawn here is dropped
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const excalidraw = useRef<any>(null);
+  // Changes made elsewhere (another tab, an agent drawing, another person) flow into the open editor (see mergeIn)
   // Opened from a frame block: zoom to that frame once the board is up
   useEffect(() => {
     if (!focus || !initial) return;
@@ -143,40 +189,22 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
     if (seen.current === null) seen.current = initial.elements;
     if (board.elements === seen.current) return;
     seen.current = board.elements;
-    const api = excalidraw.current;
-    if (!api) return;
-    void (async () => {
-      const { restoreElements, CaptureUpdateAction } = await import("@excalidraw/excalidraw");
-      const remote = restoreElements(JSON.parse(board.elements), null) as unknown as El[];
-      const local = api.getSceneElementsIncludingDeleted() as El[];
-      const at = new Map(local.map((e, i) => [e.id, i]));
-      const merged = [...local];
-      let changed = false;
-      for (const r of remote) {
-        const i = at.get(r.id);
-        if (i === undefined) {
-          merged.push(r);
-          changed = true;
-        } else if (r.version > local[i].version) {
-          merged[i] = r;
-          changed = true;
-        }
-      }
-      const fresh = (board.files as SavedFile[]).filter((f) => !files.current.some((x) => x.id === f.id));
-      if (fresh.length) {
-        files.current = [...files.current, ...fresh];
-        api.addFiles(fresh.map((f) => ({ id: f.id, dataURL: f.url, mimeType: f.mimeType, created: Date.now() })));
-      }
-      if (changed) api.updateScene({ elements: merged, captureUpdate: CaptureUpdateAction.NEVER });
-    })();
-  }, [board, initial]);
-  // Don't lose the last change when leaving
+    const ex = excalidraw.current;
+    if (!ex) return;
+    const fresh = (board.files as SavedFile[]).filter((f) => !files.current.some((x) => x.id === f.id));
+    if (fresh.length) {
+      files.current = [...files.current, ...fresh];
+      ex.addFiles(fresh.map((f) => ({ id: f.id, dataURL: f.url, mimeType: f.mimeType, created: Date.now() })));
+    }
+    void mergeIn(board.elements);
+  }, [board, initial, mergeIn]);
+  // Don't lose the last change when leaving (no time to check for newer saves first)
   useEffect(() => {
-    const before = () => void flush();
+    const before = () => void flush(false);
     window.addEventListener("beforeunload", before);
     return () => {
       window.removeEventListener("beforeunload", before);
-      void flush();
+      void flush(false);
     };
   }, [flush]);
 
@@ -214,10 +242,10 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
     if (key === lastKey.current) return;
     const first = lastKey.current === null && pending.current === null && state === "saved";
     lastKey.current = key;
-    if (first && initial && elements.filter((e) => !e.isDeleted).length === JSON.parse(initial.elements).length) return; // the initial render
+    if (first && initial && elements.filter((e) => !e.isDeleted).length === (JSON.parse(initial.elements) as El[]).filter((e) => !e.isDeleted).length) return; // the initial render
     const keep: Record<string, unknown> = {};
     for (const k of KEEP) keep[k] = appState[k];
-    pending.current = { elements: JSON.stringify(elements.filter((e) => !e.isDeleted)), appState: JSON.stringify(keep) };
+    pending.current = { elements: sceneJson(elements), appState: JSON.stringify(keep) };
     setState("saving");
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => void flush(), 800);
