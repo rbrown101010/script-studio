@@ -190,6 +190,7 @@ export function DocEditor({
   canToggleTodos,
   placeholder = "Write, or drop a file…",
   footer,
+  boardName,
 }: {
   blocks: Block[];
   setBlocks: SetBlocks;
@@ -209,6 +210,8 @@ export function DocEditor({
   canToggleTodos?: boolean;
   placeholder?: string;
   footer?: ReactNode;
+  /** The script's title: a board made from a board block is named after it ("Title", then "Title 2"…) */
+  boardName?: string;
 }) {
   const canBoards = useCanEditBoards();
   const els = useRef(new Map<string, HTMLDivElement>());
@@ -1091,6 +1094,15 @@ export function DocEditor({
                 ) : b.type === "board" ? (
                   <BoardBlock
                     block={b}
+                    newBoardName={
+                      boardName?.trim()
+                        ? (() => {
+                            // Boards this script already shows; the new one comes after them
+                            const n = blocks.filter((x) => x.type === "board" && x.content && x.id !== b.id).length;
+                            return n ? `${boardName.trim()} ${n + 1}` : boardName.trim();
+                          })()
+                        : undefined
+                    }
                     readOnly={!!readOnly}
                     register={(el) => {
                       if (el) els.current.set(b.id, el);

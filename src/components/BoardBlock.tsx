@@ -111,6 +111,7 @@ export function BoardBlock({
   onFocus,
   onPick,
   onCancel,
+  newBoardName,
 }: {
   block: Block;
   readOnly: boolean;
@@ -119,6 +120,8 @@ export function BoardBlock({
   onFocus: () => void;
   /** Sets which board this block shows */
   onPick: (id: string) => void;
+  /** Name for a board made here when nothing is typed (the script's title, then "Title 2"…) */
+  newBoardName?: string;
   /** Leaves the picker without choosing (turns the line back into text) */
   onCancel: () => void;
 }) {
@@ -132,6 +135,7 @@ export function BoardBlock({
       <BoardPicker
         register={register}
         current={block.content || null}
+        newBoardName={newBoardName}
         onPick={(id, fresh) => {
           setChanging(false);
           onPick(id);
@@ -232,11 +236,13 @@ export function BoardCard({
 function BoardPicker({
   register,
   current,
+  newBoardName,
   onPick,
   onCancel,
 }: {
   register: (el: HTMLDivElement | null) => void;
   current: string | null;
+  newBoardName?: string;
   onPick: (id: string, fresh: boolean) => void;
   onCancel: () => void;
 }) {
@@ -259,7 +265,7 @@ function BoardPicker({
     if (busy) return;
     setBusy(true);
     try {
-      onPick(await create({ title: q.trim() || undefined }), true);
+      onPick(await create({ title: q.trim() || newBoardName?.trim() || undefined }), true);
     } finally {
       setBusy(false);
     }
@@ -301,7 +307,7 @@ function BoardPicker({
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-(--c-b-1b1b1b) text-(--c-on-ink)">
               <IconPlus size={14} color="var(--c-on-ink)" />
             </span>
-            <span className="min-w-0 flex-1 truncate font-medium">{busy ? "Making board…" : q.trim() ? `New board "${q.trim()}"` : "New board"}</span>
+            <span className="min-w-0 flex-1 truncate font-medium">{busy ? "Making board…" : q.trim() || newBoardName?.trim() ? `New board "${q.trim() || newBoardName?.trim()}"` : "New board"}</span>
             <span className="shrink-0 text-[12px] text-(--c-t-9a9a9a)">opens to draw</span>
           </PickerRow>
           {boards === undefined && <div className="px-3 py-2 text-[13px] text-(--c-t-9a9a9a)">Loading boards…</div>}

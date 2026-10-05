@@ -666,6 +666,7 @@ export function VideoEditor({ id }: { id: string }) {
               <DocEditor
                 blocks={mainBlocks}
                 setBlocks={setMain}
+                boardName={meta?.title}
                 canUpload
                 canComment
                 onFiles={(b, files) => void dropFiles(b, files)}
