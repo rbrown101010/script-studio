@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { IconCheck, IconChevron, IconCopy, IconSearch } from "./icons";
 
 type Topic = NonNullable<ReturnType<typeof useQuery<typeof api.topics.list>>>[number];
@@ -63,7 +64,14 @@ function Chip({ children, className = "" }: { children: React.ReactNode; classNa
  * (score, trend, demand, competition, best outlier); open one to read the evidence and act on it.
  */
 export function TopicsApp() {
-  const topics = useQuery(api.topics.list);
+  const latest = useQuery(api.topics.list);
+  const runs = useQuery(api.topics.runs);
+  /** An earlier research run to look at (null = the latest research) */
+  const [runView, setRunView] = useState<string | null>(null);
+  const past = useQuery(api.topics.asOf, runView ? { run: runView as Id<"topicRuns"> } : "skip");
+  const topics = runView ? past : latest;
+  const shownRun = runView ? runs?.find((r) => r.id === runView) : runs?.[0];
+  const [summaryOpen, setSummaryOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("ideas");
   const [format, setFormat] = useState<"all" | "long" | "short">("all");
   const [category, setCategory] = useState<string>("all");
@@ -97,16 +105,63 @@ export function TopicsApp() {
         <h1 className="m-0 text-[28px] font-semibold tracking-[-0.015em] text-(--c-t-1b1b1b)">Topic opportunities</h1>
         <p className="m-0 mt-1 text-[14px] text-(--c-t-8a8a8a)">
           What to make next, from YouTube search demand, competition and outlier videos.
-          {lastResearch > 0 && ` Researched ${new Date(lastResearch).toLocaleDateString(undefined, { month: "short", day: "numeric" })}.`}
+          {lastResearch > 0 && !runView && ` Researched ${new Date(lastResearch).toLocaleDateString(undefined, { month: "short", day: "numeric" })}.`}
         </p>
       </div>
+
+      {/* Every research run is kept: look back at any of them, and read what changed */}
+      {runs && runs.length > 0 && (
+        <div className={`mb-4 rounded-2xl px-4 py-3 ring-1 ${runView ? "bg-[#fff8e6] ring-[#f5d78e] dark:bg-[#2a2310] dark:ring-[#5c4a1a]" : "bg-(--c-b-fafaf9) ring-(--c-l-ebebeb)"}`}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[13px] font-medium text-(--c-t-1b1b1b)">{runView ? "Earlier research" : "Latest research"}</span>
+            <select
+              value={runView ?? ""}
+              onChange={(e) => {
+                setRunView(e.target.value || null);
+                setOpen(null);
+              }}
+              aria-label="Research from"
+              className="h-8 rounded-lg bg-(--c-b-ffffff) px-2 text-[13px] text-(--c-t-1b1b1b) outline-none ring-1 ring-(--c-l-e3e3e0)"
+            >
+              {runs.map((r, i) => (
+                <option key={r.id} value={i === 0 ? "" : r.id}>
+                  {new Date(r.startedAt).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                  {" · "}
+                  {r.added ? `${r.added} new` : ""}
+                  {r.added && r.refreshed ? ", " : ""}
+                  {r.refreshed ? `${r.refreshed} updated` : ""}
+                  {i === 0 ? " (latest)" : ""}
+                </option>
+              ))}
+            </select>
+            {runView && (
+              <button type="button" onClick={() => setRunView(null)} className="h-8 rounded-lg px-2.5 text-[13px] font-medium text-(--c-t-2358d8) hover:bg-(--c-b-f4f4f4)">
+                Back to latest
+              </button>
+            )}
+            {shownRun?.summary && (
+              <button
+                type="button"
+                onClick={() => setSummaryOpen(!summaryOpen)}
+                aria-expanded={summaryOpen}
+                className="ml-auto inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[13px] text-(--c-t-6b6b6b) hover:bg-(--c-b-f4f4f4)"
+              >
+                What changed
+                <IconChevron open={summaryOpen} />
+              </button>
+            )}
+          </div>
+          {summaryOpen && shownRun?.summary && <p className="m-0 mt-2 whitespace-pre-wrap text-[14px] leading-[1.55] text-(--c-t-4a4a4a)">{shownRun.summary}</p>}
+          {runView && <p className="m-0 mt-1.5 text-[12px] text-(--c-t-8a8a8a)">Scores and notes below are as they were then. Your marks are today&apos;s.</p>}
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div role="tablist" className="inline-flex rounded-lg bg-(--c-b-f4f4f4) p-0.5">
           {(
             [
               ["ideas", "Ideas"],
-              ["saved", "Saved"],
+              ["saved", "Might do"],
               ["archive", "Archive"],
             ] as const
           ).map(([k, label]) => (
@@ -170,7 +225,7 @@ export function TopicsApp() {
           {!topics.length
             ? "No research yet. Ask Claude to research topics for the channel and they'll show up here."
             : tab === "saved"
-              ? "Nothing saved yet. Star the ideas you like."
+              ? "Nothing marked yet. Tap Might do on the ideas you'd make."
               : tab === "archive"
                 ? "Topics you dismiss or turn into scripts land here."
                 : "No topics match."}
@@ -197,7 +252,19 @@ function TopicRow({ topic: t, open, onToggle }: { topic: Topic; open: boolean; o
         <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-3.5 text-left">
           <ScoreRing score={t.score} />
           <span className="flex min-w-0 flex-1 flex-col gap-1">
-            <span className="truncate text-[15px] font-medium text-(--c-t-1b1b1b)">{t.title}</span>
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-[15px] font-medium text-(--c-t-1b1b1b)">{t.title}</span>
+              {t.isNew && <span className="shrink-0 rounded-full bg-[#2358d8] px-1.5 py-px text-[10px] font-semibold uppercase tracking-[0.04em] text-white">New</span>}
+              {t.prevScore !== null && t.prevScore !== t.score && (
+                <span
+                  title={`Was ${t.prevScore} in the research before`}
+                  className={`shrink-0 text-[12px] font-medium tabular-nums ${t.score > t.prevScore ? "text-[#15803d] dark:text-[#6ee7a0]" : "text-[#b42318] dark:text-[#ff8a80]"}`}
+                >
+                  {t.score > t.prevScore ? "↑" : "↓"}
+                  {Math.abs(t.score - t.prevScore)}
+                </span>
+              )}
+            </span>
             <span className="flex flex-wrap items-center gap-1.5">
               <Chip className={TREND[t.trend].cls}>{TREND[t.trend].label}</Chip>
               <Chip className="bg-(--c-b-f4f4f4) text-(--c-t-6b6b6b)">
@@ -218,12 +285,15 @@ function TopicRow({ topic: t, open, onToggle }: { topic: Topic; open: boolean; o
           type="button"
           onClick={() => void update({ id: t.id, status: saved ? "new" : "saved" })}
           aria-pressed={saved}
-          title={saved ? "Saved (click to unsave)" : "Save this idea"}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-(--c-b-f4f4f4) ${saved ? "text-[#e0a100]" : "text-(--c-t-9a9a9a)"} ${archived ? "hidden" : ""}`}
+          title={saved ? "Marked: you might make this (tap to unmark)" : "Mark as something you might make"}
+          className={`flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium ${
+            saved ? "bg-[#fff4cc] text-[#9a6b00] dark:bg-[#3a2f0d] dark:text-[#f5c542]" : "text-(--c-t-8a8a8a) hover:bg-(--c-b-f4f4f4) hover:text-(--c-t-1b1b1b)"
+          } ${archived ? "hidden" : ""}`}
         >
-          <svg viewBox="0 0 24 24" width="18" height="18" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" aria-hidden="true">
             <path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" />
           </svg>
+          <span className="hidden sm:inline">Might do</span>
         </button>
         <button type="button" onClick={onToggle} aria-label={open ? "Collapse" : "Expand"} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-(--c-t-9a9a9a) hover:bg-(--c-b-f4f4f4)">
           <IconChevron open={open} />
@@ -443,6 +513,8 @@ function TopicDetail({ topic: t }: { topic: Topic }) {
         </Section>
       )}
 
+      <TopicHistory id={t.id} />
+
       <Section title="Notes">
         <textarea
           value={notes}
@@ -504,3 +576,53 @@ function TopicDetail({ topic: t }: { topic: Topic }) {
   );
 }
 
+
+/** Every version of this topic's research, newest first, so earlier numbers are never lost */
+function TopicHistory({ id }: { id: Topic["id"] }) {
+  const versions = useQuery(api.topics.history, { id });
+  const [open, setOpen] = useState<string | null>(null);
+  if (!versions || versions.length < 2) return null;
+  return (
+    <Section title={`History · ${versions.length} versions`}>
+      <div className="overflow-hidden rounded-xl ring-1 ring-(--c-l-ebebeb)">
+        {versions.map((v, i) => (
+          <div key={v.id} className={i ? "border-t border-(--c-l-ebebeb)" : ""}>
+            <button
+              type="button"
+              onClick={() => setOpen(open === v.id ? null : v.id)}
+              aria-expanded={open === v.id}
+              className="flex w-full items-center gap-3 px-3 py-2 text-left text-[13px] hover:bg-(--c-b-fafaf9)"
+            >
+              <span className="w-[120px] shrink-0 text-(--c-t-6b6b6b)">
+                {new Date(v.takenAt).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                {i === 0 && <span className="ml-1 text-(--c-t-9a9a9a)">(now)</span>}
+              </span>
+              <span className="w-8 shrink-0 font-semibold tabular-nums text-(--c-t-1b1b1b)">{v.score}</span>
+              <span className="min-w-0 flex-1 truncate text-(--c-t-8a8a8a)">
+                {TREND[v.trend].label} · demand {v.demand} · competition {v.competition}
+              </span>
+              <IconChevron open={open === v.id} />
+            </button>
+            {open === v.id && (
+              <div className="flex flex-col gap-2 px-3 pb-3 text-[13px] leading-[1.5] text-(--c-t-4a4a4a)">
+                <p className="m-0">{v.whyNow}</p>
+                {v.outliers.length > 0 && (
+                  <ul className="m-0 flex list-none flex-col gap-1 p-0">
+                    {v.outliers.map((o) => (
+                      <li key={o.url} className="truncate">
+                        <a href={o.url} target="_blank" rel="noreferrer" className="text-(--c-t-2358d8) no-underline hover:underline">
+                          {o.title}
+                        </a>
+                        {o.views ? <span className="text-(--c-t-9a9a9a)"> · {fmt(o.views)} views</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}

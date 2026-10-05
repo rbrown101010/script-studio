@@ -83,11 +83,20 @@ with edit_lines or edit_script.
 ## Topic opportunities
 Researched YouTube video ideas for Riley's channel (the Topic opportunities app). Each topic has an angle, a 0-100
 opportunity score, demand and competition (high/medium/low with the evidence), trend, why now, search keywords,
-outlier videos (views vs the channel's usual views, with links), title ideas, hooks and sources. The team saves the
-good ones (status saved), turns some into scripts (used) and dismisses the rest.
-- list_topics to see what's there (full:true for everything). Check before adding so you refresh instead of duplicating.
-- add_topics to add or refresh research: same title = refreshed, and the team's status and notes are kept.
-- update_topic to change one topic's research, status or notes.
+outlier videos (views vs the channel's usual views, with links), title ideas, hooks and sources. Riley marks the ones
+he might make as "Might do" (status saved, mightDo:true in list_topics), turns some into scripts (used) and dismisses
+the rest.
+Research is never replaced. Each research pass is a run, and every topic keeps a version per run, so the app can show
+earlier research and how a topic's score moved.
+A refresh (for example the scheduled one) goes like this:
+1. list_topics (full:true) to see what's there, including which ones Riley marked Might do.
+2. add_topics with the new research. Use the exact existing title to refresh a topic (its status and notes are kept,
+   and the old research stays in its history); a new title adds a topic. The first call returns a run id: pass it
+   as run on every further add_topics call in the same pass. Topics you don't send stay as they are.
+3. finish_topic_run {run, summary}: a few plain lines on what changed (new topics, big score moves, anything for the
+   Might do ones). The app shows it at the top.
+- update_topic changes one topic's research, status or notes (research edits are kept as a version too).
+- get_topic_history {topic} shows every version of one topic; list_topic_runs shows past runs and their summaries.
 Never invent numbers or videos. Only include view counts you actually saw at that URL; leave unknowns null.
 
 ## Rules
@@ -137,7 +146,10 @@ Never invent numbers or videos. Only include view counts you actually saw at tha
 | list_ideas {query?, limit?} | Search Mymind |
 | list_boards {query?} | List / search Excalidraw boards |
 | list_topics {status?, query?, full?} | Topic opportunities, best first |
-| add_topics {topics, agentName?} | Add or refresh researched topics (see "Topic opportunities") |
+| add_topics {topics, agentName?, run?} | Add or refresh researched topics, never replacing history (see "Topic opportunities") |
+| finish_topic_run {run, summary} | End a research run with a summary of what changed |
+| list_topic_runs {} | Past research runs and their summaries |
+| get_topic_history {topic} | Every version of one topic's research |
 | update_topic {topic, status?, notes?, research?} | Change one topic |
 | get_board {board, includeElements?} | Read a board: summary, style and items (with ids) |
 | create_board {title, items?, layout?, direction?} | New board, optionally drawn on |
@@ -233,6 +245,9 @@ POST /agent/board/edit                  edit_board
 GET  /agent/topics?status=saved&q=...&full=1  list_topics
 POST /agent/topics                      add_topics
 POST /agent/topic                       update_topic
+POST /agent/topics/finish               finish_topic_run
+GET  /agent/topics/runs                 list_topic_runs
+GET  /agent/topics/history?topic=<id>   get_topic_history
 POST /agent/upload-url                  get_upload_url
 POST /agent/file?script=<id>&lineContains=...&text=...&name=shot.png   (or ?comment=<id>)
      One step: the body is the raw file (Content-Type = its type, under 20 MB); posts the comment with it attached.

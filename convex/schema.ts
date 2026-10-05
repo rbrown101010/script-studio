@@ -245,6 +245,27 @@ export default defineSchema({
     .index("by_score", ["score"])
     .index("by_title", ["title"]),
 
+  /** One research pass over Topic opportunities (a scheduled refresh, or research by hand) */
+  topicRuns: defineTable({
+    agentName: v.string(),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    /** What changed, in a few lines (written when the run finishes) */
+    summary: v.optional(v.string()),
+    added: v.number(),
+    refreshed: v.number(),
+  }).index("by_started", ["startedAt"]),
+
+  /** A topic's research as it was in one run, so earlier research is never lost */
+  topicSnapshots: defineTable({
+    topicId: v.id("topics"),
+    runId: v.id("topicRuns"),
+    ...research,
+    takenAt: v.number(),
+  })
+    .index("by_topic", ["topicId", "takenAt"])
+    .index("by_run", ["runId"]),
+
   boards: defineTable({
     title: v.string(),
     /** Excalidraw elements, JSON */

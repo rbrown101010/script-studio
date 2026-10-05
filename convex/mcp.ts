@@ -450,7 +450,7 @@ const TOOLS: Tool[] = [
   {
     name: "list_topics",
     description:
-      "List Topic opportunities (researched YouTube video ideas), best score first. Filter by status (new, saved = starred by the team, used = made into a script, dismissed) or search. Set full to get keywords, outlier videos, hooks and sources too.",
+      "List Topic opportunities (researched YouTube video ideas), best score first. Filter by status (new, saved = Riley marked it Might do, used = made into a script, dismissed) or search. Set full to get keywords, outlier videos, hooks and sources too.",
     inputSchema: {
       type: "object",
       properties: { status: { type: "string", enum: ["new", "saved", "used", "dismissed"] }, query: { type: "string" }, full: { type: "boolean" } },
@@ -461,13 +461,37 @@ const TOOLS: Tool[] = [
   {
     name: "add_topics",
     description:
-      "Add researched YouTube topic opportunities (up to 60 at once). A topic whose title matches an existing one is refreshed with the new research; the team's status and notes on it are kept. Never invent numbers: outlier views must be what you actually saw at that URL, and leave views/channelAvgViews null when unknown.",
+      "Add researched YouTube topic opportunities (up to 60 at once). Never replaces anything: a topic whose title matches an existing one is refreshed (its status, notes and earlier research history are kept) and new titles are added. Each research pass is a run: the first call returns a run id; pass it as run on later calls in the same pass, then call finish_topic_run with a summary. Never invent numbers: outlier views must be what you actually saw at that URL, and leave views/channelAvgViews null when unknown.",
     inputSchema: {
       type: "object",
-      properties: { topics: { type: "array", items: topicArg }, agentName: { type: "string" } },
+      properties: {
+        topics: { type: "array", items: topicArg },
+        agentName: { type: "string" },
+        run: { type: "string", description: "Run id from the first add_topics call of this research pass (leave out to start a new run)" },
+      },
       required: ["topics"],
     },
     run: (ctx, a) => ctx.runMutation(internal.topics.upsertForAgent, a),
+  },
+  {
+    name: "finish_topic_run",
+    description: "End a research run with a short summary of what changed (new topics, big score moves, news on the topics Riley marked Might do). Shown at the top of the app.",
+    inputSchema: { type: "object", properties: { run: { type: "string" }, summary: { type: "string" } }, required: ["run", "summary"] },
+    run: (ctx, a) => ctx.runMutation(internal.topics.finishRunForAgent, a),
+  },
+  {
+    name: "list_topic_runs",
+    description: "Past Topic opportunities research runs (newest first) with how many topics each added or refreshed and its summary.",
+    inputSchema: { type: "object", properties: {} },
+    annotations: { readOnlyHint: true },
+    run: (ctx) => ctx.runQuery(internal.topics.runsForAgent, {}),
+  },
+  {
+    name: "get_topic_history",
+    description: "Every version of one topic's research (newest first): score, trend, demand, competition, why now and outliers per run.",
+    inputSchema: { type: "object", properties: { topic: { type: "string", description: "Topic id or exact title" } }, required: ["topic"] },
+    annotations: { readOnlyHint: true },
+    run: (ctx, a) => ctx.runQuery(internal.topics.historyForAgent, a),
   },
   {
     name: "update_topic",

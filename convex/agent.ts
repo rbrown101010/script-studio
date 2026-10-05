@@ -861,6 +861,13 @@ export const httpListTopics = route((ctx, _b, url) =>
   }),
 );
 export const httpAddTopics = route((ctx, b) => ctx.runMutation(internal.topics.upsertForAgent, b as any));
+export const httpFinishTopicRun = route((ctx, b) => ctx.runMutation(internal.topics.finishRunForAgent, b as any));
+export const httpTopicRuns = route((ctx) => ctx.runQuery(internal.topics.runsForAgent, {}));
+export const httpTopicHistory = route((ctx, _b, url) => {
+  const topic = url.searchParams.get("topic");
+  if (!topic) throw new ConvexError("Add ?topic=<id or title>");
+  return ctx.runQuery(internal.topics.historyForAgent, { topic });
+});
 export const httpUpdateTopic = route((ctx, b) => ctx.runMutation(internal.topics.updateForAgent, b as any));
 export const httpEditScript = route((ctx, b) => ctx.runMutation(internal.agent.editScript, b as any));
 export const httpEditLines = route((ctx, b) => ctx.runMutation(internal.agent.editLines, b as any));
