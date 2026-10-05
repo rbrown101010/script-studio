@@ -3,7 +3,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useIsMobile } from "@/lib/useIsMobile";
@@ -31,7 +31,7 @@ export const SIDEBAR_WIDTH = 252;
  * Whether the app sidebar is shown. Remembered per browser on computers (the same setting on every
  * page, so it stays put going from the Scripts list into a script); always starts closed on phones.
  */
-export function useAppSidebar() {
+function useSidebarState() {
   const mobile = useIsMobile();
   const [open, setOpen] = useState(true);
   const [animate, setAnimate] = useState(false);
@@ -54,6 +54,75 @@ export function useAppSidebar() {
       } catch {}
   };
   return { shown: open, mobile: !!mobile, animate, toggle };
+}
+
+type SidebarState = ReturnType<typeof useSidebarState>;
+const Shell = createContext<{
+  side: SidebarState;
+  view: View;
+  setView: (v: View) => void;
+  /** The Scripts page swaps in its own New script (it starts one that matches its filters) */
+  newScript: RefObject<(() => void) | null>;
+} | null>(null);
+
+/** The app sidebar's open/closed state (shared by every page inside the app shell) */
+export function useAppSidebar(): SidebarState {
+  const ctx = useContext(Shell);
+  if (!ctx) throw new Error("useAppSidebar needs AppShell");
+  return ctx.side;
+}
+
+/** The app sidebar's state, or null outside the app shell (share links) */
+export function useMaybeAppSidebar(): SidebarState | null {
+  return useContext(Shell)?.side ?? null;
+}
+
+/** The Scripts page's open view, kept in the shell so the sidebar can highlight it */
+export function useHomeView() {
+  const ctx = useContext(Shell);
+  if (!ctx) throw new Error("useHomeView needs AppShell");
+  return { view: ctx.view, setView: ctx.setView, newScript: ctx.newScript };
+}
+
+/**
+ * Holds the sidebar for every signed-in page. It lives in the layout, so it stays mounted while you
+ * move between scripts, boards and the Scripts page: no reloading, no flicker.
+ */
+export function AppShell({ children }: { children: ReactNode }) {
+  const side = useSidebarState();
+  const [view, setView] = useState<View>("list");
+  const newScript = useRef<(() => void) | null>(null);
+  const pathname = usePathname();
+  const active = pathname.match(/^\/(?:v|b)\/([^/]+)/)?.[1];
+  const closeOnPhone = () => {
+    if (side.mobile) side.toggle(false);
+  };
+  return (
+    <Shell.Provider value={{ side, view, setView, newScript }}>
+      <div className="relative flex min-h-screen bg-(--c-b-ffffff)">
+        <SidebarFrame state={side}>
+          <HomeSidebar
+            view={pathname === "/" ? view : null}
+            onView={
+              pathname === "/"
+                ? (v) => {
+                    setView(v);
+                    try {
+                      localStorage.setItem("home-view", v);
+                    } catch {}
+                  }
+                : undefined
+            }
+            onNewScript={pathname === "/" ? () => newScript.current?.() : undefined}
+            onNavigate={closeOnPhone}
+            activeId={active}
+            onClose={() => side.toggle(false)}
+          />
+        </SidebarFrame>
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
+    </Shell.Provider>
+  );
 }
 
 /** Holds the sidebar: a column that slides open and shut on computers, a drawer over the page on phones */
@@ -133,6 +202,7 @@ export function HomeSidebar({
   onClose,
   onNewScript,
   activeId,
+  onNavigate,
 }: {
   /** The open view on the Scripts page; null on other pages */
   view: View | null;
@@ -142,6 +212,8 @@ export function HomeSidebar({
   onNewScript?: () => void;
   /** The script or board open right now, to highlight it under Pinned */
   activeId?: string;
+  /** After any item is picked (closes the drawer on phones) */
+  onNavigate?: () => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -152,6 +224,7 @@ export function HomeSidebar({
   const [creating, setCreating] = useState(false);
 
   const go = (v: View) => {
+    onNavigate?.();
     if (onView) return onView(v);
     try {
       localStorage.setItem("home-view", v);
@@ -161,6 +234,7 @@ export function HomeSidebar({
     router.push(`/?view=${v}`);
   };
   const newScript = async () => {
+    onNavigate?.();
     if (onNewScript) return onNewScript();
     setCreating(true);
     try {
@@ -233,9 +307,11 @@ export function HomeSidebar({
               <Item
                 key={p.id}
                 on={activeId === p.id}
-                onClick={() =>
-                  router.push(p.kind === "board" ? `/b/${p.id}` : `/v/${p.id}`)
-                }
+                onClick={() => {
+                  onNavigate?.();
+                  if (activeId !== p.id)
+                    router.push(p.kind === "board" ? `/b/${p.id}` : `/v/${p.id}`);
+                }}
                 icon={
                   p.kind === "board" ? (
                     <IconBoard size={15} />

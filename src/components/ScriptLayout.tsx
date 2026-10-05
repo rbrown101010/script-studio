@@ -17,7 +17,6 @@ export function ScriptLayout({
   tools,
   onOpenPanel,
   onClosePanel,
-  nav,
   navOpen,
 }: {
   left?: ReactNode;
@@ -34,9 +33,7 @@ export function ScriptLayout({
   onOpenPanel?: () => void;
   /** Shows a close button at the top of the sidebar */
   onClosePanel?: () => void;
-  /** The app sidebar on the left (it handles its own sliding and phone drawer) */
-  nav?: ReactNode;
-  /** Whether that sidebar is taking room on the left, so the script centres in what's left */
+  /** Whether the app sidebar (from the app shell) is taking room on the left, so the script centres in what's left */
   navOpen?: boolean;
 }) {
   const mobile = useIsMobile();
@@ -70,7 +67,6 @@ export function ScriptLayout({
   // The script column stays centered in whatever room is left, so it glides as the sidebar moves.
   return (
     <div className="flex min-h-screen bg-(--c-b-ffffff)" style={{ ["--nav" as string]: `${navOpen && !mobile ? SIDEBAR_WIDTH : 0}px` }}>
-      {nav}
       <div className="min-w-0 flex-1">
         {topBar}
         {banner}

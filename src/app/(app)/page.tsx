@@ -6,8 +6,8 @@ import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { CalendarView } from "@/components/CalendarView";
 import { FeedView } from "@/components/FeedView";
 import { Mymind } from "@/components/Mymind";
@@ -20,19 +20,14 @@ import { FilterSelect } from "@/components/FeedView";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Tweet } from "@/components/Tweet";
 import { BrandDeals } from "@/components/BrandDeals";
-import { HomeSidebar, ShowSidebarButton, SidebarFrame, useAppSidebar, type View } from "@/components/HomeSidebar";
+import { ShowSidebarButton, useAppSidebar, useHomeView, type View } from "@/components/HomeSidebar";
 import { FormatIcon } from "@/components/FormatIcon";
-import { TeamGate } from "@/components/TeamGate";
 import { IconCheck, IconPencil, IconTrash, IconX, IconPin, IconPlus, IconSearch } from "@/components/icons";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { FORMATS, SPONSORSHIPS, STATUSES, isPaidSponsor, statusOf, type Sponsorship, type VideoFormat, type VideoStatus } from "@/lib/types";
 
 export default function Home() {
-  return (
-    <TeamGate>
-      <ScriptList />
-    </TeamGate>
-  );
+  return <ScriptList />;
 }
 
 /** "Sep 12", with the year only when it isn't this year. */
@@ -274,7 +269,7 @@ function ScriptList() {
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "edited", dir: -1 });
   const [creating, setCreating] = useState(false);
   const mobile = useIsMobile();
-  const [view, setView] = useState<View>("list");
+  const { view, setView, newScript: newScriptRef } = useHomeView();
   useDocumentTitle(
     { list: "Scripts", calendar: "Calendar", feed: "Feed", mymind: "Mymind", library: "Library", tweet: "Tweet", brands: "Brand deals", boards: "Excalidraw", topics: "Topic opportunities" }[view],
   );
@@ -291,7 +286,7 @@ function ScriptList() {
       if (asked && ["calendar", "feed", "mymind", "library", "tweet", "brands", "boards", "topics", "list"].includes(asked)) setView(asked as View);
       setFiltersOpen(localStorage.getItem("home-filters") === "1");
     } catch {}
-  }, []);
+  }, [setView]);
   // Filters and sort stay as you left them (saved in this browser)
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   useEffect(() => {
@@ -321,7 +316,7 @@ function ScriptList() {
     };
     window.addEventListener("native-note:view", onView);
     return () => window.removeEventListener("native-note:view", onView);
-  }, []);
+  }, [setView]);
   const remember = (k: string, v: string) => {
     try {
       localStorage.setItem(k, v);
@@ -338,6 +333,13 @@ function ScriptList() {
       setCreating(false);
     }
   };
+  // The sidebar's New script starts one that matches the filters here
+  useEffect(() => {
+    newScriptRef.current = () => void newScript();
+    return () => {
+      newScriptRef.current = null;
+    };
+  });
 
   const q = search.trim().toLowerCase();
   const shown = (videos ?? []).filter(
@@ -369,21 +371,6 @@ function ScriptList() {
         format: { all: all.length, long: all.filter((v) => v.format === "long").length, short: all.filter((v) => v.format === "short").length },
       }
     : undefined;
-  const sidebar = (
-    <HomeSidebar
-      view={view}
-      onView={(v) => {
-        setView(v);
-        remember("home-view", v);
-        if (mobile) toggleSidebar(false);
-      }}
-      onNewScript={() => {
-        if (mobile) toggleSidebar(false);
-        void newScript();
-      }}
-      onClose={() => toggleSidebar(false)}
-    />
-  );
   const activeFilters = (statusFilter !== "all" ? 1 : 0) + (sponsorFilter !== "all" ? 1 : 0) + (filter !== "all" ? 1 : 0);
   const heading = [
     statusFilter === "all" ? "All scripts" : statusOf(statusFilter).label,
@@ -395,8 +382,6 @@ function ScriptList() {
 
   return (
     <div className="relative flex min-h-screen bg-(--c-b-ffffff)">
-      {/* Desktop: a sidebar that can be hidden. Phones: a drawer over the page. */}
-      <SidebarFrame state={side}>{sidebar}</SidebarFrame>
 
       {view === "mymind" || view === "library" || view === "tweet" || view === "brands" || view === "boards" || view === "topics" ? (
         // Mymind is its own light-grey space for ideas, separate from scripts

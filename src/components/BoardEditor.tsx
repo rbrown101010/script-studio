@@ -11,6 +11,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { useBoardData, useIsDark } from "@/lib/boardSource";
 import { uploadToUrl } from "@/lib/upload";
 import { IconArrowLeft, IconPin, IconX } from "./icons";
+import { SidebarIcon, useMaybeAppSidebar } from "./HomeSidebar";
 
 // The real Excalidraw editor (browser only)
 const Excalidraw = dynamic(async () => (await import("@excalidraw/excalidraw")).Excalidraw, {
@@ -32,6 +33,9 @@ const KEEP = ["viewBackgroundColor", "gridModeEnabled", "gridSize", "gridStep", 
  */
 export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onClose?: () => void; readOnly?: boolean; /** A frame to zoom to on open */ focus?: string | null }) {
   const board = useBoardData(id);
+  // Full-page boards sit beside the app sidebar; a button here hides it for more canvas or brings it back
+  const appSidebar = useMaybeAppSidebar();
+  const sidebarToggle = !onClose && !readOnly ? appSidebar : null;
   const save = useMutation(api.boards.save);
   const pinnedList = useQuery(api.boards.pinned, readOnly ? "skip" : {});
   const isPinned = !!pinnedList?.some((p) => p.id === id);
@@ -249,6 +253,17 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
         phone ? "h-11 shrink-0 border-b border-(--c-l-ebebeb) bg-(--c-b-ffffff) px-1.5 [&_input]:flex-1" : "h-(--lg-button-size) rounded-lg bg-(--island-bg-color) px-1 shadow-(--shadow-island)"
       }`}
     >
+      {sidebarToggle && (
+        <button
+          type="button"
+          onClick={() => sidebarToggle.toggle(!sidebarToggle.shown || sidebarToggle.mobile)}
+          aria-label={sidebarToggle.shown && !sidebarToggle.mobile ? "Hide sidebar" : "Show sidebar"}
+          title={sidebarToggle.shown && !sidebarToggle.mobile ? "Hide sidebar" : "Show sidebar"}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-(--c-t-6b6b6b) hover:bg-(--button-hover-bg)"
+        >
+          <SidebarIcon size={16} />
+        </button>
+      )}
       {onClose ? null : (
         <Link
           href="/?view=boards"

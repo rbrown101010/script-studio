@@ -3,7 +3,6 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { frameIdFrom } from "@/lib/boardSource";
-import { TeamGate } from "@/components/TeamGate";
 import { BoardEditor } from "@/components/BoardEditor";
 
 export default function BoardPage() {
@@ -16,9 +15,5 @@ export default function BoardPage() {
     window.addEventListener("hashchange", read);
     return () => window.removeEventListener("hashchange", read);
   }, []);
-  return (
-    <TeamGate>
-      <BoardEditor key={id} id={id} focus={frame} />
-    </TeamGate>
-  );
+  return <BoardEditor key={id} id={id} focus={frame} />;
 }

@@ -51,9 +51,7 @@ import {
   IconPin,
 } from "./icons";
 import {
-  HomeSidebar,
   ShowSidebarButton,
-  SidebarFrame,
   useAppSidebar,
 } from "./HomeSidebar";
 import { useIsMobile } from "@/lib/useIsMobile";
@@ -583,15 +581,6 @@ export function VideoEditor({ id }: { id: string }) {
   return (
     <>
       <ScriptLayout
-        nav={
-          <SidebarFrame state={side}>
-            <HomeSidebar
-              view={null}
-              activeId={id}
-              onClose={() => side.toggle(false)}
-            />
-          </SidebarFrame>
-        }
         navOpen={side.shown}
         left={
           <>
