@@ -107,6 +107,8 @@
   --caret: #111111;
   --selection: #cfe3ff;
   --comment-underline: #f0d67a;
+  --comment-highlight: #fdf6d6;
+  --comment-highlight-hover: #fbeeb8;
   --link: #2358d8;
   --link-underline: rgb(35 88 216 / 0.35);
 }
@@ -217,6 +219,8 @@
   --caret: #f0f0f0;
   --selection: #2b4a80;
   --comment-underline: #8a7430;
+  --comment-highlight: rgb(245 197 66 / 0.11);
+  --comment-highlight-hover: rgb(245 197 66 / 0.19);
   --link: #7aa5ff;
   --link-underline: rgb(122 165 255 / 0.4);
 }

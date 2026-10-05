@@ -35,14 +35,17 @@ body {
 }
 
 
-/* Lines with comments: a soft yellow underline under the text (the open line gets the full highlight) */
-[data-has-comments]:not([data-active-row]) .editable:not(.line-through),
-[data-has-comments]:not([data-active-row]) [data-line-text] {
-  text-decoration-line: underline;
-  text-decoration-color: var(--comment-underline);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 5px;
-  text-decoration-skip-ink: none;
+/* Lines with comments: a soft yellow highlight behind the line, a touch stronger on hover; the open line gets
+   the full highlight with its outline. A line with its own background color keeps that color. */
+[data-has-comments]:not([data-active-row]) {
+  margin-inline: -0.5rem;
+  padding-inline: 0.5rem;
+  border-radius: 6px;
+  background: var(--comment-highlight);
+  transition: background-color 150ms ease;
+}
+[data-has-comments]:not([data-active-row]):hover {
+  background: var(--comment-highlight-hover);
 }
 
 /* Links inside script lines */
