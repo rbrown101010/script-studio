@@ -284,7 +284,7 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
       )}
       {onClose && !readOnly && (
         <Link
-          href={`/b/${id}`}
+          href={`/b/${id}${focus ? `#frame=${focus}` : ""}`}
           target="_blank"
           title="Open full page"
           aria-label="Open full page"
