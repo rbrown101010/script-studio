@@ -2,7 +2,7 @@
 
 import "@excalidraw/excalidraw/index.css";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -10,7 +10,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useBoardData, useIsDark } from "@/lib/boardSource";
 import { uploadToUrl } from "@/lib/upload";
-import { IconArrowLeft, IconX } from "./icons";
+import { IconArrowLeft, IconPin, IconX } from "./icons";
 
 // The real Excalidraw editor (browser only)
 const Excalidraw = dynamic(async () => (await import("@excalidraw/excalidraw")).Excalidraw, {
@@ -33,6 +33,9 @@ const KEEP = ["viewBackgroundColor", "gridModeEnabled", "gridSize", "gridStep", 
 export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onClose?: () => void; readOnly?: boolean; /** A frame to zoom to on open */ focus?: string | null }) {
   const board = useBoardData(id);
   const save = useMutation(api.boards.save);
+  const pinnedList = useQuery(api.boards.pinned, readOnly ? "skip" : {});
+  const isPinned = !!pinnedList?.some((p) => p.id === id);
+  const setPinned = useMutation(api.boards.setPinned);
   const uploadUrl = useMutation(api.docs.generateUploadUrl);
   const fileUrl = useMutation(api.docs.fileUrl);
   // Load once: later saves come from this editor, so the live copy isn't pushed back into it
@@ -271,6 +274,18 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
           aria-label={state === "saving" ? "Saving" : state === "error" ? "Not saved" : "Saved"}
           className={`mx-1.5 h-1.5 w-1.5 shrink-0 rounded-full transition-colors ${state === "error" ? "bg-[#e03131]" : state === "saving" ? "bg-[#f08c00]" : "bg-[#40c057]"}`}
         />
+      )}
+      {!readOnly && pinnedList && (
+        <button
+          type="button"
+          onClick={() => void setPinned({ id: id as Id<"boards">, pinned: !isPinned })}
+          aria-pressed={isPinned}
+          aria-label={isPinned ? "Unpin from the sidebar" : "Pin to the sidebar"}
+          title={isPinned ? "Unpin from the sidebar" : "Pin to the sidebar"}
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md hover:bg-(--button-hover-bg) ${isPinned ? "text-(--c-t-2358d8)" : "text-(--c-t-6b6b6b)"}`}
+        >
+          <IconPin size={14} filled={isPinned} />
+        </button>
       )}
       {picked.frame && (
         <button

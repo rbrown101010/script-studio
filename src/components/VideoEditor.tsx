@@ -7,11 +7,29 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { groupComments, snippet, snapToLine, type CommentActions } from "@/lib/comments";
+import {
+  groupComments,
+  snippet,
+  snapToLine,
+  type CommentActions,
+} from "@/lib/comments";
 import { readText, setCaret } from "@/lib/caret";
 import { useDocSync, useLoadBlocks, type SaveState } from "@/lib/sync";
-import { FORMATS, SPONSORSHIPS, STATUSES, type Attachment, type Block, type Comment } from "@/lib/types";
-import { emptyBlock, kindForFile, scriptToText, timeAgo, uid } from "@/lib/util";
+import {
+  FORMATS,
+  SPONSORSHIPS,
+  STATUSES,
+  type Attachment,
+  type Block,
+  type Comment,
+} from "@/lib/types";
+import {
+  emptyBlock,
+  kindForFile,
+  scriptToText,
+  timeAgo,
+  uid,
+} from "@/lib/util";
 import { uploadToUrl } from "@/lib/upload";
 import { Lightbox } from "./Attachments";
 import { CommentsPanel } from "./CommentsPanel";
@@ -25,12 +43,29 @@ import { ScriptLayout, primaryButton } from "./ScriptLayout";
 import { SharePopover } from "./SharePopover";
 import { ScriptTabs } from "./ScriptTabs";
 import { VideoDetails, VideoTitle, type Meta } from "./VideoMeta";
-import { IconArrowLeft, IconCheck, IconCopy, IconHistory, IconPin } from "./icons";
+import {
+  IconArrowLeft,
+  IconCheck,
+  IconCopy,
+  IconHistory,
+  IconPin,
+} from "./icons";
+import {
+  HomeSidebar,
+  ShowSidebarButton,
+  SidebarFrame,
+  useAppSidebar,
+} from "./HomeSidebar";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { Presentation } from "./Presentation";
 
 type SetList = (fn: (prev: Block[]) => Block[]) => void;
-type DocInfo = { _id: string; kind: string; editorName: string | null; updatedAt: number };
+type DocInfo = {
+  _id: string;
+  kind: string;
+  editorName: string | null;
+  updatedAt: number;
+};
 
 const SCRIPT = "__script__";
 
@@ -54,7 +89,10 @@ function enqueue(job: () => Promise<void>) {
 
 export function VideoEditor({ id }: { id: string }) {
   const data = useQuery(api.videos.get, { id });
-  const comments = useQuery(api.comments.list, data?.video ? { videoId: data.video._id } : "skip");
+  const comments = useQuery(
+    api.comments.list,
+    data?.video ? { videoId: data.video._id } : "skip",
+  );
   const addCommentM = useMutation(api.comments.add);
   const updateCommentM = useMutation(api.comments.update);
   const removeCommentM = useMutation(api.comments.remove);
@@ -76,12 +114,16 @@ export function VideoEditor({ id }: { id: string }) {
   const [insId, setInsId] = useState<string | null>(null);
   const [mainBlocks, setMainBlocks] = useState<Block[] | null>(null);
   const [insBlocks, setInsBlocks] = useState<Block[] | null>(null);
-  const [review, setReview] = useState<{ doc: DocInfo; blocks: Block[] } | null>(null);
+  const [review, setReview] = useState<{
+    doc: DocInfo;
+    blocks: Block[];
+  } | null>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
   // Presentation mode lives in the address (?present), so it stays on through reloads and when you come back to the tab
   const [presenting, setPresentingState] = useState(false);
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).has("present")) setPresentingState(true);
+    if (new URLSearchParams(window.location.search).has("present"))
+      setPresentingState(true);
   }, []);
   const setPresenting = (on: boolean) => {
     setPresentingState(on);
@@ -89,7 +131,11 @@ export function VideoEditor({ id }: { id: string }) {
     if (on) params.set("present", "1");
     else params.delete("present");
     const qs = params.toString();
-    window.history.replaceState(window.history.state, "", window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash,
+    );
   };
 
   const setPinnedM = useMutation(api.videos.setPinned);
@@ -102,7 +148,12 @@ export function VideoEditor({ id }: { id: string }) {
     } catch {}
   }, []);
   const mobile = useIsMobile();
-  const partnerOptions = useQuery(api.partners.list)?.map((p) => ({ id: p.id as string, name: p.name, logoUrl: p.logoUrl }));
+  const side = useAppSidebar();
+  const partnerOptions = useQuery(api.partners.list)?.map((p) => ({
+    id: p.id as string,
+    name: p.name,
+    logoUrl: p.logoUrl,
+  }));
   /** Comments open in the side panel: a line's key, SCRIPT for the whole script, or none */
   const [openId, setOpenId] = useState<string | null>(null);
   const [focusComment, setFocusComment] = useState<string | null>(null);
@@ -115,8 +166,14 @@ export function VideoEditor({ id }: { id: string }) {
   const pendingMeta = useRef<Partial<Meta>>({});
   const [metaState, setMetaState] = useState<SaveState>("idle");
 
-  const setMain: SetList = useCallback((fn) => setMainBlocks((p) => (p ? fn(p) : p)), []);
-  const setIns: SetList = useCallback((fn) => setInsBlocks((p) => (p ? fn(p) : p)), []);
+  const setMain: SetList = useCallback(
+    (fn) => setMainBlocks((p) => (p ? fn(p) : p)),
+    [],
+  );
+  const setIns: SetList = useCallback(
+    (fn) => setInsBlocks((p) => (p ? fn(p) : p)),
+    [],
+  );
 
   const docs = (data?.documents ?? []) as DocInfo[];
   const serverMain = docs.find((d) => d.kind === "main")?._id ?? null;
@@ -160,7 +217,9 @@ export function VideoEditor({ id }: { id: string }) {
   }, [serverIns]);
 
   useEffect(() => {
-    const busy = Object.values(uploading).some((list) => list.some((a) => !a.error));
+    const busy = Object.values(uploading).some((list) =>
+      list.some((a) => !a.error),
+    );
     if (!busy) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener("beforeunload", warn);
@@ -176,7 +235,11 @@ export function VideoEditor({ id }: { id: string }) {
       pendingMeta.current = {};
       setMetaState("saving");
       try {
-        await updateVideo({ id: id as Id<"videos">, ...p, partnerId: p.partnerId as Id<"partners"> | null | undefined });
+        await updateVideo({
+          id: id as Id<"videos">,
+          ...p,
+          partnerId: p.partnerId as Id<"partners"> | null | undefined,
+        });
         setMetaState("saved");
       } catch {
         setMetaState("error");
@@ -184,7 +247,11 @@ export function VideoEditor({ id }: { id: string }) {
     }, 500);
   };
 
-  const patchUpload = (commentId: string, attId: string, patch: Partial<Attachment> | null) =>
+  const patchUpload = (
+    commentId: string,
+    attId: string,
+    patch: Partial<Attachment> | null,
+  ) =>
     setUploading((u) => {
       const list = (u[commentId] ?? [])
         .map((a) => (a.id === attId ? (patch ? { ...a, ...patch } : null) : a))
@@ -196,26 +263,48 @@ export function VideoEditor({ id }: { id: string }) {
 
   const actions: CommentActions = {
     add: async (blockKey) => {
-      const cid = await addCommentM({ videoId: id as Id<"videos">, blockKey, text: "" });
+      const cid = await addCommentM({
+        videoId: id as Id<"videos">,
+        blockKey,
+        text: "",
+      });
       createdHere.current.add(cid);
       setFocusComment(cid);
       return cid;
     },
-    update: (cid, text) => void updateCommentM({ id: cid as Id<"comments">, text }),
+    update: (cid, text) =>
+      void updateCommentM({ id: cid as Id<"comments">, text }),
     remove: (cid) => void removeCommentM({ id: cid as Id<"comments"> }),
     addLink: (cid, url) =>
       void attachM({
         id: cid as Id<"comments">,
-        attachment: { id: uid(), kind: "link", url, storageId: null, name: null, mime: null, size: null },
+        attachment: {
+          id: uid(),
+          kind: "link",
+          url,
+          storageId: null,
+          name: null,
+          mime: null,
+          size: null,
+        },
       }),
     removeAttachment: (cid, attId) => {
-      if (uploading[cid]?.some((a) => a.id === attId)) patchUpload(cid, attId, null);
+      if (uploading[cid]?.some((a) => a.id === attId))
+        patchUpload(cid, attId, null);
       else void detachM({ id: cid as Id<"comments">, attachmentId: attId });
     },
     attach: (cid, attachment) =>
       void attachM({
         id: cid as Id<"comments">,
-        attachment: { id: attachment.id, kind: attachment.kind, url: attachment.url, storageId: null, name: attachment.name, mime: attachment.mime, size: attachment.size },
+        attachment: {
+          id: attachment.id,
+          kind: attachment.kind,
+          url: attachment.url,
+          storageId: null,
+          name: attachment.name,
+          mime: attachment.mime,
+          size: attachment.size,
+        },
       }),
     addFiles: (cid, files) => {
       for (const file of files) {
@@ -240,14 +329,26 @@ export function VideoEditor({ id }: { id: string }) {
                 patchUpload(cid, att.id, { progress: f });
               }
             });
-            const url = await fileUrl({ storageId: storageId as Id<"_storage"> });
+            const url = await fileUrl({
+              storageId: storageId as Id<"_storage">,
+            });
             await attachM({
               id: cid as Id<"comments">,
-              attachment: { id: att.id, kind: att.kind, url, storageId: storageId as Id<"_storage">, name: att.name, mime: att.mime, size: att.size },
+              attachment: {
+                id: att.id,
+                kind: att.kind,
+                url,
+                storageId: storageId as Id<"_storage">,
+                name: att.name,
+                mime: att.mime,
+                size: att.size,
+              },
             });
             patchUpload(cid, att.id, null);
           } catch (e) {
-            patchUpload(cid, att.id, { error: e instanceof Error ? e.message : "Upload failed" });
+            patchUpload(cid, att.id, {
+              error: e instanceof Error ? e.message : "Upload failed",
+            });
           }
         });
       }
@@ -270,7 +371,13 @@ export function VideoEditor({ id }: { id: string }) {
   const sweepEmpty = () =>
     setTimeout(() => {
       for (const c of commentsRef.current) {
-        if (!createdHere.current.has(c.id) || c.text.trim() || c.attachments.length || uploadingRef.current[c.id]) continue;
+        if (
+          !createdHere.current.has(c.id) ||
+          c.text.trim() ||
+          c.attachments.length ||
+          uploadingRef.current[c.id]
+        )
+          continue;
         createdHere.current.delete(c.id);
         void removeCommentM({ id: c.id as Id<"comments"> });
       }
@@ -322,7 +429,9 @@ export function VideoEditor({ id }: { id: string }) {
   /** Puts the caret at the end of a line in the script or instructions */
   const focusLineEnd = (key: string) => {
     requestAnimationFrame(() => {
-      const el = document.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(key)}"] .editable`);
+      const el = document.querySelector<HTMLElement>(
+        `[data-row-id="${CSS.escape(key)}"] .editable`,
+      );
       if (el) setCaret(el, readText(el).length);
     });
   };
@@ -333,9 +442,18 @@ export function VideoEditor({ id }: { id: string }) {
       const i = list.findIndex((b) => b.id === key);
       if (i < 0) return null;
       const cur = list[i];
-      const listy = cur.type === "bullet" || cur.type === "number" || cur.type === "todo";
-      const nb: Block = { id: uid(), type: listy ? cur.type : "p", content: "", color: cur.color ?? null } as Block;
-      return { next: [...list.slice(0, i + 1), nb, ...list.slice(i + 1)], id: nb.id };
+      const listy =
+        cur.type === "bullet" || cur.type === "number" || cur.type === "todo";
+      const nb: Block = {
+        id: uid(),
+        type: listy ? cur.type : "p",
+        content: "",
+        color: cur.color ?? null,
+      } as Block;
+      return {
+        next: [...list.slice(0, i + 1), nb, ...list.slice(i + 1)],
+        id: nb.id,
+      };
     };
     const inMain = mainBlocks?.some((b) => b.id === key);
     const target = inMain ? mainBlocks : insBlocks;
@@ -366,35 +484,65 @@ export function VideoEditor({ id }: { id: string }) {
         </Link>
       </div>
     );
-  if (!data || !meta || !mainBlocks || !insBlocks) return <div className="min-h-screen bg-(--c-b-ffffff)" />;
+  if (!data || !meta || !mainBlocks || !insBlocks)
+    return <div className="min-h-screen bg-(--c-b-ffffff)" />;
 
-  const edited = docs.filter((d) => d.kind === "edited").sort((a, b) => b.updatedAt - a.updatedAt);
-  const archived = docs.filter((d) => d.kind === "archived").sort((a, b) => b.updatedAt - a.updatedAt);
+  const edited = docs
+    .filter((d) => d.kind === "edited")
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+  const archived = docs
+    .filter((d) => d.kind === "archived")
+    .sort((a, b) => b.updatedAt - a.updatedAt);
   const states = [mainSync.state, insSync.state, metaState];
-  const saveLabel = states.includes("error") ? "Offline, retrying…" : states.includes("saving") ? "Saving…" : "";
+  const saveLabel = states.includes("error")
+    ? "Offline, retrying…"
+    : states.includes("saving")
+      ? "Saving…"
+      : "";
 
   // Comments live on lines by key; an edited version's lines point back to the originals
   const keyOf = (b: Block) => (review ? (b.source_block_id ?? b.id) : b.id);
   const allComments: Comment[] = ((comments ?? []) as Comment[]).map((c) =>
-    uploading[c.id] ? { ...c, attachments: [...c.attachments, ...uploading[c.id]] } : c,
+    uploading[c.id]
+      ? { ...c, attachments: [...c.attachments, ...uploading[c.id]] }
+      : c,
   );
-  const { counts: countsByKey, script: scriptComments } = groupComments(allComments, [...insBlocks, ...mainBlocks]);
+  const { counts: countsByKey, script: scriptComments } = groupComments(
+    allComments,
+    [...insBlocks, ...mainBlocks],
+  );
   // An earlier version shows each comment where it was then: its current line if that line is in the version,
   // otherwise the most recent line it used to be on
-  const archivedKeys = review?.doc.kind === "archived" ? new Set(review.blocks.map((b) => b.id)) : null;
+  const archivedKeys =
+    review?.doc.kind === "archived"
+      ? new Set(review.blocks.map((b) => b.id))
+      : null;
   const placeOf = (c: Comment) => {
-    if (!archivedKeys || !c.blockKey || archivedKeys.has(c.blockKey)) return c.blockKey;
-    return [...(c.keyHistory ?? [])].reverse().find((k) => archivedKeys.has(k)) ?? c.blockKey;
+    if (!archivedKeys || !c.blockKey || archivedKeys.has(c.blockKey))
+      return c.blockKey;
+    return (
+      [...(c.keyHistory ?? [])].reverse().find((k) => archivedKeys.has(k)) ??
+      c.blockKey
+    );
   };
   const archivedCounts: Record<string, number> = {};
-  if (archivedKeys) for (const c of allComments) {
-    const k = placeOf(c);
-    if (k) archivedCounts[k] = (archivedCounts[k] ?? 0) + 1;
-  }
+  if (archivedKeys)
+    for (const c of allComments) {
+      const k = placeOf(c);
+      if (k) archivedCounts[k] = (archivedCounts[k] ?? 0) + 1;
+    }
   const countsFor = (blocks: Block[]) =>
-    Object.fromEntries(blocks.map((b) => [b.id, (archivedKeys ? archivedCounts : countsByKey)[keyOf(b)] ?? 0]));
+    Object.fromEntries(
+      blocks.map((b) => [
+        b.id,
+        (archivedKeys ? archivedCounts : countsByKey)[keyOf(b)] ?? 0,
+      ]),
+    );
   const shownBlocks = review ? review.blocks : [...insBlocks, ...mainBlocks];
-  const openBlock = openId && openId !== SCRIPT ? shownBlocks.find((b) => b.id === openId) : undefined;
+  const openBlock =
+    openId && openId !== SCRIPT
+      ? shownBlocks.find((b) => b.id === openId)
+      : undefined;
   const openKey = openBlock ? keyOf(openBlock) : null;
 
   // The side panel only shows while comments are open
@@ -435,33 +583,69 @@ export function VideoEditor({ id }: { id: string }) {
   return (
     <>
       <ScriptLayout
-        left={
-          <Link
-            href="/"
-            onClick={(e) => {
-              // Came here from the Scripts page: go back to it, so its view, filters and scroll are just as you left them
-              if (cameFromHome.current && window.history.length > 1) {
-                e.preventDefault();
-                router.back();
-              }
-            }}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[14px] text-(--c-t-6b6b6b) no-underline hover:bg-(--c-b-f4f4f4)"
-          >
-            <IconArrowLeft />
-            <span>Scripts</span>
-          </Link>
+        nav={
+          <SidebarFrame state={side}>
+            <HomeSidebar
+              view={null}
+              activeId={id}
+              onClose={() => side.toggle(false)}
+            />
+          </SidebarFrame>
         }
-        right={saveLabel && <span className={`mr-1 text-[13px] ${states.includes("error") ? "text-(--c-t-b42318)" : "text-(--c-t-9a9a9a)"}`}>{saveLabel}</span>}
+        navOpen={side.shown}
+        left={
+          <>
+            {(!side.shown || side.mobile) && (
+              <ShowSidebarButton
+                onClick={() => side.toggle(true)}
+                className="mr-0.5"
+              />
+            )}
+            <Link
+              href="/"
+              onClick={(e) => {
+                // Came here from the Scripts page: go back to it, so its view, filters and scroll are just as you left them
+                if (cameFromHome.current && window.history.length > 1) {
+                  e.preventDefault();
+                  router.back();
+                }
+              }}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[14px] text-(--c-t-6b6b6b) no-underline hover:bg-(--c-b-f4f4f4)"
+            >
+              <IconArrowLeft />
+              {/* Phones: just the arrow, so the top bar fits next to the sidebar button */}
+              <span className="max-sm:hidden">Scripts</span>
+            </Link>
+          </>
+        }
+        right={
+          saveLabel && (
+            <span
+              className={`mr-1 text-[13px] ${states.includes("error") ? "text-(--c-t-b42318)" : "text-(--c-t-9a9a9a)"}`}
+            >
+              {saveLabel}
+            </span>
+          )
+        }
         onOpenPanel={() => openComments(SCRIPT)}
         onClosePanel={closeComments}
         tools={
           <>
             <button
               type="button"
-              onClick={() => void setPinnedM({ id: id as Id<"videos">, pinned: !data.video.pinnedAt })}
+              onClick={() =>
+                void setPinnedM({
+                  id: id as Id<"videos">,
+                  pinned: !data.video.pinnedAt,
+                })
+              }
               aria-pressed={!!data.video.pinnedAt}
               aria-label={data.video.pinnedAt ? "Unpin" : "Pin"}
-              title={data.video.pinnedAt ? "Unpin from the top of Scripts" : "Pin to the top of Scripts"}
+              title={
+                data.video.pinnedAt
+                  ? "Unpin from the sidebar and the top of Scripts"
+                  : "Pin to the sidebar and the top of Scripts"
+              }
               className={`flex h-9 w-9 items-center justify-center rounded-lg hover:bg-(--c-b-ececea) ${data.video.pinnedAt ? "text-(--c-t-2358d8)" : "text-(--c-t-6b6b6b) hover:text-(--c-t-1b1b1b)"}`}
             >
               <IconPin size={17} filled={!!data.video.pinnedAt} />
@@ -482,7 +666,9 @@ export function VideoEditor({ id }: { id: string }) {
                   `Status: ${STATUSES.find((s) => s.value === meta.status)?.label ?? meta.status}`,
                   `Format: ${FORMATS.find((f) => f.value === meta.format)?.label ?? meta.format}`,
                   meta.liveDate ? `Live date: ${meta.liveDate}` : null,
-                  meta.sponsored && meta.sponsored !== "none" ? `Sponsorship: ${SPONSORSHIPS.find((s) => s.value === meta.sponsored)?.label}` : null,
+                  meta.sponsored && meta.sponsored !== "none"
+                    ? `Sponsorship: ${SPONSORSHIPS.find((s) => s.value === meta.sponsored)?.label}`
+                    : null,
                 ].filter(Boolean);
                 return [
                   `Native Note script: ${meta.title || "Untitled"}`,
@@ -511,10 +697,26 @@ export function VideoEditor({ id }: { id: string }) {
                   type="button"
                   onClick={() => setVersionsOpen(!versionsOpen)}
                   aria-expanded={versionsOpen}
-                  aria-label={edited.length === 0 ? "Versions" : edited.length === 1 ? "Versions: 1 edited version" : `Versions: ${edited.length} edited versions`}
-                  title={edited.length === 0 ? "Versions" : edited.length === 1 ? "1 edited version to review" : `${edited.length} edited versions to review`}
+                  aria-label={
+                    edited.length === 0
+                      ? "Versions"
+                      : edited.length === 1
+                        ? "Versions: 1 edited version"
+                        : `Versions: ${edited.length} edited versions`
+                  }
+                  title={
+                    edited.length === 0
+                      ? "Versions"
+                      : edited.length === 1
+                        ? "1 edited version to review"
+                        : `${edited.length} edited versions to review`
+                  }
                   className={`relative flex h-9 w-9 items-center justify-center rounded-lg ${
-                    versionsOpen ? "bg-(--c-b-e6e6e3) text-(--c-t-1b1b1b)" : edited.length ? "text-(--c-t-b42318) hover:bg-(--c-b-fbdcd8)" : "text-(--c-t-6b6b6b) hover:bg-(--c-b-ececea) hover:text-(--c-t-1b1b1b)"
+                    versionsOpen
+                      ? "bg-(--c-b-e6e6e3) text-(--c-t-1b1b1b)"
+                      : edited.length
+                        ? "text-(--c-t-b42318) hover:bg-(--c-b-fbdcd8)"
+                        : "text-(--c-t-6b6b6b) hover:bg-(--c-b-ececea) hover:text-(--c-t-1b1b1b)"
                   }`}
                 >
                   <IconHistory size={18} />
@@ -525,7 +727,9 @@ export function VideoEditor({ id }: { id: string }) {
                   )}
                 </button>
                 {versionsOpen && (
-                  <div className={`absolute ${mobile ? "right-0" : "left-0"} top-11 z-40 w-72 rounded-xl border border-(--c-l-ebebeb) bg-(--c-b-ffffff) p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.10)]`}>
+                  <div
+                    className={`absolute ${mobile ? "right-0" : "left-0"} top-11 z-40 w-72 rounded-xl border border-(--c-l-ebebeb) bg-(--c-b-ffffff) p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.10)]`}
+                  >
                     {edited.map((d) => (
                       <button
                         key={d._id}
@@ -535,15 +739,23 @@ export function VideoEditor({ id }: { id: string }) {
                       >
                         <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-(--c-b-d92d20)" />
                         <span className="min-w-0">
-                          <span className="block text-[14px] text-(--c-t-1b1b1b)">Edited version by {d.editorName || "someone"}</span>
-                          <span className="block text-[12px] text-(--c-t-737373)">{timeAgo(new Date(d.updatedAt).toISOString())}</span>
+                          <span className="block text-[14px] text-(--c-t-1b1b1b)">
+                            Edited version by {d.editorName || "someone"}
+                          </span>
+                          <span className="block text-[12px] text-(--c-t-737373)">
+                            {timeAgo(new Date(d.updatedAt).toISOString())}
+                          </span>
                         </span>
                       </button>
                     ))}
                     {archived.length > 0 && (
                       <>
-                        {edited.length > 0 && <div className="mx-1 my-1.5 h-px bg-(--c-b-ebebeb)" />}
-                        <div className="px-2 pb-1 pt-1.5 text-[12px] text-(--c-t-737373)">Earlier versions</div>
+                        {edited.length > 0 && (
+                          <div className="mx-1 my-1.5 h-px bg-(--c-b-ebebeb)" />
+                        )}
+                        <div className="px-2 pb-1 pt-1.5 text-[12px] text-(--c-t-737373)">
+                          Earlier versions
+                        </div>
                         {archived.map((d) => (
                           <button
                             key={d._id}
@@ -551,9 +763,22 @@ export function VideoEditor({ id }: { id: string }) {
                             onClick={() => openReview(d)}
                             className="block w-full rounded-md px-2 py-1.5 text-left text-[14px] text-(--c-t-1b1b1b) hover:bg-(--c-b-f4f4f4)"
                           >
-                            Replaced {new Date(d.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })},{" "}
-                            {new Date(d.updatedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
-                            {d.editorName && <span className="text-(--c-t-737373)"> · by {d.editorName}</span>}
+                            Replaced{" "}
+                            {new Date(d.updatedAt).toLocaleDateString(
+                              undefined,
+                              { month: "short", day: "numeric" },
+                            )}
+                            ,{" "}
+                            {new Date(d.updatedAt).toLocaleTimeString(
+                              undefined,
+                              { hour: "numeric", minute: "2-digit" },
+                            )}
+                            {d.editorName && (
+                              <span className="text-(--c-t-737373)">
+                                {" "}
+                                · by {d.editorName}
+                              </span>
+                            )}
                           </button>
                         ))}
                       </>
@@ -575,12 +800,19 @@ export function VideoEditor({ id }: { id: string }) {
               }}
               onUse={async () => {
                 await mainSync.flush();
-                await promote({ documentId: review.doc._id as Id<"documents"> });
+                await promote({
+                  documentId: review.doc._id as Id<"documents">,
+                });
               }}
               onDiscard={async () => {
-                const label = review.doc.kind === "edited" ? "this edited version" : "this earlier version";
+                const label =
+                  review.doc.kind === "edited"
+                    ? "this edited version"
+                    : "this earlier version";
                 if (!confirm(`Delete ${label}? This can't be undone.`)) return;
-                await removeDoc({ documentId: review.doc._id as Id<"documents"> });
+                await removeDoc({
+                  documentId: review.doc._id as Id<"documents">,
+                });
                 setReview(null);
                 setOpenId(null);
               }}
@@ -594,7 +826,11 @@ export function VideoEditor({ id }: { id: string }) {
           meta={meta}
           onChange={changeMeta}
           readOnly={!!review}
-          onEnter={() => document.querySelector<HTMLElement>("[data-script] .editable")?.focus()}
+          onEnter={() =>
+            document
+              .querySelector<HTMLElement>("[data-script] .editable")
+              ?.focus()
+          }
         />
         <ScriptTabs
           tabs={[
@@ -616,12 +852,29 @@ export function VideoEditor({ id }: { id: string }) {
                 />
               ),
             },
-            { id: "details", label: "Details", content: <VideoDetails meta={meta} onChange={changeMeta} readOnly={!!review} partners={partnerOptions} /> },
+            {
+              id: "details",
+              label: "Details",
+              content: (
+                <VideoDetails
+                  meta={meta}
+                  onChange={changeMeta}
+                  readOnly={!!review}
+                  partners={partnerOptions}
+                />
+              ),
+            },
             {
               id: "captions",
               label: "Captions",
               badge: captionsBadge(meta.captions),
-              content: <Captions captions={meta.captions ?? []} onChange={(captions) => changeMeta({ captions })} readOnly={!!review} />,
+              content: (
+                <Captions
+                  captions={meta.captions ?? []}
+                  onChange={(captions) => changeMeta({ captions })}
+                  readOnly={!!review}
+                />
+              ),
             },
             {
               id: "brief",
@@ -636,7 +889,11 @@ export function VideoEditor({ id }: { id: string }) {
                 />
               ),
             },
-            { id: "updates", label: "Updates", content: <Updates videoId={id} readOnly={!!review} /> },
+            {
+              id: "updates",
+              label: "Updates",
+              content: <Updates videoId={id} readOnly={!!review} />,
+            },
           ]}
         />
         {review ? (
@@ -678,12 +935,26 @@ export function VideoEditor({ id }: { id: string }) {
           </>
         )}
       </ScriptLayout>
-      {presenting && <Presentation title={meta.title} blocks={mainBlocks} comments={allComments} onClose={() => setPresenting(false)} />}
+      {presenting && (
+        <Presentation
+          title={meta.title}
+          blocks={mainBlocks}
+          comments={allComments}
+          onClose={() => setPresenting(false)}
+        />
+      )}
       {placing && (
-        <div data-placing-bar className="fixed inset-x-0 top-3 z-[70] flex justify-center px-4">
+        <div
+          data-placing-bar
+          className="fixed inset-x-0 top-3 z-[70] flex justify-center px-4"
+        >
           <div className="flex items-center gap-3 rounded-full bg-(--c-b-1b1b1b) py-2 pl-4 pr-2 text-[14px] text-(--c-on-ink) shadow-[0_8px_24px_rgba(0,0,0,0.2)]">
             Click the line to put this comment on
-            <button type="button" onClick={() => setPlacing(null)} className="h-7 rounded-full bg-white/15 px-3 text-[13px] hover:bg-white/25">
+            <button
+              type="button"
+              onClick={() => setPlacing(null)}
+              className="h-7 rounded-full bg-white/15 px-3 text-[13px] hover:bg-white/25"
+            >
               Cancel
             </button>
           </div>
@@ -696,8 +967,12 @@ export function VideoEditor({ id }: { id: string }) {
 
 /** "1/4 posted" once any caption is written */
 function captionsBadge(list: Meta["captions"]) {
-  const written = (list ?? []).filter((c) => c.caption.trim() || c.linkInBio.trim());
-  return written.length ? `${written.filter((c) => c.posted).length}/${written.length} posted` : "";
+  const written = (list ?? []).filter(
+    (c) => c.caption.trim() || c.linkInBio.trim(),
+  );
+  return written.length
+    ? `${written.filter((c) => c.posted).length}/${written.length} posted`
+    : "";
 }
 
 /** Copies a short note to hand an AI agent: which script this is and how to reach it through the Native Note skill. */
@@ -742,31 +1017,56 @@ function ReviewBar({
   const isEdit = review.doc.kind === "edited";
   const s = isEdit ? computeDiff(original, review.blocks).summary : null;
   const parts = s
-    ? [s.changed && `${s.changed} changed`, s.added && `${s.added} added`, s.removed && `${s.removed} removed`].filter(Boolean)
+    ? [
+        s.changed && `${s.changed} changed`,
+        s.added && `${s.added} added`,
+        s.removed && `${s.removed} removed`,
+      ].filter(Boolean)
     : [];
   return (
-    <div className={`border-y ${isEdit ? "border-(--c-l-f6d5d1) bg-(--c-b-fef6f5)" : "border-(--c-l-ebebeb) bg-(--c-b-fafafa)"}`}>
+    <div
+      className={`border-y ${isEdit ? "border-(--c-l-f6d5d1) bg-(--c-b-fef6f5)" : "border-(--c-l-ebebeb) bg-(--c-b-fafafa)"}`}
+    >
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-5 py-2.5 text-[14px] sm:px-10">
         <div className={isEdit ? "text-(--c-t-b42318)" : "text-(--c-t-6b6b6b)"}>
           {isEdit ? (
             <>
-              <span className="font-medium">Edited version</span> by {review.doc.editorName || "someone"},{" "}
+              <span className="font-medium">Edited version</span> by{" "}
+              {review.doc.editorName || "someone"},{" "}
               {timeAgo(new Date(review.doc.updatedAt).toISOString())}
-              {parts.length > 0 ? <span className="text-(--c-t-d92d20)"> · {parts.join(", ")} · changes in red</span> : <span> · no changes yet</span>}
+              {parts.length > 0 ? (
+                <span className="text-(--c-t-d92d20)">
+                  {" "}
+                  · {parts.join(", ")} · changes in red
+                </span>
+              ) : (
+                <span> · no changes yet</span>
+              )}
             </>
           ) : (
             <>
               <span className="font-medium">Earlier version</span>, replaced{" "}
-              {new Date(review.doc.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              {new Date(review.doc.updatedAt).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+              })}
               {review.doc.editorName && ` by ${review.doc.editorName}`}
             </>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={onBack} className="h-9 rounded-lg px-3 text-[14px] text-(--c-t-6b6b6b) hover:bg-(--c-b-ffffff)">
+          <button
+            type="button"
+            onClick={onBack}
+            className="h-9 rounded-lg px-3 text-[14px] text-(--c-t-6b6b6b) hover:bg-(--c-b-ffffff)"
+          >
             Back to current
           </button>
-          <button type="button" onClick={onDiscard} className="h-9 rounded-lg px-3 text-[14px] text-(--c-t-6b6b6b) hover:bg-(--c-b-ffffff) hover:text-(--c-t-b42318)">
+          <button
+            type="button"
+            onClick={onDiscard}
+            className="h-9 rounded-lg px-3 text-[14px] text-(--c-t-6b6b6b) hover:bg-(--c-b-ffffff) hover:text-(--c-t-b42318)"
+          >
             {isEdit ? "Discard edits" : "Delete"}
           </button>
           <button
@@ -796,7 +1096,17 @@ function ReviewBar({
 
 function PresentIcon() {
   return (
-    <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 20 20"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <rect x="2.5" y="3.5" width="15" height="10" rx="2" />
       <path d="M8.5 6.6v4.3l3.6-2.15-3.6-2.15ZM7 16.5h6M10 13.5v3" />
     </svg>

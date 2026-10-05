@@ -97,7 +97,30 @@ export const list = query({
   handler: async (ctx) => {
     await requireUser(ctx);
     const rows = await ctx.db.query("boards").withIndex("by_updated").order("desc").collect();
-    return rows.map((b) => ({ id: b._id, title: b.title, updatedAt: b.updatedAt, elementCount: b.elementCount, summary: b.summary.slice(0, 600) }));
+    return rows.map((b) => ({ id: b._id, title: b.title, updatedAt: b.updatedAt, elementCount: b.elementCount, pinnedAt: b.pinnedAt ?? null, summary: b.summary.slice(0, 600) }));
+  },
+});
+
+/** Pin a board to the sidebar, or unpin it. Doesn't count as an edit. */
+export const setPinned = mutation({
+  args: { id: v.id("boards"), pinned: v.boolean() },
+  handler: async (ctx, { id, pinned }) => {
+    await requireUser(ctx);
+    if (!(await ctx.db.get(id))) throw new ConvexError("This board was deleted");
+    await ctx.db.patch(id, { pinnedAt: pinned ? Date.now() : null });
+  },
+});
+
+/** What the sidebar's Pinned section shows: pinned scripts and boards, in the order they were pinned */
+export const pinned = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireUser(ctx);
+    const [videos, boards] = await Promise.all([ctx.db.query("videos").collect(), ctx.db.query("boards").collect()]);
+    return [
+      ...videos.filter((x) => x.pinnedAt).map((x) => ({ kind: "script" as const, id: x._id as string, title: x.title, format: x.format, pinnedAt: x.pinnedAt! })),
+      ...boards.filter((x) => x.pinnedAt).map((x) => ({ kind: "board" as const, id: x._id as string, title: x.title, format: null, pinnedAt: x.pinnedAt! })),
+    ].sort((a, b) => a.pinnedAt - b.pinnedAt);
   },
 });
 
@@ -185,7 +208,14 @@ export const listForAgent = internalQuery({
     const s = q?.trim().toLowerCase();
     return rows
       .filter((b) => !s || `${b.title}\n${b.summary}`.toLowerCase().includes(s))
-      .map((b) => ({ id: b._id, title: b.title, updatedAt: new Date(b.updatedAt).toISOString(), elementCount: b.elementCount, url: `${process.env.SITE_URL ?? ""}/b/${b._id}` }));
+      .map((b) => ({
+        id: b._id,
+        title: b.title,
+        updatedAt: new Date(b.updatedAt).toISOString(),
+        elementCount: b.elementCount,
+        pinned: !!b.pinnedAt,
+        url: `${process.env.SITE_URL ?? ""}/b/${b._id}`,
+      }));
   },
 });
 
@@ -319,5 +349,17 @@ export const editForAgent = internalMutation({
       throw new ConvexError((e as Error).message);
     }
     return store(ctx, b, elements, b.files, title !== undefined ? title.trim().slice(0, 200) || "Untitled board" : b.title);
+  },
+});
+
+/** Agents: pin a board to the sidebar or unpin it */
+export const setPinnedForAgent = internalMutation({
+  args: { board: v.string(), pinned: v.optional(v.boolean()) },
+  handler: async (ctx, { board, pinned = true }) => {
+    const id = boardIdOf(ctx, board);
+    const b = id ? await ctx.db.get(id) : null;
+    if (!b) throw new ConvexError("Board not found. Use list_boards for ids.");
+    await ctx.db.patch(b._id, { pinnedAt: pinned ? (b.pinnedAt ?? Date.now()) : null });
+    return { id: b._id, title: b.title, pinned };
   },
 });

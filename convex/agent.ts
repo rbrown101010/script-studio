@@ -127,6 +127,7 @@ export const listScripts = internalQuery({
         sponsored: vid.sponsored ?? "none",
         updatedAt: new Date(vid.updatedAt).toISOString(),
         editedVersionsWaiting: edited.length,
+        pinned: !!vid.pinnedAt,
         shareUrl: shareUrl(vid.shareSlug),
       });
     }
@@ -245,6 +246,16 @@ export const createScript = internalMutation({
     }
     await addUpdates(ctx, videoId, a.updates ?? [], a.agentName);
     return { id: videoId, shareUrl: shareUrl(slug) };
+  },
+});
+
+/** Pin a script to the top of the Scripts views and the sidebar, or unpin it */
+export const setScriptPinned = internalMutation({
+  args: { script: v.string(), pinned: v.optional(v.boolean()) },
+  handler: async (ctx, { script, pinned = true }) => {
+    const video = await resolveVideo(ctx, script);
+    await ctx.db.patch(video._id, { pinnedAt: pinned ? (video.pinnedAt ?? Date.now()) : null });
+    return { id: video._id, title: video.title, pinned };
   },
 });
 
@@ -855,6 +866,8 @@ export const httpGetBoard = route((ctx, _b, url) => {
 export const httpCreateBoard = route((ctx, b) => ctx.runMutation(internal.boards.createForAgent, b as any));
 export const httpAddToBoard = route((ctx, b) => ctx.runMutation(internal.boards.addForAgent, b as any));
 export const httpEditBoard = route((ctx, b) => ctx.runMutation(internal.boards.editForAgent, b as any));
+export const httpPinBoard = route((ctx, b) => ctx.runMutation(internal.boards.setPinnedForAgent, b as any));
+export const httpPinScript = route((ctx, b) => ctx.runMutation(internal.agent.setScriptPinned, b as any));
 export const httpListTopics = route((ctx, _b, url) =>
   ctx.runQuery(internal.topics.listForAgent, {
     status: (url.searchParams.get("status") as "new" | "saved" | "used" | "dismissed" | null) ?? undefined,

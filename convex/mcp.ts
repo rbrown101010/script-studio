@@ -384,6 +384,18 @@ const TOOLS: Tool[] = [
     run: (ctx, a) => ctx.runQuery(internal.boards.listForAgent, a),
   },
   {
+    name: "pin_board",
+    description: "Pin a board to the sidebar in Native Note (pinned: false unpins). Only when the user asked.",
+    inputSchema: { type: "object", properties: { board: { type: "string", description: "Board id or its /b/<id> link" }, pinned: { type: "boolean", description: "Default true" } }, required: ["board"] },
+    run: (ctx, a) => ctx.runMutation(internal.boards.setPinnedForAgent, a),
+  },
+  {
+    name: "pin_script",
+    description: "Pin a script to the sidebar and the top of the Scripts views (pinned: false unpins). Only when the user asked.",
+    inputSchema: { type: "object", properties: { script: scriptArg, pinned: { type: "boolean", description: "Default true" } }, required: ["script"] },
+    run: (ctx, a) => ctx.runMutation(internal.agent.setScriptPinned, a),
+  },
+  {
     name: "get_board",
     description:
       "Read one Excalidraw board: a plain-text summary (all text top to bottom, labelled shapes, arrows between shapes, links), its style (colors, stroke, roughness, corners, font, sizes, spacing, direction: new items copy it), and items (everything on it with ids, labels, positions) to point arrows and edits at. Set includeElements for the raw Excalidraw elements. Read a board before drawing on it.",

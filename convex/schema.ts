@@ -277,6 +277,8 @@ export default defineSchema({
     /** Plain-text description for AI: text, labelled shapes, connections */
     summary: v.string(),
     elementCount: v.number(),
+    /** Pinned to the sidebar (when it was pinned; absent = not pinned) */
+    pinnedAt: v.optional(v.union(v.number(), v.null())),
     createdBy: v.union(v.id("users"), v.null()),
     createdAt: v.number(),
     updatedAt: v.number(),

@@ -12,7 +12,6 @@ import { CalendarView } from "@/components/CalendarView";
 import { FeedView } from "@/components/FeedView";
 import { Mymind } from "@/components/Mymind";
 import { Library } from "@/components/Library";
-import { usePresence } from "@/lib/usePresence";
 import { PartnerLogo } from "@/components/VideoMeta";
 import { PinnedVideos } from "@/components/PinnedVideos";
 import { BoardsList } from "@/components/BoardsList";
@@ -21,10 +20,10 @@ import { FilterSelect } from "@/components/FeedView";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Tweet } from "@/components/Tweet";
 import { BrandDeals } from "@/components/BrandDeals";
-import { HomeSidebar, SidebarIcon, type View } from "@/components/HomeSidebar";
+import { HomeSidebar, ShowSidebarButton, SidebarFrame, useAppSidebar, type View } from "@/components/HomeSidebar";
 import { FormatIcon } from "@/components/FormatIcon";
 import { TeamGate } from "@/components/TeamGate";
-import { IconCheck, IconPencil, IconTrash, IconX, IconPin, IconPlus } from "@/components/icons";
+import { IconCheck, IconPencil, IconTrash, IconX, IconPin, IconPlus, IconSearch } from "@/components/icons";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { FORMATS, SPONSORSHIPS, STATUSES, isPaidSponsor, statusOf, type Sponsorship, type VideoFormat, type VideoStatus } from "@/lib/types";
 
@@ -281,22 +280,18 @@ function ScriptList() {
   );
   /** The status / sponsorship / format filters only show after pressing Filter */
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  // Remember the view and whether the sidebar is shown (desktop), per browser
+  const side = useAppSidebar();
+  const sidebarOpen = side.shown;
+  // Remember the view, per browser
   useEffect(() => {
     try {
       const saved = localStorage.getItem("home-view");
       // ?view=… (e.g. coming back from a board) wins over the remembered view
       const asked = new URLSearchParams(window.location.search).get("view") ?? saved;
       if (asked && ["calendar", "feed", "mymind", "library", "tweet", "brands", "boards", "topics", "list"].includes(asked)) setView(asked as View);
-      if (localStorage.getItem("home-sidebar") === "0") setSidebarOpen(false);
       setFiltersOpen(localStorage.getItem("home-filters") === "1");
-      if (localStorage.getItem("home-sidebar") === "0") setSidebarOpen(false);
     } catch {}
   }, []);
-  useEffect(() => {
-    if (mobile) setSidebarOpen(false);
-  }, [mobile]);
   // Filters and sort stay as you left them (saved in this browser)
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   useEffect(() => {
@@ -332,17 +327,7 @@ function ScriptList() {
       localStorage.setItem(k, v);
     } catch {}
   };
-  const drawer = usePresence(mobile && sidebarOpen, 200);
-  // No slide on the first paint (the saved open/closed state is applied then)
-  const [animate, setAnimate] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setAnimate(true), 300);
-    return () => clearTimeout(t);
-  }, []);
-  const toggleSidebar = (open: boolean) => {
-    setSidebarOpen(open);
-    if (!mobile) remember("home-sidebar", open ? "1" : "0");
-  };
+  const toggleSidebar = side.toggle;
 
   const newScript = async () => {
     setCreating(true);
@@ -386,13 +371,15 @@ function ScriptList() {
     : undefined;
   const sidebar = (
     <HomeSidebar
-      search={search}
-      onSearch={setSearch}
       view={view}
       onView={(v) => {
         setView(v);
         remember("home-view", v);
-        if (mobile) setSidebarOpen(false);
+        if (mobile) toggleSidebar(false);
+      }}
+      onNewScript={() => {
+        if (mobile) toggleSidebar(false);
+        void newScript();
       }}
       onClose={() => toggleSidebar(false)}
     />
@@ -409,53 +396,14 @@ function ScriptList() {
   return (
     <div className="relative flex min-h-screen bg-(--c-b-ffffff)">
       {/* Desktop: a sidebar that can be hidden. Phones: a drawer over the page. */}
-      {!mobile && (
-        // Slides open and shut (width animates; the contents keep their width so nothing reflows)
-        <div
-          aria-hidden={!sidebarOpen}
-          className={`sticky top-0 h-screen shrink-0 overflow-hidden ${animate ? "transition-[width] duration-200 ease-[cubic-bezier(0.2,0,0,1)]" : ""} ${
-            sidebarOpen ? "w-[248px]" : "w-0"
-          }`}
-        >
-          <aside inert={!sidebarOpen} className="h-full w-[248px] overflow-y-auto border-r border-(--c-l-ececec) bg-(--c-b-f9f9f8)">
-            {sidebar}
-          </aside>
-        </div>
-      )}
-      {mobile && drawer.mounted && (
-        <div className="fixed inset-0 z-50 flex">
-          <aside
-            className={`h-full w-[280px] max-w-[85vw] overflow-y-auto bg-(--c-b-f9f9f8) shadow-[8px_0_30px_rgba(0,0,0,0.12)] transition-transform duration-200 ease-[cubic-bezier(0.2,0,0,1)] ${
-              drawer.visible ? "translate-x-0" : "-translate-x-full"
-            }`}
-          >
-            {sidebar}
-          </aside>
-          <button
-            type="button"
-            aria-label="Close sidebar"
-            onClick={() => setSidebarOpen(false)}
-            className={`flex-1 bg-black/20 transition-opacity duration-200 ${drawer.visible ? "opacity-100" : "opacity-0"}`}
-          />
-        </div>
-      )}
+      <SidebarFrame state={side}>{sidebar}</SidebarFrame>
 
       {view === "mymind" || view === "library" || view === "tweet" || view === "brands" || view === "boards" || view === "topics" ? (
         // Mymind is its own light-grey space for ideas, separate from scripts
         <div className="relative min-h-screen min-w-0 flex-1 bg-(--c-b-f7f7f5)">
           <div className="px-5 pb-24 pt-6 sm:px-8">
             <div className="flex min-h-9 items-center">
-              {(!sidebarOpen || mobile) && (
-                <button
-                  type="button"
-                  onClick={() => toggleSidebar(true)}
-                  aria-label="Show sidebar"
-                  title="Show sidebar"
-                  className="-ml-1.5 flex h-8 w-8 items-center justify-center rounded-md text-(--c-t-737373) hover:bg-(--c-b-ececea) hover:text-(--c-t-1b1b1b)"
-                >
-                  <SidebarIcon />
-                </button>
-              )}
+              {(!sidebarOpen || mobile) && <ShowSidebarButton onClick={() => toggleSidebar(true)} className="-ml-1.5" />}
             </div>
             <div className="mt-4">
               {view === "library" ? <Library /> : view === "tweet" ? <Tweet /> : view === "brands" ? <BrandDeals /> : view === "boards" ? <BoardsList /> : view === "topics" ? <TopicsApp /> : <Mymind />}
@@ -464,20 +412,11 @@ function ScriptList() {
         </div>
       ) : (
       <div className="relative min-w-0 flex-1">
-        <AccountButton initial={(me?.name || me?.email || "?").slice(0, 1).toUpperCase()} email={me?.email ?? ""} />
+        {/* The account lives at the bottom of the sidebar; while it's hidden, here */}
+        {(!sidebarOpen || mobile) && <AccountButton initial={(me?.name || me?.email || "?").slice(0, 1).toUpperCase()} email={me?.email ?? ""} />}
         <div className={`mx-auto px-5 pb-24 pt-6 ${view === "calendar" ? "max-w-[1180px]" : "max-w-[1120px]"}`}>
           <div className="flex min-h-9 items-center gap-2 pr-12">
-            {(!sidebarOpen || mobile) && (
-              <button
-                type="button"
-                onClick={() => toggleSidebar(true)}
-                aria-label="Show sidebar"
-                title="Show sidebar"
-                className="-ml-1.5 flex h-8 w-8 items-center justify-center rounded-md text-(--c-t-737373) hover:bg-(--c-b-f4f4f4) hover:text-(--c-t-1b1b1b)"
-              >
-                <SidebarIcon />
-              </button>
-            )}
+            {(!sidebarOpen || mobile) && <ShowSidebarButton onClick={() => toggleSidebar(true)} className="-ml-1.5" />}
           </div>
           <div className="mt-6 flex flex-wrap items-end justify-between gap-3 border-b border-(--c-l-ebebeb) pb-3">
             <div>
@@ -489,6 +428,20 @@ function ScriptList() {
               </p>}
             </div>
             <div className="flex items-center gap-1.5">
+              {view !== "feed" && (
+                <label className="mr-1 hidden h-8 w-[180px] items-center gap-2 rounded-lg px-2 text-(--c-t-9a9a9a) ring-1 ring-(--c-l-e3e3e0) transition-[width] focus-within:w-[220px] focus-within:ring-(--c-l-c9c9c9) sm:flex">
+                  <IconSearch size={14} />
+                  <input
+                    id="sidebar-search"
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Filter by title"
+                    aria-label="Filter scripts by title"
+                    className="w-full min-w-0 border-none bg-transparent text-[13px] text-(--c-t-1b1b1b) outline-none"
+                  />
+                </label>
+              )}
               {view !== "feed" && (
                 <button
                   type="button"

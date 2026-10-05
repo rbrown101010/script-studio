@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { usePresence } from "@/lib/usePresence";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { IconPanelRight } from "./icons";
+import { SIDEBAR_WIDTH } from "./HomeSidebar";
 
 /** Page frame from the design: quiet top row, script column, and the Attachments panel on the right. */
 export function ScriptLayout({
@@ -16,6 +17,8 @@ export function ScriptLayout({
   tools,
   onOpenPanel,
   onClosePanel,
+  nav,
+  navOpen,
 }: {
   left?: ReactNode;
   right?: ReactNode;
@@ -31,6 +34,10 @@ export function ScriptLayout({
   onOpenPanel?: () => void;
   /** Shows a close button at the top of the sidebar */
   onClosePanel?: () => void;
+  /** The app sidebar on the left (it handles its own sliding and phone drawer) */
+  nav?: ReactNode;
+  /** Whether that sidebar is taking room on the left, so the script centres in what's left */
+  navOpen?: boolean;
 }) {
   const mobile = useIsMobile();
   const sheet = mobile && panel;
@@ -62,7 +69,8 @@ export function ScriptLayout({
   // The page on the left; on computers a full-height utility sidebar slides in from the right.
   // The script column stays centered in whatever room is left, so it glides as the sidebar moves.
   return (
-    <div className="flex min-h-screen bg-(--c-b-ffffff)">
+    <div className="flex min-h-screen bg-(--c-b-ffffff)" style={{ ["--nav" as string]: `${navOpen && !mobile ? SIDEBAR_WIDTH : 0}px` }}>
+      {nav}
       <div className="min-w-0 flex-1">
         {topBar}
         {banner}
@@ -70,7 +78,7 @@ export function ScriptLayout({
         <main className={`px-5 pt-7 [--pl:20px] sm:px-16 sm:[--pl:64px] lg:px-[88px] lg:[--pl:88px] ${focusMode && mobile ? "pb-[85vh]" : sheet ? "pb-[60vh]" : "pb-20"}`}>
           {/* The script sits where it would be centered on the whole screen, and only slides left when the
               sidebar needs the room, so opening comments doesn't move what you're writing */}
-          <div className="w-full max-w-[680px]" style={{ marginLeft: "clamp(0px, calc((100vw - 680px) / 2 - var(--pl)), calc(100% - 680px))" }}>
+          <div className="w-full max-w-[680px]" style={{ marginLeft: "clamp(0px, calc((100vw - var(--nav, 0px) - 680px) / 2 - var(--pl)), calc(100% - 680px))" }}>
             {children}
           </div>
         </main>

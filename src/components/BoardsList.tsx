@@ -7,7 +7,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useBoardData, useIsDark } from "@/lib/boardSource";
 import { BoardDrawing } from "./BoardBlock";
-import { IconBoard, IconPlus, IconTrash } from "./icons";
+import { IconBoard, IconPin, IconPlus, IconTrash } from "./icons";
 
 const ago = (t: number) => {
   const d = new Date(t);
@@ -21,6 +21,7 @@ export function BoardsList() {
   const boards = useQuery(api.boards.list);
   const create = useMutation(api.boards.create);
   const remove = useMutation(api.boards.remove);
+  const setPinned = useMutation(api.boards.setPinned);
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -58,11 +59,13 @@ export function BoardsList() {
         <p className="mt-16 text-center text-[14px] text-(--c-t-8a8a8a)">No boards yet. Start one with New board.</p>
       ) : (
         <div className="flex flex-col gap-4">
-          {boards.map((b) => (
+          {/* Pinned boards first (they're in the sidebar too) */}
+          {[...boards.filter((b) => b.pinnedAt).sort((a, b) => a.pinnedAt! - b.pinnedAt!), ...boards.filter((b) => !b.pinnedAt)].map((b) => (
             <BoardRow
               key={b.id}
               board={b}
               onOpen={() => router.push(`/b/${b.id}`)}
+              onPin={() => void setPinned({ id: b.id as Id<"boards">, pinned: !b.pinnedAt })}
               onDelete={() => {
                 if (confirm(`Delete "${b.title}"? This can't be undone.`)) void remove({ id: b.id as Id<"boards"> });
               }}
@@ -74,13 +77,13 @@ export function BoardsList() {
   );
 }
 
-type BoardItem = { id: string; title: string; updatedAt: number; elementCount: number };
+type BoardItem = { id: string; title: string; updatedAt: number; elementCount: number; pinnedAt: number | null };
 
 /**
  * One board in the list: its drawing in a frame, like Excalidraw's scene thumbnails, with the title
  * underneath. The scene only loads once the row scrolls near the screen, so long lists stay quick.
  */
-function BoardRow({ board, onOpen, onDelete }: { board: BoardItem; onOpen: () => void; onDelete: () => void }) {
+function BoardRow({ board, onOpen, onPin, onDelete }: { board: BoardItem; onOpen: () => void; onPin: () => void; onDelete: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [seen, setSeen] = useState(false);
   useEffect(() => {
@@ -104,8 +107,25 @@ function BoardRow({ board, onOpen, onDelete }: { board: BoardItem; onOpen: () =>
         <div className="flex items-center gap-2 border-t border-(--c-l-ebebeb) px-4 py-3 text-(--c-t-8a8a8a)">
           <IconBoard size={14} />
           <span className="min-w-0 flex-1 truncate pr-8 text-[15px] font-medium text-(--c-t-1b1b1b)">{board.title}</span>
+          {board.pinnedAt && (
+            <span className="flex shrink-0 items-center gap-1 text-[12px] text-(--c-t-2358d8)">
+              <IconPin size={12} filled />
+              Pinned
+            </span>
+          )}
           <span className="shrink-0 text-[12px] text-(--c-t-9a9a9a)">{ago(board.updatedAt)}</span>
         </div>
+      </button>
+      <button
+        type="button"
+        onClick={onPin}
+        aria-label={board.pinnedAt ? `Unpin ${board.title}` : `Pin ${board.title} to the sidebar`}
+        title={board.pinnedAt ? "Unpin from the sidebar" : "Pin to the sidebar"}
+        className={`absolute right-11 top-2.5 hidden h-7 w-7 items-center justify-center rounded-md bg-(--c-b-ffffff) shadow-sm ring-1 ring-(--c-l-ebebeb) group-hover:flex pointer-coarse:flex ${
+          board.pinnedAt ? "text-(--c-t-2358d8)" : "text-(--c-t-9a9a9a) hover:text-(--c-t-1b1b1b)"
+        }`}
+      >
+        <IconPin size={14} filled={!!board.pinnedAt} />
       </button>
       <button
         type="button"

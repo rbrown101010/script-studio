@@ -145,7 +145,9 @@ Never invent numbers or videos. Only include view counts you actually saw at tha
 | add_update {script, title, details?, link?, source?, date?, urgent?} | Log what happened on the Updates tab (urgent: needs a response now, pinned to the top of the Feed) |
 | add_ideas {ideas:[{url?, note?, date?}]} | Save ideas to Mymind (bulk import OK) |
 | list_ideas {query?, limit?} | Search Mymind |
-| list_boards {query?} | List / search Excalidraw boards |
+| list_boards {query?} | List / search Excalidraw boards (pinned: shown in the sidebar) |
+| pin_board {board, pinned?} | Pin a board to the sidebar (pinned false unpins) |
+| pin_script {script, pinned?} | Pin a script to the sidebar and the top of Scripts (pinned false unpins) |
 | list_topics {status?, query?, full?} | Topic opportunities, best first |
 | add_topics {topics, agentName?, run?} | Add or refresh researched topics, never replacing history (see "Topic opportunities") |
 | finish_topic_run {run, summary} | End a research run with a summary of what changed |
@@ -243,6 +245,8 @@ GET  /agent/board?board=<id>&elements=1 get_board
 POST /agent/board/create                create_board
 POST /agent/board/add                   add_to_board
 POST /agent/board/edit                  edit_board
+POST /agent/board/pin                   pin_board
+POST /agent/pin                         pin_script
 GET  /agent/topics?status=saved&q=...&full=1  list_topics
 POST /agent/topics                      add_topics
 POST /agent/topic                       update_topic

@@ -36,6 +36,8 @@ import {
   httpUpdateInstruction,
   httpSuggestEdit,
   httpUpdateDetails,
+  httpPinBoard,
+  httpPinScript,
   httpAttach,
   httpFile,
   httpUploadUrl,
@@ -80,6 +82,8 @@ http.route({ path: "/agent/board", method: "GET", handler: httpGetBoard });
 http.route({ path: "/agent/board/create", method: "POST", handler: httpCreateBoard });
 http.route({ path: "/agent/board/add", method: "POST", handler: httpAddToBoard });
 http.route({ path: "/agent/board/edit", method: "POST", handler: httpEditBoard });
+http.route({ path: "/agent/board/pin", method: "POST", handler: httpPinBoard });
+http.route({ path: "/agent/pin", method: "POST", handler: httpPinScript });
 http.route({ path: "/agent/topics", method: "GET", handler: httpListTopics });
 http.route({ path: "/agent/topics", method: "POST", handler: httpAddTopics });
 http.route({ path: "/agent/topic", method: "POST", handler: httpUpdateTopic });
