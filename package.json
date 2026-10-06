@@ -3,15 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "node scripts/patch-excalidraw-gradients.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:gradients": "node --test scripts/board-gradients.test.mjs",
+    "preview:gradients": "node scripts/preview-board-gradients.mjs"
   },
   "dependencies": {
     "@auth/core": "^0.41.3",
     "@convex-dev/auth": "^0.0.95",
-    "@excalidraw/excalidraw": "^0.18.1",
+    "@excalidraw/excalidraw": "0.18.1",
     "convex": "^1.46.0",
     "diff": "^9.0.0",
     "jszip": "^3.10.2",

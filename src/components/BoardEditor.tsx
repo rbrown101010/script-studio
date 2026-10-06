@@ -13,6 +13,8 @@ import { uploadToUrl } from "@/lib/upload";
 import { IconArrowLeft, IconPin, IconX } from "./icons";
 import { SidebarIcon, useMaybeAppSidebar } from "./HomeSidebar";
 import { BlurLayer, BlurToggle, blurView, blursOnTop, isBlur, setBlur, type BlurEl, type BlurView } from "./boardBlur";
+import { GradientControls, gradientSelection, setGradient, type GradientSelection } from "./boardGradient";
+import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 
 // The real Excalidraw editor (browser only)
 const Excalidraw = dynamic(async () => (await import("@excalidraw/excalidraw")).Excalidraw, {
@@ -82,6 +84,7 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
   /** Blur rectangles: where they are on screen, and whether the selected rectangles are blurred (null: none selected) */
   const [blurs, setBlurs] = useState<BlurView>({ boxes: [], width: 0, height: 0, zoom: 1 });
   const [blurPicked, setBlurPicked] = useState<boolean | null>(null);
+  const [gradientPicked, setGradientPicked] = useState<GradientSelection | null>(null);
   const boardRoot = useRef<HTMLDivElement>(null);
   const reordering = useRef(false);
   /** Copy a link to the selected frame; pasted on an empty line in a script it becomes a frame block */
@@ -247,6 +250,8 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
     const rects = count ? (elements as unknown as BlurEl[]).filter((e) => sel[e.id] && !e.isDeleted && e.type === "rectangle") : [];
     const blurNow = rects.length ? rects.every(isBlur) : null;
     if (blurNow !== blurPicked) setBlurPicked(blurNow);
+    const gradientNow = gradientSelection(elements as unknown as ExcalidrawElement[], sel);
+    if (JSON.stringify(gradientNow) !== JSON.stringify(gradientPicked)) setGradientPicked(gradientNow);
     if (readOnly) return;
     // Blurs always sit on top: anything drawn or moved above one goes back under it (once nothing is mid-gesture)
     if (!reordering.current && !appState.newElement && !appState.selectedElementsAreBeingDragged && !appState.resizingElement && !appState.editingTextElement && blursOnTop(elements as unknown as BlurEl[])) {
@@ -394,6 +399,7 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
   return (
     <div ref={boardRoot} className={`nn-board flex flex-col bg-(--c-b-ffffff) ${onClose ? "h-full" : "h-dvh"}`}>
       <BlurLayer root={boardRoot} view={blurs} dark={dark} />
+      {!readOnly && <GradientControls root={boardRoot} selection={gradientPicked} onChange={(gradient) => void setGradient(excalidraw.current, gradient)} />}
       {!readOnly && blurPicked !== null && <BlurToggle root={boardRoot} on={blurPicked} onToggle={() => void setBlur(excalidraw.current, !blurPicked)} />}
       {/* Phones: the title row sits above the canvas so Excalidraw's toolbar gets the full width */}
       {phone && controls}

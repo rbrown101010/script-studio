@@ -76,6 +76,18 @@ body {
 @keyframes palette-in { from { opacity: 0; transform: translateY(-6px) scale(0.985) } to { opacity: 1; transform: none } }
 
 /* Boards: Excalidraw's buttons a size smaller and the canvas hint hidden, so the drawing has the room */
+.nn-board .nn-gradient-controls { margin-top: 8px; }
+.nn-board .nn-gradient-modes { display: flex; gap: 4px; }
+.nn-board .nn-gradient-modes button { width: auto; flex: 1; gap: 5px; padding: 0 8px; font-size: 12px; }
+.nn-board .nn-gradient-swatch { width: 14px; height: 14px; border-radius: 3px; background: linear-gradient(90deg, #a5d8ff, #b197fc); }
+.nn-board .nn-gradient-fields { display: grid; gap: 8px; margin-top: 10px; font-size: 12px; }
+.nn-board .nn-gradient-color { display: grid; grid-template-columns: 1fr 26px 76px; align-items: center; gap: 4px; }
+.nn-board .nn-gradient-color input[type="color"] { width: 26px; height: 28px; padding: 0; border: 0; background: none; cursor: pointer; }
+.nn-board .nn-gradient-color input[type="text"], .nn-board .nn-gradient-direction select { min-width: 0; height: 28px; padding: 2px 5px; border: 1px solid var(--default-border-color); border-radius: 4px; color: var(--text-primary-color); background: var(--island-bg-color); }
+.nn-board .nn-gradient-color input[aria-invalid="true"] { border-color: #e03131; }
+.nn-board .nn-gradient-direction { display: grid; gap: 4px; }
+.nn-board .nn-gradient-hint { margin: 6px 0 0; font-size: 11px; }
+
 .nn-board .excalidraw {
   --default-button-size: 1.875rem;
   --default-icon-size: 0.95rem;

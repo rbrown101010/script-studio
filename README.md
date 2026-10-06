@@ -15,6 +15,14 @@ A video-script editor for creators: block-based scripts, line comments with file
 - **Agent API**: an MCP server at `/mcp` and HTTP routes under `/agent` (bearer key) for reading and editing scripts.
 - Light and dark themes.
 
+## Rectangle background gradients
+
+Select a rectangle on a board, then choose **Background → Gradient** in its existing style panel (Style on phones). Edit the two color swatches or six-digit hex colors, and choose a direction. Direction follows the rectangle when rotated. **Solid**, a normal background color, or a fill pattern switches back to the usual fill; undo restores the gradient. Mixed selections apply gradients only to rectangles. Blur temporarily takes precedence and restores the gradient when turned off.
+
+Gradients render inside the canvas in normal layer order, including rounded/rough edges and opacity. Board/frame SVG previews and Excalidraw's SVG/PNG exports use the same fill. Gradient metadata lives in element `customData`, so board saves, scene files, copies, duplicates and history retain it. Unmodified Excalidraw clients show the start color as a solid fallback. Only two-color linear rectangle backgrounds are supported; patterned gradient fills, radial gradients and other shape types are outside this feature.
+
+Excalidraw 0.18.1 has no custom-fill renderer API. `npm ci` applies a small renderer/action patch from `scripts/patch-excalidraw-gradients.mjs` to its development and production bundles. The dependency is pinned and bundle hashes are checked before writing; upgrades require reviewing this patch. Run `npm run test:gradients` for focused regression tests. `npm run preview:gradients` opens a backend-free localhost fixture at `http://127.0.0.1:3211`, using localStorage only; add `-- --production` to verify production renderer bundles. Preview artifacts are ignored under `output/playwright/`.
+
 ## Setup
 
 1. `npm install`
