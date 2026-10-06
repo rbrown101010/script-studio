@@ -14,6 +14,7 @@ import { FormatIcon } from "./FormatIcon";
 import { ThemeToggle } from "./ThemeToggle";
 
 export type View =
+  | "home"
   | "list"
   | "calendar"
   | "feed"
@@ -91,7 +92,7 @@ export function useHomeView() {
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const side = useSidebarState();
-  const [view, setView] = useState<View>("list");
+  const [view, setView] = useState<View>("home");
   const newScript = useRef<(() => void) | null>(null);
   const pathname = usePathname();
   const active = pathname.match(/^\/(?:v|b)\/([^/]+)/)?.[1];
@@ -274,6 +275,7 @@ export function HomeSidebar({
       </div>
 
       <div className="flex flex-col gap-px px-2.5 pb-1">
+        {nav("home", "Home", <HomeIcon />)}
         <Item
           on={false}
           onClick={openCommandPalette}
@@ -509,6 +511,23 @@ function Item({
         </button>
       )}
     </div>
+  );
+}
+
+function HomeIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="15"
+      height="15"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2.5 7 8 2.5 13.5 7v6.25a.5.5 0 0 1-.5.5H9.75V10h-3.5v3.75H3a.5.5 0 0 1-.5-.5V7Z" />
+    </svg>
   );
 }
 

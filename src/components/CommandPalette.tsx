@@ -12,7 +12,7 @@ import { IconBoard, IconPlus, IconSearch } from "./icons";
 /** Ask the switcher to open (e.g. from a button) */
 export const openCommandPalette = () => window.dispatchEvent(new Event("native-note:palette"));
 
-type View = "list" | "calendar" | "feed" | "library" | "tweet" | "brands" | "boards" | "topics" | "youtube" | "mymind";
+type View = "home" | "list" | "calendar" | "feed" | "library" | "tweet" | "brands" | "boards" | "topics" | "youtube" | "mymind";
 type Item = {
   key: string;
   group: "Recent" | "Scripts" | "Boards" | "Views" | "Apps" | "Create";
@@ -33,6 +33,7 @@ const svg = (d: ReactNode) => (
 );
 /** The sidebar's Views and Apps, in the same order */
 const PAGES: { view: View; title: string; words: string; icon: ReactNode }[] = [
+  { view: "home", title: "Home", words: "dashboard overview start today", icon: svg(<path d="M2.5 7 8 2.5 13.5 7v6.5h-3.75V10h-3.5v3.5H2.5z" />) },
   { view: "list", title: "Scripts", words: "list all scripts home", icon: svg(<path d="M3 4h10M3 8h10M3 12h7" />) },
   { view: "calendar", title: "Calendar", words: "schedule dates live", icon: svg(<><rect x="2.5" y="3.5" width="11" height="10" rx="2" /><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" /></>) },
   { view: "feed", title: "Feed", words: "updates urgent", icon: svg(<path d="M3 4h10M3 8h10M3 12h10" />) },
@@ -270,7 +271,7 @@ function Palette({
     }));
     const pages: Item[] = PAGES.map((p) => ({
       key: `p:${p.view}`,
-      group: p.view === "list" || p.view === "calendar" || p.view === "feed" ? "Views" : "Apps",
+      group: p.view === "home" || p.view === "list" || p.view === "calendar" || p.view === "feed" ? "Views" : "Apps",
       title: p.title,
       words: `${p.words} app page`,
       icon: p.icon,
@@ -330,7 +331,7 @@ function Palette({
         // Ties go to the one touched most recently
         .sort((a, b) => b.score - a.score || (b.item.at ?? 0) - (a.item.at ?? 0))
         .slice(0, limit);
-    const groups = [scored(all.scripts, 8), scored(all.bs, 5), scored(all.pages.filter((p) => p.group === "Views"), 3), scored(all.pages.filter((p) => p.group === "Apps"), 6), scored(all.create, 2)];
+    const groups = [scored(all.scripts, 8), scored(all.bs, 5), scored(all.pages.filter((p) => p.group === "Views"), 4), scored(all.pages.filter((p) => p.group === "Apps"), 6), scored(all.create, 2)];
     // The group with the best match comes first
     groups.sort((a, b) => (b[0]?.score ?? -1e9) - (a[0]?.score ?? -1e9));
     return groups.flat();

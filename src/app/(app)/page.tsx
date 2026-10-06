@@ -17,6 +17,7 @@ import { PinnedVideos } from "@/components/PinnedVideos";
 import { BoardsList } from "@/components/BoardsList";
 import { TopicsApp } from "@/components/TopicsApp";
 import { YouTubeApp } from "@/components/YouTubeApp";
+import { HomeDashboard } from "@/components/HomeDashboard";
 import { FilterSelect } from "@/components/FeedView";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Tweet } from "@/components/Tweet";
@@ -272,7 +273,7 @@ function ScriptList() {
   const mobile = useIsMobile();
   const { view, setView, newScript: newScriptRef } = useHomeView();
   useDocumentTitle(
-    { list: "Scripts", calendar: "Calendar", feed: "Feed", mymind: "Mymind", library: "Library", tweet: "Tweet", brands: "Brand deals", boards: "Excalidraw", topics: "Topic opportunities", youtube: "YouTube" }[view],
+    { home: "Home", list: "Scripts", calendar: "Calendar", feed: "Feed", mymind: "Mymind", library: "Library", tweet: "Tweet", brands: "Brand deals", boards: "Excalidraw", topics: "Topic opportunities", youtube: "YouTube" }[view],
   );
   /** The status / sponsorship / format filters only show after pressing Filter */
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -284,7 +285,7 @@ function ScriptList() {
       const saved = localStorage.getItem("home-view");
       // ?view=… (e.g. coming back from a board) wins over the remembered view
       const asked = new URLSearchParams(window.location.search).get("view") ?? saved;
-      if (asked && ["calendar", "feed", "mymind", "library", "tweet", "brands", "boards", "topics", "youtube", "list"].includes(asked)) setView(asked as View);
+      if (asked && ["home", "calendar", "feed", "mymind", "library", "tweet", "brands", "boards", "topics", "youtube", "list"].includes(asked)) setView(asked as View);
       setFiltersOpen(localStorage.getItem("home-filters") === "1");
     } catch {}
   }, [setView]);
@@ -384,7 +385,17 @@ function ScriptList() {
   return (
     <div className="relative flex min-h-screen bg-(--c-b-ffffff)">
 
-      {view === "mymind" || view === "library" || view === "tweet" || view === "brands" || view === "boards" || view === "topics" || view === "youtube" ? (
+      {view === "home" ? (
+        <div className="relative min-h-screen min-w-0 flex-1">
+          {(!sidebarOpen || mobile) && <AccountButton initial={(me?.name || me?.email || "?").slice(0, 1).toUpperCase()} email={me?.email ?? ""} />}
+          <div className="px-5 pt-6">
+            <div className="flex min-h-9 items-center">
+              {(!sidebarOpen || mobile) && <ShowSidebarButton onClick={() => toggleSidebar(true)} className="-ml-1.5" />}
+            </div>
+          </div>
+          <HomeDashboard />
+        </div>
+      ) : view === "mymind" || view === "library" || view === "tweet" || view === "brands" || view === "boards" || view === "topics" || view === "youtube" ? (
         // Mymind is its own light-grey space for ideas, separate from scripts
         <div className="relative min-h-screen min-w-0 flex-1 bg-(--c-b-f7f7f5)">
           <div className="px-5 pb-24 pt-6 sm:px-8">
