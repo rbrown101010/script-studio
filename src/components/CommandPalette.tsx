@@ -12,7 +12,7 @@ import { IconBoard, IconPlus, IconSearch } from "./icons";
 /** Ask the switcher to open (e.g. from a button) */
 export const openCommandPalette = () => window.dispatchEvent(new Event("native-note:palette"));
 
-type View = "list" | "calendar" | "feed" | "library" | "tweet" | "brands" | "boards" | "topics" | "mymind";
+type View = "list" | "calendar" | "feed" | "library" | "tweet" | "brands" | "boards" | "topics" | "youtube" | "mymind";
 type Item = {
   key: string;
   group: "Recent" | "Scripts" | "Boards" | "Views" | "Apps" | "Create";
@@ -42,6 +42,7 @@ const PAGES: { view: View; title: string; words: string; icon: ReactNode }[] = [
   { view: "brands", title: "Brand deals", words: "sponsors partners sponsorships", icon: svg(<><path d="M8.5 2.5H13.5V7.5L7.5 13.5 2.5 8.5z" /><circle cx="10.75" cy="5.25" r="1" /></>) },
   { view: "boards", title: "Excalidraw", words: "boards whiteboard drawings", icon: <IconBoard size={16} /> },
   { view: "topics", title: "Topic opportunities", words: "ideas research youtube outliers keywords", icon: svg(<><path d="M2 12l4-4 2.5 2.5L14 5" /><path d="M10 5h4v4" /></>) },
+  { view: "youtube", title: "YouTube", words: "channel analytics stats views reports dashboard weekly", icon: svg(<><rect x="1.75" y="3.25" width="12.5" height="9.5" rx="2.5" /><path d="M6.75 6v4l3.5-2-3.5-2Z" /></>) },
 ];
 
 const RECENT_KEY = "palette-recent";

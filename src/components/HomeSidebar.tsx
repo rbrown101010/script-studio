@@ -22,7 +22,8 @@ export type View =
   | "tweet"
   | "brands"
   | "boards"
-  | "topics";
+  | "topics"
+  | "youtube";
 export type SponsorFilter = "all" | "sponsored" | "notSponsored";
 
 export const SIDEBAR_WIDTH = 252;
@@ -350,6 +351,7 @@ export function HomeSidebar({
           {nav("tweet", "Tweet", <TweetIcon />)}
           {nav("brands", "Brand deals", <BrandIcon />)}
           {nav("topics", "Topic opportunities", <TrendIcon />)}
+          {nav("youtube", "YouTube", <YouTubeIcon />)}
         </Group>
       </nav>
 
@@ -542,6 +544,24 @@ function TrendIcon() {
     >
       <path d="M2 12l4-4 2.5 2.5L14 5" />
       <path d="M10 5h4v4" />
+    </svg>
+  );
+}
+
+function YouTubeIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="15"
+      height="15"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="1.75" y="3.25" width="12.5" height="9.5" rx="2.5" />
+      <path d="M6.75 6v4l3.5-2-3.5-2Z" fill="currentColor" />
     </svg>
   );
 }
