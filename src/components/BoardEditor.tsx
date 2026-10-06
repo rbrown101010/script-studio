@@ -12,6 +12,7 @@ import { useBoardData, useIsDark } from "@/lib/boardSource";
 import { uploadToUrl } from "@/lib/upload";
 import { IconArrowLeft, IconPin, IconX } from "./icons";
 import { SidebarIcon, useMaybeAppSidebar } from "./HomeSidebar";
+import { BlurLayer, BlurToggle, blurView, blursOnTop, isBlur, setBlur, type BlurEl, type BlurView } from "./boardBlur";
 
 // The real Excalidraw editor (browser only)
 const Excalidraw = dynamic(async () => (await import("@excalidraw/excalidraw")).Excalidraw, {
@@ -78,6 +79,11 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
   /** What's selected right now (drives the phone action bar) */
   const [picked, setPicked] = useState<{ count: number; styleOpen: boolean; frame: string | null }>({ count: 0, styleOpen: false, frame: null });
   const [copied, setCopied] = useState(false);
+  /** Blur rectangles: where they are on screen, and whether the selected rectangles are blurred (null: none selected) */
+  const [blurs, setBlurs] = useState<BlurView>({ boxes: [], width: 0, height: 0, zoom: 1 });
+  const [blurPicked, setBlurPicked] = useState<boolean | null>(null);
+  const boardRoot = useRef<HTMLDivElement>(null);
+  const reordering = useRef(false);
   /** Copy a link to the selected frame; pasted on an empty line in a script it becomes a frame block */
   const copyFrame = () => {
     if (!picked.frame) return;
@@ -235,7 +241,25 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
     const only = count === 1 ? Object.keys(appState.selectedElementIds as object)[0] : null;
     const frame = only && elements.some((e) => e.id === only && ((e as { type?: string }).type === "frame" || (e as { type?: string }).type === "magicframe")) ? only : null;
     if (count !== picked.count || styleOpen !== picked.styleOpen || frame !== picked.frame) setPicked({ count, styleOpen, frame });
+    const view = blurView(elements as unknown as BlurEl[], appState);
+    if (JSON.stringify(view) !== JSON.stringify(blurs)) setBlurs(view);
+    const sel = (appState.selectedElementIds as Record<string, boolean>) ?? {};
+    const rects = count ? (elements as unknown as BlurEl[]).filter((e) => sel[e.id] && !e.isDeleted && e.type === "rectangle") : [];
+    const blurNow = rects.length ? rects.every(isBlur) : null;
+    if (blurNow !== blurPicked) setBlurPicked(blurNow);
     if (readOnly) return;
+    // Blurs always sit on top: anything drawn or moved above one goes back under it (once nothing is mid-gesture)
+    if (!reordering.current && !appState.newElement && !appState.selectedElementsAreBeingDragged && !appState.resizingElement && !appState.editingTextElement && blursOnTop(elements as unknown as BlurEl[])) {
+      reordering.current = true;
+      setTimeout(async () => {
+        reordering.current = false;
+        const ex = excalidraw.current;
+        const next = ex && blursOnTop(ex.getSceneElementsIncludingDeleted() as BlurEl[]);
+        if (!next) return;
+        const { CaptureUpdateAction } = await import("@excalidraw/excalidraw");
+        ex.updateScene({ elements: next, captureUpdate: CaptureUpdateAction.NEVER });
+      }, 0);
+    }
     // Cheap change check: element versions and the background
     const key = `${elements.length}:${elements.reduce((n, e) => n + e.version, 0)}:${String(appState.viewBackgroundColor)}:${files.current.length}`;
     void storeFiles(map);
@@ -368,7 +392,9 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
   );
 
   return (
-    <div className={`nn-board flex flex-col bg-(--c-b-ffffff) ${onClose ? "h-full" : "h-dvh"}`}>
+    <div ref={boardRoot} className={`nn-board flex flex-col bg-(--c-b-ffffff) ${onClose ? "h-full" : "h-dvh"}`}>
+      <BlurLayer root={boardRoot} view={blurs} dark={dark} />
+      {!readOnly && blurPicked !== null && <BlurToggle root={boardRoot} on={blurPicked} onToggle={() => void setBlur(excalidraw.current, !blurPicked)} />}
       {/* Phones: the title row sits above the canvas so Excalidraw's toolbar gets the full width */}
       {phone && controls}
       <div className="relative min-h-0 flex-1">

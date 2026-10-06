@@ -8,6 +8,7 @@ import { api } from "../../convex/_generated/api";
 import { PICK_FRAME, boardIdFrom, boardRef, frameIdFrom, useBoardData, useCanEditBoards, useIsDark } from "@/lib/boardSource";
 import type { Block } from "@/lib/types";
 import { IconBoard, IconPlus, IconRefresh, IconSearch } from "./icons";
+import { applyBlurs, markBlurs } from "./boardBlur";
 
 // The editor (and Excalidraw's styles) only load when a board is opened
 const BoardEditor = dynamic(async () => (await import("./BoardEditor")).BoardEditor, {
@@ -57,9 +58,11 @@ export function BoardDrawing({ scene, maxHeight, dark, frameId }: { scene: Scene
       }
       const { exportToSvg } = await import("@excalidraw/excalidraw");
       const appState = JSON.parse(scene.appState || "{}");
+      // Blur rectangles: exported as markers, then turned into frosted patches
+      const marked = markBlurs(elements as (Shape & { customData?: Record<string, unknown> })[]);
       const svg = await exportToSvg({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        elements: elements as any,
+        elements: marked.elements as any,
         appState: { ...appState, exportBackground: false, exportWithDarkMode: dark, exportEmbedScene: false },
         files: Object.fromEntries(scene.files.map((f) => [f.id, { id: f.id, dataURL: f.url, mimeType: f.mimeType, created: 0 }])) as never,
         exportPadding: frameId ? 0 : 12,
@@ -67,6 +70,7 @@ export function BoardDrawing({ scene, maxHeight, dark, frameId }: { scene: Scene
         ...(one ? { exportingFrame: one.frame as any } : {}),
       });
       if (dead || !box.current) return;
+      applyBlurs(svg, marked.markers, appState.viewBackgroundColor || "#ffffff");
       const w = parseFloat(svg.getAttribute("width") ?? "0") || 1;
       const h = parseFloat(svg.getAttribute("height") ?? "0") || 1;
       svg.removeAttribute("width");
