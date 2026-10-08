@@ -14,7 +14,11 @@ const PROTOCOL = "2025-06-18";
 const RULES = `Native Note is Riley's team app for video scripts. You can change anything except deleting a script. Edit script text directly with edit_lines or edit_script: every edit saves the previous text as a version that can be restored. Read a script (get_script) before changing it, and tell the user what you changed.`;
 
 const scriptArg = { type: "string", description: "The script's id or its share link" };
-const statusArg = { type: "string", enum: ["inProduction", "upcoming", "done", "idea"], description: "inProduction = being made now, upcoming = a future video, done, idea = not committed to yet" };
+const statusArg = {
+  type: "string",
+  enum: ["idea", "upcoming", "inProduction", "sentToEditor", "done"],
+  description: "idea = not committed to yet, upcoming = a future video, inProduction = being made now, sentToEditor = filmed and with the editor, done = posted",
+};
 const formatArg = { type: "string", enum: ["long", "short"] };
 const sponsoredArg = { type: "string", enum: ["none", "noSponsor", "dedicated", "integration", "adRead"], description: "none = not decided yet, noSponsor = decided: no sponsor" };
 const liveDateArg = { type: ["string", "null"], description: "YYYY-MM-DD, or null to clear" };

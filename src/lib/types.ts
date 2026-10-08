@@ -45,7 +45,7 @@ export type Block = {
   source_block_id?: string | null;
 };
 
-export type VideoStatus = "inProduction" | "upcoming" | "done" | "idea";
+export type VideoStatus = "inProduction" | "upcoming" | "done" | "idea" | "sentToEditor";
 export type VideoFormat = "long" | "short";
 
 // "red" is stored for the fourth color but shown as purple, per the design
@@ -71,15 +71,17 @@ export const textHex = (c: TextColor | null | undefined) => TEXT_COLORS.find((x)
 
 export const colorBg = (c: BlockColor | null | undefined) => BLOCK_COLORS.find((x) => x.value === c)?.bg;
 
+/** In pipeline order, left to right on the Kanban. "done" is stored as before and shown as Posted. */
 export const STATUSES: { value: VideoStatus; label: string; dot: string }[] = [
-  { value: "inProduction", label: "In production", dot: "#d97706" },
-  { value: "upcoming", label: "Upcoming", dot: "#9a9a9a" },
-  { value: "done", label: "Done", dot: "#15803d" },
   { value: "idea", label: "Idea", dot: "#a78bfa" },
+  { value: "upcoming", label: "Upcoming", dot: "#9a9a9a" },
+  { value: "inProduction", label: "In production", dot: "#d97706" },
+  { value: "sentToEditor", label: "Sent to editor", dot: "#2f6fed" },
+  { value: "done", label: "Posted", dot: "#15803d" },
 ];
 
 /** Label and dot for a status (anything unknown, like an old status, reads as In production). */
-export const statusOf = (s: string) => STATUSES.find((x) => x.value === s) ?? STATUSES[0];
+export const statusOf = (s: string) => STATUSES.find((x) => x.value === s) ?? STATUSES[2];
 
 export type Sponsorship = "none" | "noSponsor" | "dedicated" | "integration" | "adRead";
 

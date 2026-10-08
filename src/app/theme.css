@@ -109,6 +109,17 @@
   --comment-underline: #f0d67a;
   --comment-highlight: #fdf6d6;
   --comment-highlight-hover: #fbeeb8;
+  /* Kanban: the Posted column is green, the working columns get a hint of their status color */
+  --kb-col: #f6f6f4;
+  --kb-card: #ffffff;
+  --kb-card-ring: rgb(0 0 0 / 0.07);
+  --kb-drop: rgb(35 88 216 / 0.08);
+  --kb-posted-bg: #eaf7ee;
+  --kb-posted-ring: #c6e9d1;
+  --kb-posted-text: #15803d;
+  --kb-posted-card: #f6fcf8;
+  --kb-prod-tint: rgb(217 119 6 / 0.07);
+  --kb-editor-tint: rgb(47 111 237 / 0.07);
   --link: #2358d8;
   --link-underline: rgb(35 88 216 / 0.35);
 }
@@ -221,6 +232,16 @@
   --comment-underline: #8a7430;
   --comment-highlight: rgb(245 197 66 / 0.11);
   --comment-highlight-hover: rgb(245 197 66 / 0.19);
+  --kb-col: #1f1f1f;
+  --kb-card: #2a2a2a;
+  --kb-card-ring: rgb(255 255 255 / 0.07);
+  --kb-drop: rgb(122 165 255 / 0.12);
+  --kb-posted-bg: rgb(34 160 84 / 0.12);
+  --kb-posted-ring: rgb(52 199 108 / 0.22);
+  --kb-posted-text: #5fd38d;
+  --kb-posted-card: rgb(34 160 84 / 0.10);
+  --kb-prod-tint: rgb(245 158 11 / 0.08);
+  --kb-editor-tint: rgb(96 145 255 / 0.09);
   --link: #7aa5ff;
   --link-underline: rgb(122 165 255 / 0.4);
 }

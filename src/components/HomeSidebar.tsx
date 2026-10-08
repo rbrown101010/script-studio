@@ -17,6 +17,7 @@ export type View =
   | "home"
   | "list"
   | "calendar"
+  | "kanban"
   | "feed"
   | "mymind"
   | "library"
@@ -301,6 +302,7 @@ export function HomeSidebar({
         <Group label="Scripts">
           {nav("list", "All scripts", <ListIcon />)}
           {nav("calendar", "Calendar", <CalendarIcon />)}
+          {nav("kanban", "Kanban", <KanbanIcon />)}
           {nav("feed", "Feed", <FeedIcon />)}
         </Group>
 
@@ -740,6 +742,16 @@ function CalendarIcon() {
     >
       <rect x="2.25" y="3.25" width="11.5" height="10.5" rx="2" />
       <path d="M2.25 6.75h11.5M5.5 1.75v3M10.5 1.75v3" />
+    </svg>
+  );
+}
+
+function KanbanIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
+      <rect x="1.75" y="2.25" width="3.5" height="11.5" rx="1" />
+      <rect x="6.25" y="2.25" width="3.5" height="8" rx="1" />
+      <rect x="10.75" y="2.25" width="3.5" height="5" rx="1" />
     </svg>
   );
 }

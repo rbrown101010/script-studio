@@ -3,8 +3,8 @@ import { authTables } from "@convex-dev/auth/server";
 import { research, topicStatus } from "./topicFields";
 import { v } from "convex/values";
 
-/** In production (being made now), Upcoming (future videos), Done, Idea (not committed to yet). */
-export const videoStatus = v.union(v.literal("inProduction"), v.literal("upcoming"), v.literal("done"), v.literal("idea"));
+/** Idea (not committed to yet), Upcoming (future videos), In production (being made now), Sent to editor (filmed, with the editor), Done (posted). */
+export const videoStatus = v.union(v.literal("inProduction"), v.literal("upcoming"), v.literal("done"), v.literal("idea"), v.literal("sentToEditor"));
 /** Statuses before 2026-09-24; migrations:statuses maps them to videoStatus */
 export const legacyStatus = v.union(
   v.literal("scripting"),

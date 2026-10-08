@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { KanbanView, type KanbanVideo } from "@/components/KanbanView";
 import { CalendarView } from "@/components/CalendarView";
 import { FeedView } from "@/components/FeedView";
 import { Mymind } from "@/components/Mymind";
@@ -273,7 +274,7 @@ function ScriptList() {
   const mobile = useIsMobile();
   const { view, setView, newScript: newScriptRef } = useHomeView();
   useDocumentTitle(
-    { home: "Home", list: "Scripts", calendar: "Calendar", feed: "Feed", mymind: "Mymind", library: "Library", tweet: "Tweet", brands: "Brand deals", boards: "Excalidraw", topics: "Topic opportunities", youtube: "YouTube" }[view],
+    { home: "Home", list: "Scripts", calendar: "Calendar", kanban: "Kanban", feed: "Feed", mymind: "Mymind", library: "Library", tweet: "Tweet", brands: "Brand deals", boards: "Excalidraw", topics: "Topic opportunities", youtube: "YouTube" }[view],
   );
   /** The status / sponsorship / format filters only show after pressing Filter */
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -285,7 +286,7 @@ function ScriptList() {
       const saved = localStorage.getItem("home-view");
       // ?view=… (e.g. coming back from a board) wins over the remembered view
       const asked = new URLSearchParams(window.location.search).get("view") ?? saved;
-      if (asked && ["home", "calendar", "feed", "mymind", "library", "tweet", "brands", "boards", "topics", "youtube", "list"].includes(asked)) setView(asked as View);
+      if (asked && ["home", "calendar", "kanban", "feed", "mymind", "library", "tweet", "brands", "boards", "topics", "youtube", "list"].includes(asked)) setView(asked as View);
       setFiltersOpen(localStorage.getItem("home-filters") === "1");
     } catch {}
   }, [setView]);
@@ -361,6 +362,8 @@ function ScriptList() {
   });
 
   const onMove = (id: string, liveDate: string) => void update({ id: id as Id<"videos">, liveDate: liveDate || null });
+  // Kanban: every status (the columns are the statuses), with the other filters and search applied
+  const board = view === "kanban" ? (videos ?? []).filter((v) => (sponsorFilter === "all" || (sponsorFilter === "sponsored") === isSponsored(v)) && (filter === "all" || v.format === filter) && (!q || (v.title || "untitled").toLowerCase().includes(q))) : [];
   const all = videos ?? [];
   const counts = videos
     ? {
@@ -373,7 +376,7 @@ function ScriptList() {
         format: { all: all.length, long: all.filter((v) => v.format === "long").length, short: all.filter((v) => v.format === "short").length },
       }
     : undefined;
-  const activeFilters = (statusFilter !== "all" ? 1 : 0) + (sponsorFilter !== "all" ? 1 : 0) + (filter !== "all" ? 1 : 0);
+  const activeFilters = (statusFilter !== "all" && view !== "kanban" ? 1 : 0) + (sponsorFilter !== "all" ? 1 : 0) + (filter !== "all" ? 1 : 0);
   const heading = [
     statusFilter === "all" ? "All scripts" : statusOf(statusFilter).label,
     sponsorFilter === "sponsored" ? "sponsored" : sponsorFilter === "notSponsored" ? "not sponsored" : null,
@@ -411,17 +414,17 @@ function ScriptList() {
       <div className="relative min-w-0 flex-1">
         {/* The account lives at the bottom of the sidebar; while it's hidden, here */}
         {(!sidebarOpen || mobile) && <AccountButton initial={(me?.name || me?.email || "?").slice(0, 1).toUpperCase()} email={me?.email ?? ""} />}
-        <div className={`mx-auto px-5 pb-24 pt-6 ${view === "calendar" ? "max-w-[1180px]" : "max-w-[1120px]"}`}>
+        <div className={`mx-auto px-5 pb-24 pt-6 ${view === "kanban" ? "max-w-[1520px]" : view === "calendar" ? "max-w-[1180px]" : "max-w-[1120px]"}`}>
           <div className="flex min-h-9 items-center gap-2 pr-12">
             {(!sidebarOpen || mobile) && <ShowSidebarButton onClick={() => toggleSidebar(true)} className="-ml-1.5" />}
           </div>
           <div className="mt-6 flex flex-wrap items-end justify-between gap-3 border-b border-(--c-l-ebebeb) pb-3">
             <div>
-              <h1 className="m-0 text-[32px] font-semibold tracking-[-0.015em] text-(--c-t-1b1b1b)">{view === "calendar" ? "Calendar" : view === "feed" ? "Feed" : "Scripts"}</h1>
+              <h1 className="m-0 text-[32px] font-semibold tracking-[-0.015em] text-(--c-t-1b1b1b)">{view === "calendar" ? "Calendar" : view === "kanban" ? "Kanban" : view === "feed" ? "Feed" : "Scripts"}</h1>
               {view !== "feed" && <p className="m-0 mt-1 text-[14px] text-(--c-t-737373)">
-                {heading}
+                {view === "kanban" ? "Idea to posted, drag a card to change its status" : heading}
                 {q && ` · matching "${search.trim()}"`}
-                {videos && ` · ${shown.length}`}
+                {videos && ` · ${view === "kanban" ? board.length : shown.length}`}
               </p>}
             </div>
             <div className="flex items-center gap-1.5">
@@ -472,7 +475,7 @@ function ScriptList() {
 
           {filtersOpen && view !== "feed" && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <FilterSelect
+              {view !== "kanban" && <FilterSelect
                 label="Status"
                 value={statusFilter}
                 onChange={(v) => setStatusFilter(v as typeof statusFilter)}
@@ -480,7 +483,7 @@ function ScriptList() {
                   { value: "all", label: `All statuses${counts ? ` (${counts.status.all})` : ""}` },
                   ...STATUSES.map((x) => ({ value: x.value, label: `${x.label}${counts ? ` (${counts.status[x.value] ?? 0})` : ""}` })),
                 ]}
-              />
+              />}
               <FilterSelect
                 label="Sponsorship"
                 value={sponsorFilter}
@@ -524,7 +527,20 @@ function ScriptList() {
             />
           )}
 
-          {view === "calendar" ? (
+          {view === "kanban" ? (
+            <div className="mt-5">
+              {videos && (
+                <KanbanView
+                  videos={board as KanbanVideo[]}
+                  partnerOf={(id) => (id ? partnerById.get(id) : undefined)}
+                  onMove={(id, status) => void update({ id: id as Id<"videos">, status })}
+                  onNew={(status) =>
+                    void create({ format: filter === "short" ? "short" : "long", status }).then((id) => router.push(`/v/${id}`))
+                  }
+                />
+              )}
+            </div>
+          ) : view === "calendar" ? (
             <div className="mt-5">{videos && <CalendarView videos={shown} onMove={onMove} />}</div>
           ) : view === "feed" ? (
             <div className="mt-5">

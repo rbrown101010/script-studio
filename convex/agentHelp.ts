@@ -27,7 +27,7 @@ text as a version first, so nothing is ever lost and any edit can be undone with
   (color: yellow, blue, green, red, rose; red shows as purple and rose shows as red). Set them on lines in edit_lines / edit_script;
   get_script shows them.
 - Editor instructions: to-dos for the video editor, each with a key, text and checked.
-- Details: liveDate (YYYY-MM-DD or null), format (long | short), status (inProduction = being made now | upcoming = a future video | done | idea = not committed to yet),
+- Details: liveDate (YYYY-MM-DD or null), format (long | short), status (idea = not committed to yet | upcoming = a future video | inProduction = being made now | sentToEditor = filmed and with the editor | done = posted; the app's Kanban shows them left to right in that order),
   sponsored (none = not decided yet | noSponsor | dedicated | integration | adRead).
 - Captions: one entry per platform (Instagram, TikTok, YouTube, YouTube Shorts, X, LinkedIn, Facebook, Threads, or any name),
   each with caption, linkInBio, posted (true once it's been posted) and custom fields (label + value).

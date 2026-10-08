@@ -12,7 +12,7 @@ import { IconBoard, IconPlus, IconSearch } from "./icons";
 /** Ask the switcher to open (e.g. from a button) */
 export const openCommandPalette = () => window.dispatchEvent(new Event("native-note:palette"));
 
-type View = "home" | "list" | "calendar" | "feed" | "library" | "tweet" | "brands" | "boards" | "topics" | "youtube" | "mymind";
+type View = "home" | "list" | "calendar" | "kanban" | "feed" | "library" | "tweet" | "brands" | "boards" | "topics" | "youtube" | "mymind";
 type Item = {
   key: string;
   group: "Recent" | "Scripts" | "Boards" | "Views" | "Apps" | "Create";
@@ -36,6 +36,7 @@ const PAGES: { view: View; title: string; words: string; icon: ReactNode }[] = [
   { view: "home", title: "Home", words: "dashboard overview start today", icon: svg(<path d="M2.5 7 8 2.5 13.5 7v6.5h-3.75V10h-3.5v3.5H2.5z" />) },
   { view: "list", title: "Scripts", words: "list all scripts home", icon: svg(<path d="M3 4h10M3 8h10M3 12h7" />) },
   { view: "calendar", title: "Calendar", words: "schedule dates live", icon: svg(<><rect x="2.5" y="3.5" width="11" height="10" rx="2" /><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" /></>) },
+  { view: "kanban", title: "Kanban", words: "board pipeline columns status editor posted", icon: svg(<><rect x="2" y="2.5" width="3.5" height="11" rx="1" /><rect x="6.25" y="2.5" width="3.5" height="7.5" rx="1" /><rect x="10.5" y="2.5" width="3.5" height="4.5" rx="1" /></>) },
   { view: "feed", title: "Feed", words: "updates urgent", icon: svg(<path d="M3 4h10M3 8h10M3 12h10" />) },
   { view: "mymind", title: "Mymind", words: "ideas bookmarks saved", icon: svg(<><circle cx="5" cy="5" r="2.2" /><circle cx="11" cy="5" r="2.2" /><circle cx="5" cy="11" r="2.2" /><circle cx="11" cy="11" r="2.2" /></>) },
   { view: "library", title: "Library", words: "assets files footage", icon: svg(<><rect x="2.5" y="2.5" width="4" height="11" rx="1" /><rect x="8" y="2.5" width="4" height="11" rx="1" transform="rotate(-12 10 8)" /></>) },
@@ -271,7 +272,7 @@ function Palette({
     }));
     const pages: Item[] = PAGES.map((p) => ({
       key: `p:${p.view}`,
-      group: p.view === "home" || p.view === "list" || p.view === "calendar" || p.view === "feed" ? "Views" : "Apps",
+      group: p.view === "home" || p.view === "list" || p.view === "calendar" || p.view === "kanban" || p.view === "feed" ? "Views" : "Apps",
       title: p.title,
       words: `${p.words} app page`,
       icon: p.icon,
