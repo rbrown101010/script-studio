@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { FormatIcon } from "./FormatIcon";
 import { PartnerLogo } from "./VideoMeta";
 import { IconPlus } from "./icons";
@@ -22,8 +22,6 @@ type Partner = { name: string; logoUrl: string | null };
 
 /** Idea and Upcoming sit back a little so the eye goes to what's being made */
 const QUIET: VideoStatus[] = ["idea", "upcoming"];
-/** Posted can get long: show the latest few until asked */
-const POSTED_SHOWN = 12;
 
 /**
  * Scripts as a board, left to right through the pipeline: Idea, Upcoming, In production, Sent to editor,
@@ -43,6 +41,34 @@ export function KanbanView({
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<VideoStatus | null>(null);
   const [allPosted, setAllPosted] = useState(false);
+  // Opens with In production at the left edge; Idea and Upcoming are a scroll to the left
+  const scroller = useRef<HTMLDivElement>(null);
+  const placed = useRef(false);
+  // Room after Posted so In production can sit at the left edge even on wide screens
+  const [tail, setTail] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const box = scroller.current;
+    if (!box) return;
+    const measure = () => {
+      const prod = box.querySelector<HTMLElement>('section[data-status="inProduction"]');
+      const last = box.querySelector<HTMLElement>('section[data-status="done"]');
+      if (!prod || !last) return;
+      const cs = getComputedStyle(box);
+      const room = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      setTail(Math.max(0, room - (last.offsetLeft + last.offsetWidth - prod.offsetLeft) - 16));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    const box = scroller.current;
+    const prod = box?.querySelector<HTMLElement>('section[data-status="inProduction"]');
+    if (!box || !prod || placed.current || tail === null) return;
+    placed.current = true;
+    box.scrollLeft += prod.getBoundingClientRect().left - box.getBoundingClientRect().left - parseFloat(getComputedStyle(box).paddingLeft);
+  }, [tail]);
 
   const columns = STATUSES.map((s) => {
     const list = videos.filter((v) => statusOf(v.status).value === s.value);
@@ -56,16 +82,19 @@ export function KanbanView({
   });
 
   return (
-    <div className="-mx-5 overflow-x-auto px-5 pb-4 [scrollbar-width:thin] max-lg:snap-x max-lg:snap-mandatory">
-      <div className="flex min-w-max items-start gap-3 lg:min-w-0">
+    <div ref={scroller} className="-mx-5 overflow-x-auto scroll-px-5 px-5 pb-4 [scrollbar-width:thin] max-lg:snap-x max-lg:snap-mandatory">
+      <div className="flex min-w-max items-start gap-4">
         {columns.map((col) => {
           const quiet = QUIET.includes(col.value);
           const posted = col.value === "done";
-          const shown = posted && !allPosted ? col.list.slice(0, POSTED_SHOWN) : col.list;
+          // Posted starts folded up: just its header and a button to open the whole column
+          const folded = posted && !allPosted && !dragging;
+          const shown = folded ? [] : col.list;
           const isOver = over === col.value && dragging !== null;
           return (
             <section
               key={col.value}
+              data-status={col.value}
               aria-label={col.label}
               onDragOver={(e) => {
                 if (!dragging) return;
@@ -86,11 +115,11 @@ export function KanbanView({
               style={{
                 background: isOver ? undefined : posted ? "var(--kb-posted-bg)" : col.value === "inProduction" ? "linear-gradient(var(--kb-prod-tint), var(--kb-prod-tint)), var(--kb-col)" : col.value === "sentToEditor" ? "linear-gradient(var(--kb-editor-tint), var(--kb-editor-tint)), var(--kb-col)" : "var(--kb-col)",
               }}
-              className={`group/col flex w-[272px] shrink-0 snap-start flex-col rounded-2xl p-2 transition-[opacity,box-shadow,background-color] duration-200 lg:w-auto lg:min-w-[200px] lg:flex-1 ${
+              className={`group/col flex w-[300px] shrink-0 snap-start flex-col rounded-2xl px-3.5 pb-3.5 pt-2 transition-[opacity,box-shadow,background-color] duration-200 ${
                 isOver ? "bg-(--kb-drop) ring-2 ring-[#2358d8]/40" : posted ? "ring-1 ring-(--kb-posted-ring)" : ""
               } ${quiet && !isOver ? "opacity-[0.58] hover:opacity-90 focus-within:opacity-100" : ""}`}
             >
-              <header className="flex h-9 items-center gap-2 px-2">
+              <header className="flex h-10 items-center gap-2 px-1">
                 {posted ? (
                   <span className="flex h-4 w-4 items-center justify-center rounded-full bg-(--kb-posted-text) text-white">
                     <svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -112,7 +141,7 @@ export function KanbanView({
                   <IconPlus size={13} />
                 </button>
               </header>
-              <div className="flex min-h-[64px] flex-col gap-2">
+              <div className={`flex flex-col gap-2 ${posted && !allPosted ? "" : "min-h-[64px]"}`}>
                 {shown.map((v) => (
                   <Card
                     key={v._id}
@@ -131,20 +160,33 @@ export function KanbanView({
                     }}
                   />
                 ))}
+                {folded && col.list.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setAllPosted(true)}
+                    className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-dashed border-(--kb-posted-ring) text-[12.5px] font-medium text-(--kb-posted-text) hover:bg-(--kb-posted-card)"
+                  >
+                    Show all {col.list.length} posted
+                    <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="m3 4.5 3 3 3-3" />
+                    </svg>
+                  </button>
+                )}
                 {!col.list.length && (
                   <div className="flex h-16 items-center justify-center rounded-xl border border-dashed border-(--c-l-dcdcdc) text-[12.5px] text-(--c-t-9a9a9a)">
                     {dragging ? "Drop here" : "Nothing here"}
                   </div>
                 )}
-                {posted && col.list.length > POSTED_SHOWN && (
-                  <button type="button" onClick={() => setAllPosted(!allPosted)} className="h-8 rounded-lg text-[12.5px] font-medium text-(--kb-posted-text) hover:bg-(--kb-posted-ring)">
-                    {allPosted ? "Show fewer" : `Show all ${col.list.length}`}
+                {posted && allPosted && col.list.length > 0 && (
+                  <button type="button" onClick={() => setAllPosted(false)} className="h-8 rounded-lg text-[12.5px] font-medium text-(--kb-posted-text) hover:bg-(--kb-posted-card)">
+                    Collapse
                   </button>
                 )}
               </div>
             </section>
           );
         })}
+        {!!tail && <div aria-hidden="true" className="shrink-0" style={{ width: tail }} />}
       </div>
     </div>
   );
