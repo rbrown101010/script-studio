@@ -117,14 +117,14 @@ export function CommentsPanel({
         )}
         {comments.map((c) => (
           <CommentItem
-            key={c.id}
+            key={c.clientKey ?? c.id}
             c={c}
             showQuote={quote === undefined && !!c.blockKey}
             canEdit={!!canWrite && c.mine && !c.agent}
             canDelete={!!canWrite && (c.mine || !!canDeleteOthers)}
             canUpload={canUpload && c.mine}
             actions={actions}
-            autoFocus={focusId === c.id}
+            autoFocus={!!focusId && (focusId === c.id || focusId === c.clientKey)}
             onOpenImage={onOpenImage}
             onPlace={onPlace}
             onNextLine={onNextLine}
@@ -232,15 +232,19 @@ function CommentItem({
   latest.current = { draft, actions, id: c.id };
   const save = () => {
     if (timer.current) clearTimeout(timer.current);
-    if (!dirty.current) return;
+    // Still being added: what's typed is kept and saved as soon as the server has the comment
+    if (!dirty.current || latest.current.id.startsWith("pending-")) return;
     dirty.current = false;
     latest.current.actions?.update(latest.current.id, latest.current.draft);
   };
+  useEffect(() => {
+    if (!c.id.startsWith("pending-") && dirty.current) save();
+  }, [c.id]);
   // Save anything still pending when the panel closes
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
-      if (dirty.current) latest.current.actions?.update(latest.current.id, latest.current.draft);
+      if (dirty.current && !latest.current.id.startsWith("pending-")) latest.current.actions?.update(latest.current.id, latest.current.draft);
     },
     [],
   );

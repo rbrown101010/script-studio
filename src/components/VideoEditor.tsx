@@ -66,6 +66,8 @@ type DocInfo = {
 };
 
 const SCRIPT = "__script__";
+/** For event handlers (the lint rule can't tell them from render code) */
+const clockNow = () => Date.now();
 
 // A few uploads at once; the rest wait their turn.
 const queue: (() => Promise<void>)[] = [];
@@ -91,7 +93,19 @@ export function VideoEditor({ id }: { id: string }) {
     api.comments.list,
     data?.video ? { videoId: data.video._id } : "skip",
   );
-  const addCommentM = useMutation(api.comments.add);
+  /** The comment being added shows straight away, before the server has saved it */
+  const pendingKey = useRef<string | null>(null);
+  const pendingAt = useRef(0);
+  const addCommentM = useMutation(api.comments.add).withOptimisticUpdate((store, args) => {
+    const list = store.getQuery(api.comments.list, { videoId: args.videoId });
+    if (!list || !pendingKey.current) return;
+    store.setQuery(api.comments.list, { videoId: args.videoId }, [
+      ...list,
+      { id: pendingKey.current as Id<"comments">, blockKey: args.blockKey, keyHistory: [], quote: null, text: "", authorName: null, agent: false, mine: true, attachments: [], createdAt: pendingAt.current },
+    ]);
+  });
+  /** Saved comment id → the key it had while it was being added */
+  const aliases = useRef(new Map<string, string>());
   const updateCommentM = useMutation(api.comments.update);
   const removeCommentM = useMutation(api.comments.remove);
   const moveCommentM = useMutation(api.comments.moveToLine);
@@ -261,18 +275,24 @@ export function VideoEditor({ id }: { id: string }) {
 
   const actions: CommentActions = {
     add: async (blockKey) => {
+      // Show and focus the box right away; it keeps its key once the server has it
+      const temp = `pending-${uid()}`;
+      pendingKey.current = temp;
+      pendingAt.current = clockNow();
+      setFocusComment(temp);
       const cid = await addCommentM({
         videoId: id as Id<"videos">,
         blockKey,
         text: "",
       });
+      pendingKey.current = null;
+      aliases.current.set(cid, temp);
       createdHere.current.add(cid);
-      setFocusComment(cid);
       return cid;
     },
     update: (cid, text) =>
-      void updateCommentM({ id: cid as Id<"comments">, text }),
-    remove: (cid) => void removeCommentM({ id: cid as Id<"comments"> }),
+      void (cid.startsWith("pending-") || updateCommentM({ id: cid as Id<"comments">, text })),
+    remove: (cid) => void (cid.startsWith("pending-") || removeCommentM({ id: cid as Id<"comments"> })),
     addLink: (cid, url) =>
       void attachM({
         id: cid as Id<"comments">,
@@ -366,10 +386,17 @@ export function VideoEditor({ id }: { id: string }) {
   commentsRef.current = (comments ?? []) as Comment[];
   const uploadingRef = useRef(uploading);
   uploadingRef.current = uploading;
-  const sweepEmpty = () =>
+  const openRef = useRef<string | null>(null);
+  openRef.current = openId;
+  // Only comments started before leaving that place, and never ones on the place that's open now
+  // (otherwise a comment just started on the next line could vanish while you type)
+  const sweepEmpty = () => {
+    const candidates = new Set(createdHere.current);
     setTimeout(() => {
       for (const c of commentsRef.current) {
         if (
+          !candidates.has(c.id) ||
+          (c.blockKey ?? SCRIPT) === openRef.current ||
           !createdHere.current.has(c.id) ||
           c.text.trim() ||
           c.attachments.length ||
@@ -380,6 +407,7 @@ export function VideoEditor({ id }: { id: string }) {
         void removeCommentM({ id: c.id as Id<"comments"> });
       }
     }, 1500);
+  };
 
   const openComments = (key: string, opts?: { newComment?: boolean }) => {
     if (openId && openId !== key) sweepEmpty();
@@ -500,11 +528,12 @@ export function VideoEditor({ id }: { id: string }) {
 
   // Comments live on lines by key; an edited version's lines point back to the originals
   const keyOf = (b: Block) => (review ? (b.source_block_id ?? b.id) : b.id);
-  const allComments: Comment[] = ((comments ?? []) as Comment[]).map((c) =>
-    uploading[c.id]
-      ? { ...c, attachments: [...c.attachments, ...uploading[c.id]] }
-      : c,
-  );
+  const allComments: Comment[] = ((comments ?? []) as Comment[]).map((c) => {
+    const withKey = aliases.current.has(c.id) ? { ...c, clientKey: aliases.current.get(c.id) } : c.id.startsWith("pending-") ? { ...c, clientKey: c.id } : c;
+    return uploading[c.id]
+      ? { ...withKey, attachments: [...c.attachments, ...uploading[c.id]] }
+      : withKey;
+  });
   const { counts: countsByKey, script: scriptComments } = groupComments(
     allComments,
     [...insBlocks, ...mainBlocks],
