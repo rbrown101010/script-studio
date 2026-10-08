@@ -205,6 +205,24 @@ export default defineSchema({
     .index("by_url", ["url"])
     .searchIndex("search", { searchField: "searchText" }),
 
+  // Agent updates (a tab in Mymind): what each agent tool shipped, by day, with the tweets that announced it
+  agentUpdates: defineTable({
+    tool: v.union(v.literal("grokbot"), v.literal("muse"), v.literal("dot"), v.literal("chatgpt"), v.literal("claudeCode")),
+    /** The day it shipped, YYYY-MM-DD */
+    date: v.string(),
+    title: v.string(),
+    summary: v.string(),
+    /** The announcement or changelog entry */
+    link: v.union(v.string(), v.null()),
+    /** Tweet links (https://x.com/<user>/status/<id>) */
+    tweets: v.array(v.string()),
+    authorName: v.union(v.string(), v.null()),
+    agent: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_date", ["date"])
+    .index("by_tool_date", ["tool", "date"]),
+
   // Cached preview cards for social links in comments (YouTube, TikTok, Instagram, ...)
   linkPreviews: defineTable({
     url: v.string(),

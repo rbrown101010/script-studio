@@ -48,6 +48,14 @@ video, video file, any web page) and/or a note. The card type is worked out from
 import many at once (up to 200 per call, e.g. bookmarks); links already saved aren't duplicated. Write a short note on
 each idea saying what it is and why it's worth keeping. Use list_ideas to search what's there.
 
+## Agent updates (Mymind tab)
+A log of what agent tools shipped, by day: GrokBot (grokbot), Muse (muse), Dot (dot, OpenAI's Dots in ChatGPT),
+ChatGPT desktop (chatgpt) and Claude Code (claudeCode). The tool is the update's tag. Each update has a date
+(YYYY-MM-DD), a short title, an optional summary and official link, and tweets (x.com links, shown as tweet cards).
+list_agent_updates first so you don't repeat what's there; add_agent_updates adds one or many (same tool + date + title,
+or an already-saved tweet, merges into the existing update and adds its new tweets). update_agent_update fixes one by
+id (addTweets / removeTweets), delete_agent_update removes one. Use official changelogs and the tweets you are given.
+
 ## Excalidraw boards
 Riley's whiteboards (the Excalidraw app in Native Note, links look like /b/<id>). list_boards to find one, get_board to
 read it: a summary (all text top to bottom, labelled shapes, arrows "A → B", links), its style, and items (everything
@@ -145,6 +153,10 @@ Never invent numbers or videos. Only include view counts you actually saw at tha
 | add_update {script, title, details?, link?, source?, date?, urgent?} | Log what happened on the Updates tab (urgent: needs a response now, pinned to the top of the Feed) |
 | add_ideas {ideas:[{url?, note?, date?}]} | Save ideas to Mymind (bulk import OK) |
 | list_ideas {query?, limit?} | Search Mymind |
+| add_agent_updates {updates:[{tool, date, title, summary?, link?, tweets?}]} | Add to Agent updates (merges duplicates, adds tweets) |
+| list_agent_updates {tool?, since?, query?, limit?} | List Agent updates with ids |
+| update_agent_update {id, title?, summary?, date?, tool?, link?, addTweets?, removeTweets?} | Change one Agent update |
+| delete_agent_update {id} | Delete one Agent update |
 | list_boards {query?} | List / search Excalidraw boards (pinned: shown in the sidebar) |
 | pin_board {board, pinned?} | Pin a board to the sidebar (pinned false unpins) |
 | pin_script {script, pinned?} | Pin a script to the sidebar and the top of Scripts (pinned false unpins) |
@@ -260,6 +272,10 @@ POST /agent/file?script=<id>&lineContains=...&text=...&name=shot.png   (or ?comm
        "${SITE}/agent/file?script=<id>&lineContains=Decisions%20API&text=Press%20image&name=shot.png"
 POST /agent/ideas                       add_ideas
 GET  /agent/ideas?q=...                 list_ideas
+GET  /agent/agent-updates?tool=&since=&q= list_agent_updates
+POST /agent/agent-updates               add_agent_updates
+POST /agent/agent-update                update_agent_update
+POST /agent/agent-update/delete         delete_agent_update
 Bodies are the same JSON as the tool arguments. Errors come back as {"error": "..."} with a 4xx status.
 Fix the input; don't retry the same call in a loop.
 `;

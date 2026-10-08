@@ -12,6 +12,8 @@ import type * as agent from "../agent.js";
 import type * as agentAuth from "../agentAuth.js";
 import type * as agentFiles from "../agentFiles.js";
 import type * as agentHelp from "../agentHelp.js";
+import type * as agentUpdates from "../agentUpdates.js";
+import type * as agentUpdatesSeed from "../agentUpdatesSeed.js";
 import type * as auth from "../auth.js";
 import type * as boardDraw from "../boardDraw.js";
 import type * as boards from "../boards.js";
@@ -48,6 +50,8 @@ declare const fullApi: ApiFromModules<{
   agentAuth: typeof agentAuth;
   agentFiles: typeof agentFiles;
   agentHelp: typeof agentHelp;
+  agentUpdates: typeof agentUpdates;
+  agentUpdatesSeed: typeof agentUpdatesSeed;
   auth: typeof auth;
   boardDraw: typeof boardDraw;
   boards: typeof boards;

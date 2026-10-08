@@ -18,6 +18,10 @@ import {
   httpRestoreVersion,
   httpAddIdeas,
   httpListIdeas,
+  httpListAgentUpdates,
+  httpAddAgentUpdates,
+  httpEditAgentUpdate,
+  httpDeleteAgentUpdate,
   httpListBoards,
   httpListTopics,
   httpCreateBoard,
@@ -77,6 +81,10 @@ http.route({ path: "/agent/instruction/delete", method: "POST", handler: httpDel
 http.route({ path: "/agent/caption/delete", method: "POST", handler: httpRemoveCaption });
 http.route({ path: "/agent/brief-links/delete", method: "POST", handler: httpRemoveBriefLinks });
 http.route({ path: "/agent/ideas", method: "GET", handler: httpListIdeas });
+http.route({ path: "/agent/agent-updates", method: "GET", handler: httpListAgentUpdates });
+http.route({ path: "/agent/agent-updates", method: "POST", handler: httpAddAgentUpdates });
+http.route({ path: "/agent/agent-update", method: "POST", handler: httpEditAgentUpdate });
+http.route({ path: "/agent/agent-update/delete", method: "POST", handler: httpDeleteAgentUpdate });
 http.route({ path: "/agent/boards", method: "GET", handler: httpListBoards });
 http.route({ path: "/agent/board", method: "GET", handler: httpGetBoard });
 http.route({ path: "/agent/board/create", method: "POST", handler: httpCreateBoard });

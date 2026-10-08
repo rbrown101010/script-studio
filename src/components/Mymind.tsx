@@ -8,6 +8,7 @@ import { uploadToUrl } from "@/lib/upload";
 import { linkify } from "./Brief";
 import { LinkCard, OpenLink, hasLinkCard, useLinkSummary } from "./LinkCard";
 import { IconSearch, IconTrash, IconUpload, IconX } from "./icons";
+import { AgentUpdates } from "./AgentUpdates";
 
 export type Idea = {
   id: Id<"ideas">;
@@ -24,8 +25,55 @@ export type Idea = {
 
 type Layout = "grid" | "list";
 
-/** Mymind: saved ideas as cards (masonry or list), each with a note. Light grey, calm, fast. */
+type Tab = "ideas" | "agentUpdates";
+
+/** Mymind: two tabs, Ideas (saved ideas as cards) and Agent updates (what agent tools shipped). */
 export function Mymind() {
+  const [tab, setTab] = useState<Tab>("ideas");
+  useEffect(() => {
+    try {
+      const asked = new URLSearchParams(window.location.search).get("tab");
+      if (asked === "agent-updates" || (!asked && localStorage.getItem("mymind-tab") === "agentUpdates")) setTab("agentUpdates");
+    } catch {}
+  }, []);
+  const pick = (t: Tab) => {
+    setTab(t);
+    try {
+      localStorage.setItem("mymind-tab", t);
+      const url = new URL(window.location.href);
+      if (t === "agentUpdates") url.searchParams.set("tab", "agent-updates");
+      else url.searchParams.delete("tab");
+      window.history.replaceState(window.history.state, "", url);
+    } catch {}
+  };
+  return (
+    <div className="min-h-full">
+      <div role="tablist" aria-label="Mymind" className="mx-auto mb-6 flex max-w-[640px] justify-center gap-1">
+        {(
+          [
+            ["ideas", "Ideas"],
+            ["agentUpdates", "Agent updates"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => pick(id)}
+            className={`h-9 rounded-full px-4 text-[14px] ${tab === id ? "bg-(--c-b-ececea) font-medium text-(--c-t-1b1b1b)" : "text-(--c-t-8a8a8a) hover:text-(--c-t-1b1b1b)"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {tab === "ideas" ? <Ideas /> : <AgentUpdates />}
+    </div>
+  );
+}
+
+/** Saved ideas as cards (masonry or list), each with a note. Light grey, calm, fast. */
+function Ideas() {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [layout, setLayout] = useState<Layout>("grid");

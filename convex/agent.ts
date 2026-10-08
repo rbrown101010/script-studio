@@ -857,6 +857,17 @@ export const httpAddIdeas = route((ctx, b) => ctx.runMutation(internal.agent.add
 export const httpListIdeas = route((ctx, _b, url) =>
   ctx.runQuery(internal.agent.listIdeas, { query: url.searchParams.get("q") ?? undefined, limit: Number(url.searchParams.get("limit")) || undefined }),
 );
+export const httpListAgentUpdates = route((ctx, _b, url) =>
+  ctx.runQuery(internal.agentUpdates.listForAgent, {
+    tool: url.searchParams.get("tool") ?? undefined,
+    since: url.searchParams.get("since") ?? undefined,
+    query: url.searchParams.get("q") ?? undefined,
+    limit: Number(url.searchParams.get("limit")) || undefined,
+  }),
+);
+export const httpAddAgentUpdates = route((ctx, b) => ctx.runMutation(internal.agentUpdates.addForAgent, b as any));
+export const httpEditAgentUpdate = route((ctx, b) => ctx.runMutation(internal.agentUpdates.editForAgent, b as any));
+export const httpDeleteAgentUpdate = route((ctx, b) => ctx.runMutation(internal.agentUpdates.removeForAgent, b as any));
 export const httpListBoards = route((ctx, _b, url) => ctx.runQuery(internal.boards.listForAgent, { query: url.searchParams.get("q") ?? undefined }));
 export const httpGetBoard = route((ctx, _b, url) => {
   const board = url.searchParams.get("board");

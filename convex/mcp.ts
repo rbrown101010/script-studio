@@ -42,6 +42,7 @@ const lineArg = {
   required: ["text"],
 };
 
+const toolArg = { type: "string", enum: ["grokbot", "muse", "dot", "chatgpt", "claudeCode"], description: "grokbot = SpaceXAI's Grok Bot, muse = Meta's Muse, dot = OpenAI's Dots in ChatGPT, chatgpt = the ChatGPT desktop app, claudeCode = Claude Code" };
 const level = { type: "string", enum: ["high", "medium", "low"] };
 const colorArg = { type: "string", description: "yellow, orange, red, pink, purple, blue, teal, green, gray, or #hex. Leave out to match the board." };
 /** One thing to draw on a board (see add_to_board) */
@@ -379,6 +380,71 @@ const TOOLS: Tool[] = [
     inputSchema: { type: "object", properties: { query: { type: "string" }, limit: { type: "number" } } },
     annotations: { readOnlyHint: true },
     run: (ctx, a) => ctx.runQuery(internal.agent.listIdeas, a),
+  },
+  {
+    name: "add_agent_updates",
+    description:
+      "Add updates to Agent updates (a tab in Mymind): what an agent tool shipped and when, with the tweets that announced it. tool is one of grokbot, muse, dot (OpenAI's Dots in ChatGPT), chatgpt (the ChatGPT desktop app) or claudeCode; it's the update's tag. One update per feature. An update with the same tool, date and title, or with a tweet that's already saved, is merged (new tweets are added to it) instead of duplicated, so to attach a tweet to an existing update just send it again with that tweet. Up to 200 at once.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        updates: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              tool: toolArg,
+              date: { type: "string", description: "The day it shipped / was announced, YYYY-MM-DD" },
+              title: { type: "string", description: "What shipped, in a few plain words, e.g. \"Slide decks\" (under 70 characters)" },
+              summary: { type: "string", description: "One or two sentences on what it does (optional)" },
+              link: { type: "string", description: "The official announcement or changelog entry (optional)" },
+              tweets: { type: "array", items: { type: "string" }, description: "Tweet links (x.com/<user>/status/<id>) about it; they show as tweet cards" },
+            },
+            required: ["tool", "date", "title"],
+          },
+        },
+        agentName: { type: "string" },
+      },
+      required: ["updates"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.agentUpdates.addForAgent, a),
+  },
+  {
+    name: "list_agent_updates",
+    description: "List Agent updates, newest first, with ids. Filter by tool (grokbot, muse, dot, chatgpt, claudeCode), since (YYYY-MM-DD) or a search query. Check here before adding so you don't repeat what's there.",
+    inputSchema: {
+      type: "object",
+      properties: { tool: toolArg, since: { type: "string", description: "YYYY-MM-DD" }, query: { type: "string" }, limit: { type: "number" } },
+    },
+    annotations: { readOnlyHint: true },
+    run: (ctx, a) => ctx.runQuery(internal.agentUpdates.listForAgent, a),
+  },
+  {
+    name: "update_agent_update",
+    description: "Change one Agent update by id (from list_agent_updates): fix its title, summary, date, tool or link, add tweets (addTweets) or remove tweets (removeTweets). Only the fields you send change.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        tool: toolArg,
+        date: { type: "string", description: "YYYY-MM-DD" },
+        title: { type: "string" },
+        summary: { type: "string" },
+        link: { type: ["string", "null"], description: "null removes it" },
+        addTweets: { type: "array", items: { type: "string" } },
+        removeTweets: { type: "array", items: { type: "string" } },
+        agentName: { type: "string" },
+      },
+      required: ["id"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.agentUpdates.editForAgent, a),
+  },
+  {
+    name: "delete_agent_update",
+    description: "Delete one Agent update by id, e.g. a duplicate or a mistake.",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+    annotations: { destructiveHint: true },
+    run: (ctx, a) => ctx.runMutation(internal.agentUpdates.removeForAgent, a),
   },
   {
     name: "list_boards",
