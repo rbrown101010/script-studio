@@ -72,7 +72,7 @@ function AgentUpdatesInner() {
   }, [updates, tag]);
 
   return (
-    <div className="mx-auto max-w-[760px]">
+    <div className="mx-auto max-w-[880px]">
       <div className="flex flex-wrap items-center gap-2">
         <TagButton active={tag === "all"} onClick={() => setTag("all")} label="All" count={updates?.length} />
         {AGENT_TOOLS.map((t) => (

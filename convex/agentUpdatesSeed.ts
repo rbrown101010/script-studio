@@ -43,7 +43,7 @@ export const SEED: NewAgentUpdate[] = [
     "tool": "chatgpt",
     "date": "2026-10-07",
     "title": "GPT-6 and Intelligent UI in the Chat tab",
-    "summary": "GPT-6 arrives in the Chat tab with interactive, multi-format answers, for paid plans first and then Free and Go. The release note names no specific platform.",
+    "summary": "GPT-6 arrives in the Chat tab with interactive, multi-format answers, for paid plans first and then Free and Go.",
     "link": "https://help.openai.com/en/articles/6825453-chatgpt-release-notes"
   },
   {
