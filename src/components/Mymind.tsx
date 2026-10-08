@@ -109,14 +109,15 @@ export function Mymind() {
 
       <div className="mt-8">
         {layout === "grid" ? (
-          <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 2xl:columns-4">
+          // Compact masonry: more, narrower columns with tight gutters
+          <div className="columns-2 gap-3 sm:columns-3 lg:columns-4 xl:columns-5 2xl:columns-6">
             {!debounced && !onlyBookmarked && (
-              <div className="mb-4 break-inside-avoid">
-                <AddIdea />
+              <div className="mb-3 break-inside-avoid">
+                <AddIdea compact />
               </div>
             )}
             {(ideas ?? []).map((i) => (
-              <div key={i.id} className="mb-4 break-inside-avoid">
+              <div key={i.id} className="mb-3 break-inside-avoid">
                 <IdeaCard idea={i} onOpen={() => setOpen(i)} />
               </div>
             ))}
@@ -170,7 +171,7 @@ export function Mymind() {
 
 // ---------- Adding ----------
 
-function AddIdea() {
+function AddIdea({ compact }: { compact?: boolean }) {
   const add = useMutation(api.ideas.add);
   const uploadUrl = useMutation(api.docs.generateUploadUrl);
   const [text, setText] = useState("");
@@ -229,13 +230,15 @@ function AddIdea() {
         setDrag(false);
         pick(e.dataTransfer.files[0]);
       }}
-      className={`rounded-2xl bg-(--c-b-ffffff) p-4 ring-1 ${drag ? "ring-(--c-l-2358d8)" : "ring-(--c-l-e6e6e3)"}`}
+      className={`bg-(--c-b-ffffff) ring-1 transition-shadow focus-within:shadow-[0_4px_16px_rgba(0,0,0,0.06)] ${compact ? "rounded-xl p-3" : "rounded-2xl p-4"} ${
+        drag ? "ring-(--c-l-2358d8)" : "ring-(--c-l-e6e6e3) focus-within:ring-(--c-l-d9d9d6)"
+      }`}
     >
-      <div className="mb-2 text-[12px] font-medium uppercase tracking-[0.06em] text-(--c-t-9a9a9a)">Add a new idea</div>
+      <div className={`mb-1.5 font-medium text-(--c-t-9a9a9a) ${compact ? "text-[12px]" : "text-[12px] uppercase tracking-[0.06em]"}`}>Add a new idea</div>
       <textarea
         id="mymind-add"
         value={text}
-        rows={3}
+        rows={compact ? 2 : 3}
         onChange={(e) => setText(e.target.value)}
         onPaste={(e) => {
           const f = [...e.clipboardData.files].find((x) => /^(image|video)\//.test(x.type));
@@ -247,8 +250,8 @@ function AddIdea() {
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void save();
         }}
-        placeholder="Paste a link (tweet, video, anything) or write a note…"
-        className="block w-full resize-none bg-transparent text-[15px] leading-[1.55] text-(--c-t-1b1b1b) outline-none placeholder:text-(--c-t-9a9a9a)"
+        placeholder={compact ? "Paste a link or write a note…" : "Paste a link (tweet, video, anything) or write a note…"}
+        className={`block w-full resize-none bg-transparent leading-[1.55] ${compact ? "text-[14px]" : "text-[15px]"} text-(--c-t-1b1b1b) outline-none placeholder:text-(--c-t-9a9a9a)`}
       />
       {file && (
         <div className="mt-2 flex items-center gap-2 rounded-lg bg-(--c-b-f4f4f2) px-2.5 py-1.5 text-[13px] text-(--c-t-4a4a4a)">
@@ -260,21 +263,22 @@ function AddIdea() {
         </div>
       )}
       {error && <p className="m-0 mt-2 text-[13px] text-(--c-t-b42318)">{error}</p>}
-      <div className="mt-3 flex items-center gap-2">
+      <div className={`flex items-center gap-2 ${compact ? "mt-2" : "mt-3"}`}>
         <input ref={input} id="mymind-file" type="file" accept="image/*,video/*" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
         <button
           type="button"
           onClick={() => input.current?.click()}
-          className="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] text-(--c-t-6b6b6b) ring-1 ring-(--c-l-e0e0dd) hover:text-(--c-t-1b1b1b) hover:ring-(--c-l-c9c9c6)"
+          title="Add an image or video"
+          className={`inline-flex items-center gap-1.5 rounded-full text-(--c-t-6b6b6b) ring-1 ring-(--c-l-e0e0dd) hover:text-(--c-t-1b1b1b) hover:ring-(--c-l-c9c9c6) ${compact ? "h-7 px-2.5 text-[12px]" : "h-8 px-3 text-[13px]"}`}
         >
           <IconUpload size={13} />
-          Image or video
+          {compact ? "Upload" : "Image or video"}
         </button>
         <button
           type="button"
           onClick={() => void save()}
           disabled={busy || (!text.trim() && !file)}
-          className="ml-auto h-8 rounded-full bg-(--c-b-1b1b1b) px-4 text-[13px] font-medium text-(--c-on-ink) hover:bg-(--c-b-333333) disabled:opacity-30"
+          className={`ml-auto rounded-full bg-(--c-b-1b1b1b) font-medium ${compact ? "h-7 px-3 text-[12px]" : "h-8 px-4 text-[13px]"} text-(--c-on-ink) hover:bg-(--c-b-333333) disabled:opacity-30`}
         >
           {busy ? "Saving…" : "Save"}
         </button>
@@ -304,7 +308,7 @@ function Preview({ idea, large, inert }: { idea: Idea; large?: boolean; /** Insi
   if (idea.kind === "image" && src)
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={src} alt="" loading="lazy" className={`block w-full bg-(--c-b-ececea) object-cover ${large ? "max-h-[70vh] object-contain" : ""}`} />
+      <img src={src} alt="" loading="lazy" className={`block w-full bg-(--c-b-ececea) object-cover ${large ? "max-h-[70vh] object-contain" : "max-h-[420px] object-top"}`} />
     );
   if (idea.kind === "video" && idea.fileUrl)
     return <video src={idea.fileUrl} controls={large} muted playsInline preload="metadata" className="block w-full bg-[#1b1b1b]" />;
@@ -317,10 +321,15 @@ function Preview({ idea, large, inert }: { idea: Idea; large?: boolean; /** Insi
     );
   if (idea.url && inert)
     return (
-      <div className="relative bg-(--c-b-f4f4f2) px-4 py-5 pr-12">
+      <div className="relative flex items-start gap-2.5 bg-(--c-b-f7f7f5) px-3 py-3 pr-11">
         <OpenLink url={idea.url} label={`Open ${hostOf(idea.url)}`} />
-        <div className="text-[12px] uppercase tracking-[0.06em] text-(--c-t-9a9a9a)">{hostOf(idea.url)}</div>
-        <div className="mt-1 break-all text-[14px] text-(--c-t-2358d8)">{idea.url.replace(/^https?:\/\/(www\.)?/, "")}</div>
+        <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-(--c-b-ffffff) text-(--c-t-8a8a8a) ring-1 ring-(--c-l-e8e8e5) [&>svg]:h-3 [&>svg]:w-3">
+          <LinkIcon />
+        </span>
+        <div className="min-w-0">
+          <div className="truncate text-[12.5px] font-medium text-(--c-t-1b1b1b)">{hostOf(idea.url)}</div>
+          <div className="mt-0.5 line-clamp-2 break-all text-[12px] text-(--c-t-8a8a8a)">{idea.url.replace(/^https?:\/\/(www\.)?[^/]+\/?/, "/")}</div>
+        </div>
       </div>
     );
   if (idea.url)
@@ -334,27 +343,30 @@ function Preview({ idea, large, inert }: { idea: Idea; large?: boolean; /** Insi
 }
 
 export function IdeaCard({ idea, onOpen }: { idea: Idea; onOpen: () => void }) {
-  const preview = <Preview idea={idea} inert />;
+  // Preview always renders an element, so check what it will actually show
+  const hasPreview = !!((idea.kind === "image" && (idea.fileUrl ?? idea.url)) || (idea.kind === "video" && idea.fileUrl) || idea.url);
+  const preview = hasPreview ? <Preview idea={idea} inert /> : null;
   return (
     <article
       role="button"
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && onOpen()}
-      className="group/card cursor-pointer overflow-hidden rounded-2xl bg-(--c-b-ffffff) shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-(--c-l-e8e8e5) transition-[box-shadow] hover:shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:ring-(--c-l-d9d9d6) focus-visible:ring-(--c-l-2358d8)"
+      className="group/card relative cursor-pointer overflow-hidden rounded-xl bg-(--c-b-ffffff) shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-(--c-l-e8e8e5) outline-none transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:ring-(--c-l-d9d9d6) focus-visible:ring-2 focus-visible:ring-(--c-l-2358d8)"
     >
       {preview}
       {(idea.note.trim() || !preview) && (
-        <p className={`m-0 whitespace-pre-wrap break-words px-4 pt-3 leading-[1.55] text-(--c-t-2e2e2e) ${preview ? "line-clamp-5 text-[14px]" : "line-clamp-[12] text-[15px]"}`}>
+        <p
+          className={`m-0 whitespace-pre-wrap break-words leading-[1.5] text-(--c-t-2e2e2e) ${
+            preview ? "line-clamp-3 px-3 pt-2.5 text-[13px]" : "line-clamp-[10] px-3.5 pt-3 text-[14px]"
+          }`}
+        >
           {idea.note}
         </p>
       )}
-      <div className="flex items-center gap-2 py-1.5 pl-4 pr-1.5 text-[12px] text-(--c-t-9a9a9a)">
-        <span className="min-w-0 flex-1 truncate">
-          {addedOn(idea.createdAt)}
-          {idea.url && !hasLinkCard(idea.url) && ` · ${hostOf(idea.url)}`}
-        </span>
-        <BookmarkButton idea={idea} />
+      <div className="flex h-8 items-center gap-1.5 pl-3 pr-1 text-[11.5px] text-(--c-t-9a9a9a)">
+        <span className="min-w-0 flex-1 truncate">{addedOn(idea.createdAt)}</span>
+        <BookmarkButton idea={idea} small />
       </div>
     </article>
   );
@@ -592,7 +604,7 @@ function IdeaDetail({ idea, onClose }: { idea: Idea; onClose: () => void }) {
 }
 
 /** Bookmark toggle: shows on hover, and stays (filled) once bookmarked. */
-function BookmarkButton({ idea, always }: { idea: Idea; always?: boolean }) {
+function BookmarkButton({ idea, always, small }: { idea: Idea; always?: boolean; small?: boolean }) {
   const setBookmark = useMutation(api.ideas.setBookmark);
   const [on, setOn] = useState(idea.bookmarked);
   useEffect(() => setOn(idea.bookmarked), [idea.bookmarked]);
@@ -607,7 +619,7 @@ function BookmarkButton({ idea, always }: { idea: Idea; always?: boolean }) {
         setOn(!on);
         void setBookmark({ id: idea.id, bookmarked: !on });
       }}
-      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-opacity hover:bg-(--c-b-f4f4f2) ${
+      className={`flex shrink-0 items-center justify-center rounded-full transition-opacity ${small ? "h-7 w-7" : "h-8 w-8"} hover:bg-(--c-b-f4f4f2) ${
         on ? "text-(--c-t-2358d8)" : "text-(--c-t-8a8a8a) hover:text-(--c-t-1b1b1b)"
       } ${on || always ? "" : "opacity-0 focus-visible:opacity-100 group-hover/card:opacity-100 pointer-coarse:opacity-100"}`}
     >
