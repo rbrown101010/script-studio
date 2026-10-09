@@ -1,0 +1,98 @@
+{
+  "about": "Weekly updates app in Native Note (?view=weekly). One entry per week, keyed by its Monday (YYYY-MM-DD). Each update: date, tool, title, summary, optional link {label, url}, optional tweets (x.com status URLs). Agents add a week by editing this file on main.",
+  "updatedAt": "2026-10-09",
+  "weeks": [
+    {
+      "week": "2026-10-05",
+      "summary": "GPT-6 landed in ChatGPT, Grok Bot learned to build slide decks and said it will route tasks to outside models like Claude, Muse came to iPad, and Claude Code made Haiku 5.5 its default Haiku.",
+      "updates": [
+        {
+          "date": "2026-10-09",
+          "tool": "Codex",
+          "title": "Composer predictions in the Codex app",
+          "summary": "After Codex answers, the Codex desktop app suggests your next message based on the thread. Press Tab to accept it; nothing sends until you do. It's a beta for personal Pro users.",
+          "link": { "label": "ChatGPT release notes", "url": "https://help.openai.com/en/articles/6825453-chatgpt-release-notes" }
+        },
+        {
+          "date": "2026-10-08",
+          "tool": "Claude Code",
+          "title": "Hooks that block when they fail, and a working/waiting/done signal for terminals",
+          "summary": "Command and HTTP hooks can set onFailure: \"block\", so an action is stopped if its hook can't start, times out or crashes. Terminals that support the new Program Status Protocol can now show whether Claude Code is working, waiting for you, or done.",
+          "link": { "label": "Claude Code 2.1.295 changelog", "url": "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md" }
+        },
+        {
+          "date": "2026-10-07",
+          "tool": "ChatGPT",
+          "title": "GPT-6 and Intelligent UI",
+          "summary": "GPT-6 arrived in ChatGPT. Answers can mix text, visuals and interactive tools like calculators and games, and it can start answering before it finishes thinking. Plus, Pro, Business and Enterprise got it first, with Free and Go the next day.",
+          "link": { "label": "ChatGPT release notes", "url": "https://help.openai.com/en/articles/6825453-chatgpt-release-notes" }
+        },
+        {
+          "date": "2026-10-07",
+          "tool": "GrokBot",
+          "title": "Grok Bot will pick the best model for each task",
+          "summary": "Elon Musk said Grok Bot is going multimodal by bringing in outside models, naming Claude Opus 5.5, Midjourney and Suno. The Bot will choose the best back-end model for each task instead of always using Grok. No launch date was given.",
+          "link": { "label": "RuntimeWire", "url": "https://runtimewire.com/article/spacex-grok-bot-rival-model-routing" },
+          "tweets": ["https://x.com/elonmusk/status/2107724314451878104"]
+        },
+        {
+          "date": "2026-10-07",
+          "tool": "GrokBot",
+          "title": "Slide decks, formatted emails and a bigger Bot computer",
+          "summary": "Bots can now build full slide decks and deliver them as PowerPoint or Google Slides. Email drafts send with headings, bold and lists, Bots can search Gmail Spam, and each Bot's cloud computer is faster with a larger 1920×1200 screen.",
+          "link": { "label": "Grok Bot changelog v0.68.1", "url": "https://x.ai/changelog/bot" },
+          "tweets": ["https://x.com/ericzakariasson/status/2107887770937283028"]
+        },
+        {
+          "date": "2026-10-07",
+          "tool": "GrokBot",
+          "title": "Search, read and monitor X",
+          "summary": "Grok Bot can now search X, read posts, and keep watch on it for you.",
+          "tweets": ["https://x.com/bot/status/2107949161878606089"]
+        },
+        {
+          "date": "2026-10-07",
+          "tool": "Muse",
+          "title": "Muse on iPad",
+          "summary": "Muse is now a native iPad app, \"for when your phone feels too small and your laptop feels too far.\" It joins the phone, web and Mac apps.",
+          "tweets": ["https://x.com/Muse/status/2107875553080746185"]
+        },
+        {
+          "date": "2026-10-07",
+          "tool": "Claude Code",
+          "title": "Claude Haiku 5.5 is the new default Haiku",
+          "summary": "Claude Code added Claude Haiku 5.5 and made it the default Haiku model on the Anthropic API. The same release fixed a memory leak in HTTP MCP connections.",
+          "link": { "label": "Claude Code 2.1.293 changelog", "url": "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md" }
+        },
+        {
+          "date": "2026-10-06",
+          "tool": "ChatGPT",
+          "title": "Audio uploads",
+          "summary": "You can upload audio files to ChatGPT and get transcripts, summaries and answers about them, like turning a lecture into notes. Paid plans and workspaces only.",
+          "link": { "label": "ChatGPT release notes", "url": "https://help.openai.com/en/articles/6825453-chatgpt-release-notes" }
+        },
+        {
+          "date": "2026-10-06",
+          "tool": "Claude Code",
+          "title": "Effort levels for subagents and one-step plugin installs",
+          "summary": "The Agent tool takes an effort setting, so subagents can run at a chosen effort level. claude plugin install --marketplace adds the marketplace and installs the plugin in one step.",
+          "link": { "label": "Claude Code 2.1.292 changelog", "url": "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md" }
+        },
+        {
+          "date": "2026-10-05",
+          "tool": "GrokBot",
+          "title": "Gmail send-as addresses and five new languages",
+          "summary": "Bots can send email from any verified Gmail send-as address, with a From picker. Grok Bot added Marathi, Tamil, Telugu, Swahili and Hausa, and plugins now show up in command palette search.",
+          "link": { "label": "Grok Bot changelog v0.68.0", "url": "https://x.ai/changelog/bot" }
+        },
+        {
+          "date": "2026-10-05",
+          "tool": "Claude Code",
+          "title": "Attach to sessions by name",
+          "summary": "claude attach and claude logs accept part of a session's name instead of its id, and the WebSearch budget now refills at 100 calls an hour instead of stopping after 200.",
+          "link": { "label": "Claude Code 2.1.290 changelog", "url": "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md" }
+        }
+      ]
+    }
+  ]
+}
