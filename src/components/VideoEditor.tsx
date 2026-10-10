@@ -851,6 +851,7 @@ export function VideoEditor({ id }: { id: string }) {
           }
         />
         <ScriptTabs
+          collapsible
           tabs={[
             {
               id: "instructions",

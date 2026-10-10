@@ -20,17 +20,29 @@ export type Variant = "script" | "instructions";
 
 const isList = (t: BlockType) => t === "bullet" || t === "number" || t === "todo";
 
+/**
+ * Type for writing: a calm 17px body with roomy line height (like Bear), soft near-black text, and
+ * headings that clearly lead their section.
+ */
 export function textClass(type: BlockType, variant: Variant = "script") {
   if (variant === "instructions") return "text-[15px] leading-[1.6]";
-  if (type === "h1") return "text-[24px] font-semibold leading-[1.35] tracking-[-0.005em] text-(--c-t-1b1b1b)";
-  return "text-[16px] leading-[1.65]";
+  if (type === "h1") return "text-[26px] font-semibold leading-[1.3] tracking-[-0.018em] text-(--c-t-1b1b1b)";
+  return "text-[17px] leading-[1.7] tracking-[-0.003em] text-(--page-text)";
+}
+
+/** Space inside each line: paragraphs breathe apart, list items stay together as a group. */
+export function rowPadClass(type: BlockType, variant: Variant = "script") {
+  if (variant === "instructions") return "py-[3px]";
+  if (type === "h1") return "pt-[2px] pb-[6px]";
+  if (isList(type)) return "py-[2px]";
+  return "py-[5px]";
 }
 
 /** Wrapper spacing: headings get air above them (except at the very top). */
 export function rowOuterClass(type: BlockType, index: number, joined = false) {
   // A heading inside a run of colored blocks keeps its space as padding, so the color doesn't break
   if (joined) return "";
-  return type === "h1" && index > 0 ? "mt-[22px]" : "";
+  return type === "h1" && index > 0 ? "mt-[30px]" : "";
 }
 
 /**
@@ -42,7 +54,7 @@ export function colorRunClass(list: { color?: string | null; type: string }[], i
   if (!b?.color) return "";
   const prev = !!list[index - 1]?.color;
   const next = !!list[index + 1]?.color;
-  return [prev ? "rounded-t-none" : "", next ? "rounded-b-none" : "", prev && b.type === "h1" ? "pt-[25px]!" : ""].join(" ");
+  return [prev ? "rounded-t-none" : "", next ? "rounded-b-none" : "", prev && b.type === "h1" ? "pt-[32px]!" : ""].join(" ");
 }
 
 export function BlockPrefix({
@@ -60,27 +72,30 @@ export function BlockPrefix({
   variant?: Variant;
   className?: string;
 }) {
+  const script = variant === "script";
   if (type === "todo")
     return (
-      <span className={`flex shrink-0 ${variant === "instructions" ? "w-[25px] pt-[4px]" : "w-[26px] pt-[5px]"}`}>
+      <span className={`flex shrink-0 ${script ? "w-[30px] pt-[6px]" : "w-[25px] pt-[4px]"}`}>
         <input
           type="checkbox"
           checked={!!checked}
           disabled={!onToggle}
           onChange={() => onToggle?.()}
           aria-label={checked ? "Mark not done" : "Mark done"}
-          className="m-0 h-[15px] w-[15px] cursor-pointer disabled:cursor-default"
+          className={`nn-check m-0 cursor-pointer disabled:cursor-default ${script ? "h-[17px] w-[17px]" : "h-[15px] w-[15px]"}`}
           style={{ accentColor: variant === "instructions" ? "var(--c-t-737373)" : "var(--c-t-1b1b1b)" }}
         />
       </span>
     );
   if (type === "bullet")
     return (
-      <span aria-hidden="true" className={`w-6 shrink-0 select-none pl-1 ${className}`}>
-        •
+      // A round dot centred on the first line, rather than a text bullet that sits low
+      <span aria-hidden="true" className={`flex h-[1.7em] shrink-0 select-none items-center ${script ? "w-[30px] pl-[7px]" : "w-6 pl-1"} ${className}`}>
+        <span className="h-[5.5px] w-[5.5px] rounded-full bg-current opacity-70" />
       </span>
     );
-  if (type === "number") return <span className={`w-6 shrink-0 select-none tabular-nums ${className}`}>{n}.</span>;
+  if (type === "number")
+    return <span className={`shrink-0 select-none tabular-nums ${script ? "w-[30px] pl-[1px] text-(--c-t-8a8a8a)" : "w-6"} ${className}`}>{n}.</span>;
   return null;
 }
 
@@ -245,6 +260,10 @@ export function DocEditor({
   const [moveDrop, setMoveDrop] = useState<{ id: string; after: boolean } | null>(null);
   /** Several whole lines selected at once (drag across lines, Shift+Up/Down, or Cmd+A twice) */
   const [lineSel, setLineSel] = useState<{ anchor: string; focus: string } | null>(null);
+  /** Selecting across lines: the lines stop being editable for a moment so the browser can select text across them */
+  const [freeSel, setFreeSel] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selectAllReq = useRef(false);
   const dragFrom = useRef<string | null>(null);
   /** The / menu: which line, where the slash is, what's typed after it, and where to draw it */
   const [slash, setSlashState] = useState<{ id: string; start: number; query: string; top: number; left: number; up: boolean; active: number } | null>(null);
@@ -586,11 +605,11 @@ export function DocEditor({
         startLineSel(list[index + 1].id);
         return;
       }
+      // ⌘A a second time selects the whole script's text
       if (!readOnly && (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a" && list.length > 1 && sel.start === 0 && sel.end === text.length) {
         e.preventDefault();
-        window.getSelection()?.removeAllRanges();
-        el.blur();
-        setLineSel({ anchor: list[0].id, focus: list[list.length - 1].id });
+        selectAllReq.current = true;
+        setFreeSel(true);
         return;
       }
 
@@ -919,11 +938,157 @@ export function DocEditor({
     };
   }, [lineSel, setBlocks, variant]);
 
+  // ---- Selecting text across lines ----
+  // While dragging from one line into another the lines are briefly not editable, so the browser selects
+  // text across them like any document (part of a line, several lines). Typing, Backspace, cut and paste
+  // then act on exactly the selected text; a click or an arrow key goes back to normal editing.
+  useLayoutEffect(() => {
+    if (!freeSel || !selectAllReq.current || !rootRef.current) return;
+    selectAllReq.current = false;
+    const first = els.current.get(blocksRef.current[0]?.id ?? "");
+    const last = els.current.get(blocksRef.current[blocksRef.current.length - 1]?.id ?? "");
+    if (!first || !last) return;
+    const r = document.createRange();
+    r.setStart(first, 0);
+    r.setEnd(last, last.childNodes.length);
+    const s = window.getSelection();
+    s?.removeAllRanges();
+    s?.addRange(r);
+  }, [freeSel]);
+
+  useEffect(() => {
+    if (!freeSel) return;
+    const root = rootRef.current;
+    const textual = (t: BlockType) => t !== "images" && t !== "board";
+    const editableAgain = () => {
+      // Straight on the DOM so a click lands in an editable line right away (React catches up after)
+      for (const el of els.current.values()) if (el.classList.contains("editable")) el.contentEditable = "true";
+      setFreeSel(false);
+    };
+    /** Where a selection end falls: which line, and the offset in that line's saved text */
+    const locate = (node: Node, off: number, isEnd: boolean) => {
+      const list = blocksRef.current;
+      const elOf = node.nodeType === 1 ? (node as Element) : node.parentElement;
+      const row = elOf?.closest("[data-row-id]") as HTMLElement | null;
+      let i = row && root?.contains(row) ? list.findIndex((b) => b.id === row.dataset.rowId) : -1;
+      if (i < 0) {
+        // Outside the script (e.g. the title): clamp to its first or last line
+        const before = !!root && !!(root.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_PRECEDING);
+        i = before ? 0 : list.length - 1;
+        const b = list[i];
+        return { i, at: before ? 0 : b?.content.length ?? 0 };
+      }
+      const b = list[i];
+      const el = els.current.get(b.id);
+      if (!textual(b.type) || !el) return { i, at: isEnd ? b.content.length : 0 };
+      if (node !== el && !el.contains(node)) return { i, at: el.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_PRECEDING ? 0 : b.content.length };
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      r.setEnd(node, off);
+      const shown = r.toString().length;
+      const segs = el.dataset.rich !== undefined ? linkSegments(b.content) : null;
+      return { i, at: Math.min(b.content.length, segs ? toRawOffset(segs, shown) : shown) };
+    };
+    const replaceSelection = (insert: string) => {
+      const sel = window.getSelection();
+      if (!sel?.rangeCount) return editableAgain();
+      const range = sel.getRangeAt(0);
+      const list = blocksRef.current;
+      const s = locate(range.startContainer, range.startOffset, false);
+      const e = locate(range.endContainer, range.endOffset, true);
+      const first = list[s.i];
+      const last = list[e.i];
+      if (!first || !last) return editableAgain();
+      const head = textual(first.type) ? first.content.slice(0, s.at) : "";
+      const tail = textual(last.type) ? last.content.slice(e.at) : "";
+      const base = textual(first.type) ? first : textual(last.type) ? last : ({ id: uid(), type: "p", content: "" } as Block);
+      const kept: Block = { ...base, content: head + insert + tail };
+      sel.removeAllRanges();
+      editableAgain();
+      // Put the caret in place right now (not on the next render), so fast typing keeps every key
+      const el = els.current.get(kept.id);
+      if (el) {
+        delete el.dataset.rich;
+        writeText(el, kept.content);
+        setCaret(el, head.length + insert.length);
+      } else focusBlock(kept.id, head.length + insert.length);
+      setBlocks(() => [...list.slice(0, s.i), kept, ...list.slice(e.i + 1)]);
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return editableAgain();
+      const mod = ev.metaKey || ev.ctrlKey;
+      const k = ev.key;
+      if (mod && k.toLowerCase() === "c") return; // the browser copies (cleaned up below)
+      if (mod && k.toLowerCase() === "x") {
+        ev.preventDefault();
+        void navigator.clipboard.writeText(String(sel).replace(/\n{2,}/g, "\n"));
+        replaceSelection("");
+      } else if (mod && k.toLowerCase() === "a") {
+        ev.preventDefault();
+        selectAllReq.current = true;
+        setFreeSel(false);
+        requestAnimationFrame(() => setFreeSel(true));
+      } else if (mod && k.toLowerCase() === "z") {
+        editableAgain();
+      } else if (k === "Backspace" || k === "Delete") {
+        ev.preventDefault();
+        replaceSelection("");
+      } else if (k === "Escape") {
+        sel.removeAllRanges();
+        editableAgain();
+      } else if (k.startsWith("Arrow") && !ev.shiftKey) {
+        ev.preventDefault();
+        const r = sel.getRangeAt(0);
+        const at = k === "ArrowLeft" || k === "ArrowUp" ? locate(r.startContainer, r.startOffset, false) : locate(r.endContainer, r.endOffset, true);
+        const b = blocksRef.current[at.i];
+        sel.removeAllRanges();
+        editableAgain();
+        const el = b && els.current.get(b.id);
+        if (el && textual(b.type)) {
+          delete el.dataset.rich;
+          writeText(el, b.content);
+          setCaret(el, at.at);
+        }
+      } else if (k === "Enter" || k === "Tab") {
+        ev.preventDefault();
+        if (k === "Enter") replaceSelection("");
+      } else if (!mod && !ev.altKey && k.length === 1) {
+        ev.preventDefault();
+        replaceSelection(k);
+      }
+    };
+    const onPaste = (ev: ClipboardEvent) => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return;
+      ev.preventDefault();
+      replaceSelection((ev.clipboardData?.getData("text/plain") ?? "").replace(/\s*\n+\s*/g, " "));
+    };
+    const onCopy = (ev: ClipboardEvent) => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !ev.clipboardData) return;
+      // One line per line, without the blank gaps the layout adds
+      ev.clipboardData.setData("text/plain", String(sel).replace(/\n{2,}/g, "\n"));
+      ev.preventDefault();
+    };
+    const onDown = () => editableAgain();
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("paste", onPaste, true);
+    window.addEventListener("copy", onCopy, true);
+    window.addEventListener("mousedown", onDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("paste", onPaste, true);
+      window.removeEventListener("copy", onCopy, true);
+      window.removeEventListener("mousedown", onDown, true);
+    };
+  }, [freeSel, setBlocks]);
+
   const numbers = listNumbers(blocks);
   const muted = variant === "instructions";
 
   return (
-    <div className="relative">
+    <div ref={rootRef} className="relative">
       {slash && <SlashMenu slash={slash} items={slashItems(slash.query, variant, canBoards)} onPick={applySlash} onHover={(active) => setSlash({ ...slash, active })} />}
       {linkBox && (
         <LinkBox
@@ -951,7 +1116,8 @@ export function DocEditor({
         const count = commentCounts?.[b.id] ?? 0;
         const open = activeId === b.id;
         const showPlaceholder = !readOnly && b.content === "" && (focusedId === b.id || (isLast && blocks.length === 1));
-        const controlTop = b.type === "h1" && !muted ? "top-[6px]" : "top-[3px]";
+        // Gutter buttons line up with the middle of the line's first row
+        const controlTop = muted ? "top-[3px]" : b.type === "h1" ? "top-[7px]" : isList(b.type) ? "top-[4.5px]" : "top-[7.5px]";
         return (
           <div key={b.id} className={rowOuterClass(b.type, index, !!b.color && !!blocks[index - 1]?.color)}>
             <div
@@ -966,12 +1132,23 @@ export function DocEditor({
               onMouseEnter={(e) => {
                 // Dragging from one line into another selects whole lines
                 if (readOnly || !(e.buttons & 1) || !dragFrom.current) return;
-                if (dragFrom.current === b.id && !lineSel) return;
-                window.getSelection()?.removeAllRanges();
-                (document.activeElement as HTMLElement | null)?.blur();
-                setLineSel({ anchor: dragFrom.current, focus: b.id });
+                if (dragFrom.current === b.id || freeSel) return;
+                // Make every line plain text right away and stretch the selection to the pointer, so the
+                // selection follows the mouse across lines from this very move
+                for (const el of els.current.values()) if (el.classList.contains("editable")) el.contentEditable = "false";
+                const doc = document as Document & { caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null };
+                const pos = doc.caretPositionFromPoint?.(e.clientX, e.clientY);
+                const r = pos ? null : document.caretRangeFromPoint?.(e.clientX, e.clientY);
+                const node = pos?.offsetNode ?? r?.startContainer;
+                const sel = window.getSelection();
+                if (node && sel?.rangeCount) {
+                  try {
+                    sel.extend(node, pos?.offset ?? r?.startOffset ?? 0);
+                  } catch {}
+                }
+                setFreeSel(true);
               }}
-              className={`group/row relative ${b.color || selectedIds.has(b.id) || open ? "-mx-2 rounded-md px-2 py-[3px]" : "py-[3px]"} ${colorRunClass(blocks, index)} ${
+              className={`group/row relative ${rowPadClass(b.type, variant)} ${b.color || selectedIds.has(b.id) || open ? (muted ? "-mx-2 rounded-md px-2" : "-mx-3 rounded-lg px-3") : ""} ${colorRunClass(blocks, index)} ${
                 open ? "shadow-[0_0_0_1.5px_#efd88f]" : ""
               } ${
                 mobile && (canComment || count > 0) ? (b.color ? "pr-10!" : "pr-9") : ""
@@ -1029,15 +1206,15 @@ export function DocEditor({
               {!readOnly && (
                 <div
                   data-popover
-                  className={`absolute -left-[58px] flex gap-0.5 ${controlTop} ${
-                    menuFor === b.id ? "opacity-100" : "opacity-0 focus-within:opacity-100 group-hover/row:opacity-100"
-                  } ${b.color ? "-ml-2" : ""}`}
+                  className={`absolute -left-[58px] flex gap-0.5 transition-opacity duration-150 ${controlTop} ${
+                    menuFor === b.id ? "opacity-100" : "opacity-0 focus-within:opacity-100 group-hover/row:opacity-100 group-hover/row:delay-75"
+                  } ${b.color || selectedIds.has(b.id) || open ? (muted ? "-ml-2" : "-ml-3") : ""}`}
                 >
                   <button
                     type="button"
                     aria-label="Add block below"
                     onClick={() => newBlockAfter(b.id, muted ? "todo" : "p")}
-                    className="flex h-6 w-6 items-center justify-center rounded text-(--c-t-8a8a8a) hover:bg-(--c-b-f4f4f4) hover:text-(--c-t-1b1b1b)"
+                    className="flex h-6 w-6 items-center justify-center rounded-md text-(--c-t-b0b0b0) hover:bg-(--c-b-f4f4f4) hover:text-(--c-t-1b1b1b)"
                   >
                     <IconPlus />
                   </button>
@@ -1053,7 +1230,7 @@ export function DocEditor({
                     }}
                     onDragEnd={() => setMoveDrop(null)}
                     onClick={() => setMenuFor(menuFor === b.id ? null : b.id)}
-                    className="flex h-6 w-6 cursor-grab items-center justify-center rounded text-(--c-t-8a8a8a) hover:bg-(--c-b-f4f4f4)"
+                    className="flex h-6 w-6 cursor-grab items-center justify-center rounded-md text-(--c-t-b0b0b0) hover:bg-(--c-b-f4f4f4) hover:text-(--c-t-1b1b1b)"
                   >
                     <IconGrip />
                   </button>
@@ -1149,9 +1326,9 @@ export function DocEditor({
                 <EditableText
                   id={b.id}
                   value={b.content}
-                  readOnly={!!readOnly}
+                  readOnly={!!readOnly || freeSel}
                   className={`min-w-0 flex-1 whitespace-pre-wrap break-words outline-none ${
-                    b.type === "todo" && b.checked ? "line-through decoration-(--c-t-b5b5b5)" : ""
+                    b.type === "todo" && b.checked ? "text-(--c-t-9a9a9a) line-through decoration-(--c-t-c4c4c4)" : ""
                   }`}
                   placeholder={showPlaceholder ? (b.type === "h1" ? "Heading" : placeholder) : ""}
                   register={(el) => {
@@ -1172,8 +1349,8 @@ export function DocEditor({
 
               {(count > 0 || (canComment && onOpenComments)) && (!mobile || count > 0 || open || focusedId === b.id) && (
                 <div
-                  className={`absolute ${mobile ? "right-0" : "-right-[64px]"} ${b.type === "h1" && !muted ? "top-[7px]" : "top-1"} ${
-                    b.color && !mobile ? "-mr-2" : ""
+                  className={`absolute ${mobile ? "right-0" : "-right-[64px]"} ${muted ? "top-1" : b.type === "h1" ? "top-[8px]" : isList(b.type) ? "top-[5.5px]" : "top-[8.5px]"} ${
+                    (b.color || selectedIds.has(b.id) || open) && !mobile ? (muted ? "-mr-2" : "-mr-3") : ""
                   }`}
                 >
                   <button
@@ -1184,7 +1361,7 @@ export function DocEditor({
                     onPointerDown={mobile ? (e) => e.preventDefault() : undefined}
                     onMouseDown={mobile ? (e) => e.preventDefault() : undefined}
                     onClick={() => onOpenComments?.(b.id, count ? undefined : { newComment: true })}
-                    className={`inline-flex h-[22px] items-center gap-1 rounded-md px-1.5 text-[12px] hover:bg-(--c-b-f4f4f4) ${
+                    className={`inline-flex h-[22px] items-center gap-1 rounded-md px-1.5 text-[12px] transition-opacity duration-150 hover:bg-(--c-b-f4f4f4) ${
                       open ? "bg-(--c-b-e7eefb) text-(--c-t-2358d8)" : count ? "bg-(--c-b-fdf3cf) text-(--c-t-7a5b00) hover:bg-(--c-b-f9e9b0)!" : "text-(--c-t-737373)"
                     } ${count || open || mobile ? "" : "opacity-0 focus-visible:opacity-100 group-hover/row:opacity-100"} ${
                       mobile ? "h-7 min-w-7 justify-center" : ""
@@ -1592,7 +1769,8 @@ const EditableText = memo(function EditableText({
       onKeyDown={(e) => onKeyDown(id, e.currentTarget, e)}
       onPaste={(e) => onPaste(id, e.currentTarget, e)}
       onFocus={(e) => {
-        if (!readOnly) {
+        // (isContentEditable, not readOnly: a line can be made editable again before React re-renders)
+        if (e.currentTarget.isContentEditable) {
           setEditing(true);
           // Focus from the keyboard (arrows, Enter): show plain text before the caret is placed
           toPlain(e.currentTarget, null);

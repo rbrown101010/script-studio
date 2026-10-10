@@ -5,7 +5,7 @@ import { useState, type ReactNode } from "react";
 import { colorBg, type Block } from "@/lib/types";
 import { listNumbers } from "@/lib/util";
 import { useIsMobile } from "@/lib/useIsMobile";
-import { BlockPrefix, rowOuterClass, textClass } from "./DocEditor";
+import { BlockPrefix, rowOuterClass, rowPadClass, textClass } from "./DocEditor";
 import { IconComment } from "./icons";
 import { BoardCard, BoardOverlay } from "./BoardBlock";
 
@@ -88,7 +88,7 @@ export function DiffBlocks({
           const b = it.orig;
           return (
             <div key={`r-${b.id}-${idx}`} data-row className={rowOuterClass(b.type, idx)}>
-              <div className={`flex py-[3px] ${textClass(b.type)} text-red-400`}>
+              <div className={`flex ${rowPadClass(b.type)} ${textClass(b.type)} text-red-400`}>
                 <BlockPrefix type={b.type} checked={b.checked} className="text-red-300" />
                 <div className="min-w-0 flex-1 whitespace-pre-wrap break-words line-through decoration-red-300">
                   {b.type === "board" ? <span className="text-[13px] italic">board removed</span> : b.content || <span className="text-[13px] italic">empty line removed</span>}
@@ -134,7 +134,7 @@ export function DiffBlocks({
               data-row-id={b.id}
               data-active-row={open ? "" : undefined}
               data-has-comments={count > 0 ? "" : undefined}
-              className={`relative ${b.color || open ? "-mx-2 rounded-md px-2 py-[3px]" : "py-[3px]"} ${colorChanged ? "ring-1 ring-red-400" : ""} ${
+              className={`relative ${rowPadClass(b.type)} ${b.color || open ? "-mx-3 rounded-lg px-3" : ""} ${colorChanged ? "ring-1 ring-red-400" : ""} ${
                 open ? "shadow-[0_0_0_1.5px_#efd88f]" : ""
               } ${mobile && count > 0 ? "pr-9" : ""}`}
               style={{ background: open ? (colorBg(b.color) ?? "var(--c-b-fdf3cf)") : colorBg(b.color) }}

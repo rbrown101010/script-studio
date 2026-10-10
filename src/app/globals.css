@@ -28,6 +28,36 @@ body {
 
 .editable {
   caret-color: var(--caret);
+  /* Writing feel: real ligatures and kerning, and long words wrap instead of overflowing */
+  font-feature-settings: "kern", "liga";
+  text-rendering: optimizeLegibility;
+}
+
+/* To-dos in scripts: a soft rounded box that fills in with a check */
+.nn-check {
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 5px;
+  border: 1.5px solid var(--c-t-c4c4c4);
+  background: transparent;
+  display: inline-grid;
+  place-content: center;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.nn-check:hover:not(:disabled) {
+  border-color: var(--c-t-8a8a8a);
+}
+.nn-check:checked {
+  background: var(--c-b-1b1b1b);
+  border-color: var(--c-b-1b1b1b);
+}
+.nn-check:checked::after {
+  content: "";
+  width: 9px;
+  height: 5px;
+  border: solid var(--c-on-ink);
+  border-width: 0 0 1.75px 1.75px;
+  transform: translateY(-1px) rotate(-45deg);
 }
 
 ::selection {
@@ -38,9 +68,9 @@ body {
 /* Lines with comments: a soft yellow highlight behind the line, a touch stronger on hover; the open line gets
    the full highlight with its outline. A line with its own background color keeps that color. */
 [data-has-comments]:not([data-active-row]) {
-  margin-inline: -0.5rem;
-  padding-inline: 0.5rem;
-  border-radius: 6px;
+  margin-inline: -0.75rem;
+  padding-inline: 0.75rem;
+  border-radius: 8px;
   background: var(--comment-highlight);
   transition: background-color 150ms ease;
 }
