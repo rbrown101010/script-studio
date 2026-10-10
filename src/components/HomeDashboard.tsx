@@ -91,7 +91,7 @@ export function HomeDashboard() {
       <button
         type="button"
         onClick={openCommandPalette}
-        className="mx-auto mt-6 flex h-12 w-full max-w-[560px] items-center gap-3 rounded-xl bg-(--c-b-ffffff) px-4 text-left text-[15px] text-(--c-t-9a9a9a) shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-(--c-l-e3e3e0) transition-shadow hover:ring-(--c-l-c9c9c9)"
+        className="mx-auto mt-6 flex h-12 w-full max-w-[560px] items-center gap-3 rounded-xl bg-(--c-card) px-4 text-left text-[15px] text-(--c-t-9a9a9a) shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-(--c-l-e3e3e0) transition-shadow hover:ring-(--c-l-c9c9c9)"
       >
         <IconSearch size={16} />
         <span className="flex-1">Search Native Note</span>

@@ -121,7 +121,7 @@ export function TopicsApp() {
                 setOpen(null);
               }}
               aria-label="Research from"
-              className="h-8 rounded-lg bg-(--c-b-ffffff) px-2 text-[13px] text-(--c-t-1b1b1b) outline-none ring-1 ring-(--c-l-e3e3e0)"
+              className="h-8 rounded-lg bg-(--c-card) px-2 text-[13px] text-(--c-t-1b1b1b) outline-none ring-1 ring-(--c-l-e3e3e0)"
             >
               {runs.map((r, i) => (
                 <option key={r.id} value={i === 0 ? "" : r.id}>
@@ -171,7 +171,7 @@ export function TopicsApp() {
               role="tab"
               aria-selected={tab === k}
               onClick={() => setTab(k)}
-              className={`h-8 rounded-md px-3 text-[13px] font-medium ${tab === k ? "bg-(--c-b-ffffff) text-(--c-t-1b1b1b) shadow-[0_1px_2px_rgba(0,0,0,0.08)]" : "text-(--c-t-737373) hover:text-(--c-t-1b1b1b)"}`}
+              className={`h-8 rounded-md px-3 text-[13px] font-medium ${tab === k ? "bg-(--c-segment) text-(--c-t-1b1b1b) shadow-[0_1px_2px_rgba(0,0,0,0.08)]" : "text-(--c-t-737373) hover:text-(--c-t-1b1b1b)"}`}
             >
               {label}
               <span className="ml-1.5 tabular-nums text-(--c-t-9a9a9a)">{counts[k]}</span>
@@ -247,7 +247,7 @@ function TopicRow({ topic: t, open, onToggle }: { topic: Topic; open: boolean; o
   const saved = t.status === "saved";
   const archived = t.status === "used" || t.status === "dismissed";
   return (
-    <div className={`overflow-hidden rounded-2xl bg-(--c-b-ffffff) ring-1 transition-shadow ${open ? "ring-(--c-l-dcdcdc) shadow-[0_8px_28px_rgba(0,0,0,0.07)]" : "ring-(--c-l-ebebeb) hover:ring-(--c-l-dcdcdc)"}`}>
+    <div className={`overflow-hidden rounded-2xl bg-(--c-card) ring-1 transition-shadow ${open ? "ring-(--c-l-dcdcdc) shadow-[0_8px_28px_rgba(0,0,0,0.07)]" : "ring-(--c-l-ebebeb) hover:ring-(--c-l-dcdcdc)"}`}>
       <div className="flex items-center gap-3 px-4 py-3">
         <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-w-0 flex-1 items-center gap-3.5 text-left">
           <ScoreRing score={t.score} />

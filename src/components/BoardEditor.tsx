@@ -473,7 +473,7 @@ function PhoneActions({ api, styleOpen, onCopyFrame, copied }: { api: React.RefO
     <div
       role="toolbar"
       aria-label="Selected"
-      className="absolute inset-x-2 bottom-[calc(env(safe-area-inset-bottom)+68px)] z-10 flex items-stretch gap-0.5 rounded-2xl bg-(--c-b-ffffff) p-1 shadow-[0_0_0_1px_var(--c-l-e3e3e0),0_8px_28px_rgba(0,0,0,0.18)] animate-[board-pop_180ms_cubic-bezier(0.2,0,0,1)_both]"
+      className="absolute inset-x-2 bottom-[calc(env(safe-area-inset-bottom)+68px)] z-10 flex items-stretch gap-0.5 rounded-2xl bg-(--c-popover) p-1 shadow-(--shadow-action-bar) animate-[board-pop_180ms_cubic-bezier(0.2,0,0,1)_both]"
     >
       <button type="button" onClick={() => click('button[aria-label="Edit"]')} aria-pressed={styleOpen} className={`${btn} ${styleOpen ? "bg-(--c-b-f1f1ef) text-(--c-t-1b1b1b)" : ""}`}>
         {icon(<><circle cx="10" cy="10" r="7" /><circle cx="7" cy="8" r="1" fill="currentColor" /><circle cx="11" cy="6.5" r="1" fill="currentColor" /><circle cx="13.5" cy="10" r="1" fill="currentColor" /><path d="M10 17a2 2 0 0 1 0-4h1" /></>)}

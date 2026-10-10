@@ -972,7 +972,7 @@ export function DocEditor({
                 setLineSel({ anchor: dragFrom.current, focus: b.id });
               }}
               className={`group/row relative ${b.color || selectedIds.has(b.id) || open ? "-mx-2 rounded-md px-2 py-[3px]" : "py-[3px]"} ${colorRunClass(blocks, index)} ${
-                open ? "shadow-[0_0_0_1.5px_#efd88f]" : ""
+                open ? "shadow-[0_0_0_1.5px_var(--comment-outline)]" : ""
               } ${
                 mobile && (canComment || count > 0) ? (b.color ? "pr-10!" : "pr-9") : ""
               } ${
@@ -1272,7 +1272,7 @@ function BlockMenu({
     <div
       role="menu"
       aria-label="Block options"
-      className="absolute left-0 top-8 z-30 flex w-[248px] flex-col gap-0.5 rounded-xl border border-(--c-l-ebebeb) bg-(--c-b-ffffff) p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.10),0_2px_6px_rgba(0,0,0,0.05)]"
+      className="absolute left-0 top-8 z-30 flex w-[248px] flex-col gap-0.5 rounded-xl border border-(--c-l-ebebeb) bg-(--c-popover) p-1.5 shadow-(--shadow-menu-layered)"
     >
       {variant === "script" && (
         <>
@@ -1331,8 +1331,8 @@ function BlockMenu({
           type="button"
           aria-label="No color"
           onClick={() => onColor(null)}
-          className="flex h-[30px] w-[30px] items-center justify-center rounded-full border border-(--c-l-d6d6d6) bg-(--c-b-ffffff)"
-          style={!block.color ? { boxShadow: "0 0 0 2px var(--c-b-ffffff), 0 0 0 4px var(--c-t-1b1b1b)" } : undefined}
+          className="flex h-[30px] w-[30px] items-center justify-center rounded-full border border-(--c-l-d6d6d6) bg-(--c-popover)"
+          style={!block.color ? { boxShadow: "0 0 0 2px var(--c-popover), 0 0 0 4px var(--c-t-1b1b1b)" } : undefined}
         >
           <IconX size={14} color="var(--c-t-8a8a8a)" />
         </button>
@@ -1345,7 +1345,7 @@ function BlockMenu({
             className="h-[30px] w-[30px] rounded-full border border-(--c-l-d6d6d6)"
             style={{
               background: c.bg,
-              boxShadow: block.color === c.value ? "0 0 0 2px var(--c-b-ffffff), 0 0 0 4px var(--c-t-1b1b1b)" : undefined,
+              boxShadow: block.color === c.value ? "0 0 0 2px var(--c-popover), 0 0 0 4px var(--c-t-1b1b1b)" : undefined,
             }}
           />
         ))}
@@ -1420,7 +1420,7 @@ function SlashMenu({
       aria-label="Change this line"
       // Keep the caret in the line while clicking
       onMouseDown={(e) => e.preventDefault()}
-      className="fixed z-50 max-h-[340px] w-[260px] overflow-y-auto rounded-xl border border-(--c-l-e5e5e5) bg-(--c-b-ffffff) p-1 shadow-[0_12px_32px_rgba(0,0,0,0.12)]"
+      className="fixed z-50 max-h-[340px] w-[260px] overflow-y-auto rounded-xl border border-(--c-l-e5e5e5) bg-(--c-popover) p-1 shadow-(--shadow-menu-strong)"
       style={{
         top: slash.up ? undefined : slash.top,
         bottom: slash.up ? (typeof window === "undefined" ? 0 : window.innerHeight - slash.top) : undefined,
@@ -1441,7 +1441,7 @@ function SlashMenu({
             onClick={() => onPick(it)}
             className={`flex h-[36px] w-full items-center gap-2.5 rounded-md px-2 text-left text-[14px] text-(--c-t-1b1b1b) ${i === slash.active ? "bg-(--c-b-f1f1ef)" : ""}`}
           >
-            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[5px] border border-(--c-l-e2e2e2) bg-(--c-b-ffffff) text-[12px] font-semibold text-(--c-t-6b6b6b)">
+            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[5px] border border-(--c-l-e2e2e2) bg-(--c-card) text-[12px] font-semibold text-(--c-t-6b6b6b)">
               {it.tile}
             </span>
             <span>{it.label}</span>
@@ -1462,7 +1462,7 @@ function LinkBox({ top, left, onSave, onCancel }: { top: number; left: number; o
   };
   return (
     <div
-      className="fixed z-50 flex w-[320px] max-w-[calc(100vw-24px)] items-center gap-1.5 rounded-xl border border-(--c-l-e5e5e5) bg-(--c-b-ffffff) p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.12)]"
+      className="fixed z-50 flex w-[320px] max-w-[calc(100vw-24px)] items-center gap-1.5 rounded-xl border border-(--c-l-e5e5e5) bg-(--c-popover) p-1.5 shadow-(--shadow-menu-strong)"
       style={{ top, left: Math.max(12, Math.min(left, (typeof window === "undefined" ? 800 : window.innerWidth) - 332)) }}
       onMouseDown={(e) => e.stopPropagation()}
     >

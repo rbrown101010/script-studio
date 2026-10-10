@@ -115,7 +115,7 @@ function SortMenu({ sort, onChange }: { sort: { key: SortKey; dir: 1 | -1 }; onC
         {custom && <span>{current}</span>}
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 top-9 z-40 w-52 rounded-xl border border-(--c-l-ebebeb) bg-(--c-b-ffffff) p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.10)]">
+        <div role="menu" className="absolute right-0 top-9 z-40 w-52 rounded-xl border border-(--c-l-ebebeb) bg-(--c-popover) p-1.5 shadow-(--shadow-menu)">
           <div className="px-2 pb-1 pt-1 text-[12px] text-(--c-t-9a9a9a)">Sort by</div>
           {SORTS.map((x) => (
             <button
@@ -220,7 +220,7 @@ function TitleCell({ title, onRename }: { title: string; onRename: (t: string) =
               setEditing(false);
             }
           }}
-          className="w-full rounded-md border border-(--c-l-dcdcdc) bg-(--c-b-ffffff) px-1.5 py-0.5 text-[16px] font-medium text-(--c-t-1b1b1b) outline-none"
+          className="w-full rounded-md border border-(--c-l-dcdcdc) bg-(--c-card) px-1.5 py-0.5 text-[16px] font-medium text-(--c-t-1b1b1b) outline-none"
         />
       </Cell>
     );
@@ -741,12 +741,12 @@ function AccountButton({ initial, email }: { initial: string; email: string }) {
         type="button"
         aria-label="Account"
         onClick={() => setOpen(!open)}
-        className="h-9 w-9 rounded-full border border-(--c-l-dcdcdc) bg-(--c-b-ffffff) text-[14px] font-semibold text-(--c-t-1b1b1b)"
+        className="h-9 w-9 rounded-full border border-(--c-l-dcdcdc) bg-(--c-card) text-[14px] font-semibold text-(--c-t-1b1b1b)"
       >
         {initial}
       </button>
       {open && (
-        <div className="absolute right-0 top-11 z-40 w-64 rounded-xl border border-(--c-l-ebebeb) bg-(--c-b-ffffff) p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.10)]">
+        <div className="absolute right-0 top-11 z-40 w-64 rounded-xl border border-(--c-l-ebebeb) bg-(--c-popover) p-1.5 shadow-(--shadow-menu)">
           <div className="truncate px-2 py-2 text-[13px] text-(--c-t-737373)">{email}</div>
           <div className="px-1 pb-2 pt-0.5">
             <div className="mb-1.5 px-1 text-[12px] text-(--c-t-9a9a9a)">Appearance</div>

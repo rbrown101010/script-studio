@@ -77,7 +77,7 @@ export function MindPicker({
       role="listbox"
       aria-label="Mymind ideas"
       onMouseDown={(e) => e.preventDefault()}
-      className="mt-1.5 max-h-[60vh] overflow-y-auto rounded-xl border border-(--c-l-e5e5e5) bg-(--c-b-ffffff) p-1 shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+      className="mt-1.5 max-h-[60vh] overflow-y-auto rounded-xl border border-(--c-l-e5e5e5) bg-(--c-popover) p-1 shadow-(--shadow-picker-list)"
     >
       <div className="px-2 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-[0.05em] text-(--c-t-9a9a9a)">
         Mymind{query ? ` · "${query}"` : ""}

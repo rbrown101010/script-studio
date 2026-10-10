@@ -136,7 +136,7 @@ export function FeedView() {
 function Row({ u, open, onToggle, onUrgent }: { u: FeedItem; open: boolean; onToggle: () => void; onUrgent: (v: boolean) => void }) {
   const expandable = !!u.details.trim();
   return (
-    <li className="group rounded-xl bg-(--c-b-ffffff) px-4 py-3 ring-1 ring-(--c-l-ebebeb) transition-shadow hover:shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
+    <li className="group rounded-xl bg-(--c-card) px-4 py-3 ring-1 ring-(--c-l-ebebeb) transition-shadow hover:shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-[12px]">
@@ -213,7 +213,7 @@ export function FilterSelect({ label, value, onChange, options }: { label: strin
   return (
     <label
       className={`relative inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-3 text-[13px] ring-1 ${
-        on ? "bg-(--c-b-1b1b1b) font-medium text-(--c-on-ink) ring-(--c-l-1b1b1b)" : "bg-(--c-b-ffffff) text-(--c-t-4a4a4a) ring-(--c-l-e5e5e5) hover:ring-(--c-l-c9c9c9)"
+        on ? "bg-(--c-b-1b1b1b) font-medium text-(--c-on-ink) ring-(--c-l-1b1b1b)" : "bg-(--c-card) text-(--c-t-4a4a4a) ring-(--c-l-e5e5e5) hover:ring-(--c-l-c9c9c9)"
       }`}
     >
       {options.find((o) => o.value === value)?.label}

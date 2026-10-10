@@ -108,7 +108,7 @@ export function ScriptLayout({
 }
 
 export const topButton =
-  "inline-flex h-9 items-center gap-1.5 rounded-lg border border-(--c-l-dcdcdc) bg-(--c-b-ffffff) px-3.5 text-[14px] font-medium text-(--c-t-1b1b1b) hover:bg-(--c-b-fafafa)";
+  "inline-flex h-9 items-center gap-1.5 rounded-lg border border-(--c-l-dcdcdc) bg-(--c-card) px-3.5 text-[14px] font-medium text-(--c-t-1b1b1b) hover:bg-(--c-b-fafafa)";
 export const primaryButton =
   "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-(--c-b-1b1b1b) px-4 text-[14px] font-medium text-(--c-on-ink) hover:bg-(--c-b-333333) disabled:opacity-50";
 
@@ -120,7 +120,7 @@ function BottomSheet({ children, visible }: { children: ReactNode; visible: bool
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex flex-col justify-end">
       <div
-        className={`pointer-events-auto max-h-[50dvh] transition-transform duration-200 ease-[cubic-bezier(0.2,0,0,1)] ${visible ? "translate-y-0" : "translate-y-full"} overflow-y-auto overscroll-contain rounded-t-2xl bg-(--c-b-f4f4f2) pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(0,0,0,0.12)]`}
+        className={`pointer-events-auto max-h-[50dvh] transition-transform duration-200 ease-[cubic-bezier(0.2,0,0,1)] ${visible ? "translate-y-0" : "translate-y-full"} overflow-y-auto overscroll-contain rounded-t-2xl bg-(--c-b-f4f4f2) pb-[env(safe-area-inset-bottom)] shadow-(--shadow-sheet)`}
       >
         <div className="sticky top-0 z-10 flex justify-center bg-(--c-b-f4f4f2) pb-1 pt-2">
           <span className="h-1 w-10 rounded-full bg-(--c-b-dcdcdc)" aria-hidden="true" />

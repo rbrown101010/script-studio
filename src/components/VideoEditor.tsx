@@ -746,7 +746,7 @@ export function VideoEditor({ id }: { id: string }) {
                 </button>
                 {versionsOpen && (
                   <div
-                    className={`absolute ${mobile ? "right-0" : "left-0"} top-11 z-40 w-72 rounded-xl border border-(--c-l-ebebeb) bg-(--c-b-ffffff) p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.10)]`}
+                    className={`absolute ${mobile ? "right-0" : "left-0"} top-11 z-40 w-72 rounded-xl border border-(--c-l-ebebeb) bg-(--c-popover) p-1.5 shadow-(--shadow-menu)`}
                   >
                     {edited.map((d) => (
                       <button
@@ -1076,14 +1076,14 @@ function ReviewBar({
           <button
             type="button"
             onClick={onBack}
-            className="h-9 rounded-lg px-3 text-[14px] text-(--c-t-6b6b6b) hover:bg-(--c-b-ffffff)"
+            className="h-9 rounded-lg px-3 text-[14px] text-(--c-t-6b6b6b) hover:bg-(--c-segment)"
           >
             Back to current
           </button>
           <button
             type="button"
             onClick={onDiscard}
-            className="h-9 rounded-lg px-3 text-[14px] text-(--c-t-6b6b6b) hover:bg-(--c-b-ffffff) hover:text-(--c-t-b42318)"
+            className="h-9 rounded-lg px-3 text-[14px] text-(--c-t-6b6b6b) hover:bg-(--c-segment) hover:text-(--c-t-b42318)"
           >
             {isEdit ? "Discard edits" : "Delete"}
           </button>

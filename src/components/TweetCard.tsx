@@ -71,7 +71,7 @@ export function TweetCard({ id, url, inert }: { id: string; url: string; /** Not
   return (
     <Wrap
       {...(inert ? {} : { href: t.url || url, target: "_blank", rel: "noopener noreferrer" })}
-      className={`block rounded-xl border border-(--c-l-ebebeb) bg-(--c-b-ffffff) p-3.5 text-inherit no-underline transition-colors ${inert ? "" : "hover:border-(--c-l-dcdcdc) hover:bg-(--c-b-fcfcfc)"}`}
+      className={`block rounded-xl border border-(--c-l-ebebeb) bg-(--c-card) p-3.5 text-inherit no-underline transition-colors ${inert ? "" : "hover:border-(--c-l-dcdcdc) hover:bg-(--c-b-fcfcfc)"}`}
     >
       <div className="flex items-center gap-2.5">
         {t.avatarUrl ? (
@@ -124,7 +124,7 @@ export function TweetCard({ id, url, inert }: { id: string; url: string; /** Not
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={video.thumbnail} alt="" loading="lazy" className="max-h-[320px] w-full object-cover opacity-90" />
           <span className="absolute inset-0 flex items-center justify-center">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-(--c-b-ffffff)/90 text-(--c-t-1b1b1b)">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-(--c-popover)/90 text-(--c-t-1b1b1b)">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
                 <path d="M8 5.5v13l11-6.5z" />
               </svg>

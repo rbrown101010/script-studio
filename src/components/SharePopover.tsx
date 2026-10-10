@@ -80,7 +80,7 @@ export function SharePopover({
         <div
           role="dialog"
           aria-label="Share this script"
-          className={`absolute ${align === "left" ? "-left-10" : "right-0"} top-11 z-40 flex w-[400px] max-w-[calc(100vw-32px)] flex-col gap-4 rounded-xl border border-(--c-l-ebebeb) bg-(--c-b-ffffff) p-5 shadow-[0_12px_32px_rgba(0,0,0,0.10),0_2px_6px_rgba(0,0,0,0.05)]`}
+          className={`absolute ${align === "left" ? "-left-10" : "right-0"} top-11 z-40 flex w-[400px] max-w-[calc(100vw-32px)] flex-col gap-4 rounded-xl border border-(--c-l-ebebeb) bg-(--c-popover) p-5 shadow-(--shadow-menu-layered)`}
         >
           <div className="flex items-center justify-between">
             <h2 className="m-0 text-[16px] font-semibold text-(--c-t-1b1b1b)">Share this script</h2>

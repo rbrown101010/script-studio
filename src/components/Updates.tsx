@@ -133,7 +133,7 @@ const today = () => {
 };
 
 const inputCls =
-  "w-full rounded-lg border border-(--c-l-e5e5e5) bg-(--c-b-ffffff) px-2.5 py-1.5 text-[14px] text-(--c-t-1b1b1b) outline-none placeholder:text-(--c-t-b0b0b0) focus:border-(--c-l-c9c9c9)";
+  "w-full rounded-lg border border-(--c-l-e5e5e5) bg-(--c-card) px-2.5 py-1.5 text-[14px] text-(--c-t-1b1b1b) outline-none placeholder:text-(--c-t-b0b0b0) focus:border-(--c-l-c9c9c9)";
 
 function AddForm({
   onSave,

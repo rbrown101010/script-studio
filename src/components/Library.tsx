@@ -38,7 +38,7 @@ export function Library() {
   return (
     <div className="min-h-full">
       <div className="mx-auto max-w-[640px]">
-        <label className="flex h-12 items-center gap-3 rounded-full bg-(--c-b-ffffff) px-5 text-(--c-t-8a8a8a) shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-(--c-l-e3e3e0) focus-within:ring-(--c-l-c9c9c6)">
+        <label className="flex h-12 items-center gap-3 rounded-full bg-(--c-card) px-5 text-(--c-t-8a8a8a) shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-(--c-l-e3e3e0) focus-within:ring-(--c-l-c9c9c6)">
           <IconSearch />
           <input
             id="library-search"
@@ -72,7 +72,7 @@ export function Library() {
               className="group flex flex-col gap-2 rounded-xl text-left"
               aria-label={`${a.name}, more details`}
             >
-              <span className="relative block aspect-square overflow-hidden rounded-xl bg-(--c-b-ffffff) ring-1 ring-(--c-l-e3e3e0) transition-shadow group-hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
+              <span className="relative block aspect-square overflow-hidden rounded-xl bg-(--c-card) ring-1 ring-(--c-l-e3e3e0) transition-shadow group-hover:shadow-(--shadow-card-hover)">
                 <Preview a={a} />
               </span>
               <span className="truncate px-0.5 text-[13px] text-(--c-t-4a4a4a)">{a.name}</span>
@@ -96,7 +96,7 @@ function Preview({ a }: { a: LibraryAsset }) {
     return (
       <span className="relative flex h-full w-full items-center justify-center bg-[#1b1b1b]">
         <video src={`${a.url}#t=0.1`} preload="metadata" muted playsInline className="absolute inset-0 h-full w-full object-cover" />
-        <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-(--c-b-ffffff)/95 text-(--c-t-1b1b1b)">
+        <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-(--c-popover)/95 text-(--c-t-1b1b1b)">
           <IconPlay size={14} />
         </span>
       </span>
@@ -123,7 +123,7 @@ function Details({ a, onClose }: { a: LibraryAsset; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose} role="dialog" aria-label={a.name}>
       <div
-        className="flex max-h-[calc(100dvh-32px)] w-full max-w-[960px] flex-col overflow-hidden rounded-2xl bg-(--c-b-ffffff) shadow-[0_24px_60px_rgba(0,0,0,0.2)] md:flex-row"
+        className="flex max-h-[calc(100dvh-32px)] w-full max-w-[960px] flex-col overflow-hidden rounded-2xl bg-(--c-popover) shadow-(--shadow-dialog-strong) md:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex min-h-[240px] flex-1 items-center justify-center bg-(--c-b-f4f4f2) p-4">

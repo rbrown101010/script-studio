@@ -191,7 +191,7 @@ function Segmented<T extends string>({ value, onChange, options }: { value: T; o
           aria-checked={value === v}
           onClick={() => onChange(v)}
           className={`h-7 rounded-md px-3 text-[13px] font-medium transition-colors ${
-            value === v ? "bg-(--c-b-ffffff) text-(--c-t-1b1b1b) shadow-[0_1px_2px_rgba(0,0,0,0.08)]" : "text-(--c-t-737373) hover:text-(--c-t-1b1b1b)"
+            value === v ? "bg-(--c-segment) text-(--c-t-1b1b1b) shadow-[0_1px_2px_rgba(0,0,0,0.08)]" : "text-(--c-t-737373) hover:text-(--c-t-1b1b1b)"
           }`}
         >
           {l}
@@ -277,7 +277,7 @@ function Bars({ periods, grain, selected, onPick }: { periods: { key: string; vi
       </div>
       {shown && (
         <div
-          className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg bg-(--c-b-ffffff) px-3 py-2 text-[12.5px] shadow-[0_6px_20px_rgba(0,0,0,0.12)] ring-1 ring-(--c-l-ebebeb)"
+          className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg bg-(--c-popover) px-3 py-2 text-[12.5px] shadow-(--shadow-tooltip) ring-1 ring-(--c-l-ebebeb)"
           style={{ left: `clamp(80px, ${((periods.indexOf(shown) + 0.5) / periods.length) * 100}%, calc(100% - 80px))` }}
         >
           <div className="font-medium text-(--c-t-1b1b1b)">{label(shown.key, grain)}</div>

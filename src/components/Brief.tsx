@@ -43,7 +43,7 @@ export function Brief({
           aria-label="Brief"
           placeholder="Paste or write the marketing brief for this video"
           onChange={(e) => onChange?.(e.target.value)}
-          className="block w-full resize-none overflow-hidden rounded-lg border border-(--c-l-e5e5e5) bg-(--c-b-ffffff) px-3 py-2.5 text-[15px] leading-[1.6] text-(--c-t-1b1b1b) outline-none placeholder:text-(--c-t-b0b0b0) focus:border-(--c-l-c9c9c9)"
+          className="block w-full resize-none overflow-hidden rounded-lg border border-(--c-l-e5e5e5) bg-(--c-card) px-3 py-2.5 text-[15px] leading-[1.6] text-(--c-t-1b1b1b) outline-none placeholder:text-(--c-t-b0b0b0) focus:border-(--c-l-c9c9c9)"
         />
       )}
       <BriefLinks links={links} onChange={readOnly ? undefined : onLinksChange} />
@@ -161,7 +161,7 @@ function BriefLinks({ links, onChange }: { links: BriefLink[]; onChange?: (links
 }
 
 const inputCls =
-  "min-w-0 flex-1 rounded-lg border border-(--c-l-e5e5e5) bg-(--c-b-ffffff) px-2.5 py-1.5 text-[14px] text-(--c-t-1b1b1b) outline-none placeholder:text-(--c-t-b0b0b0) focus:border-(--c-l-c9c9c9)";
+  "min-w-0 flex-1 rounded-lg border border-(--c-l-e5e5e5) bg-(--c-card) px-2.5 py-1.5 text-[14px] text-(--c-t-1b1b1b) outline-none placeholder:text-(--c-t-b0b0b0) focus:border-(--c-l-c9c9c9)";
 
 /** Text with its URLs turned into clearly styled links. */
 export function linkify(text: string): ReactNode[] {

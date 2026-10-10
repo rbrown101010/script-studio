@@ -107,7 +107,7 @@ function CompactCard({ url, plain }: { url: string; plain?: boolean }) {
       </span>
     </>
   );
-  const cls = "flex items-center gap-2.5 rounded-lg border border-(--c-l-ebebeb) bg-(--c-b-ffffff) p-1.5 pr-2.5 text-left text-inherit no-underline";
+  const cls = "flex items-center gap-2.5 rounded-lg border border-(--c-l-ebebeb) bg-(--c-card) p-1.5 pr-2.5 text-left text-inherit no-underline";
   if (plain) return <span className={cls}>{body}</span>;
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" className={`${cls} hover:border-(--c-l-dcdcdc) hover:bg-(--c-b-fcfcfc)`}>
@@ -177,7 +177,7 @@ function SocialCard({ url, platform, inert }: { url: string; platform: SocialPla
   return (
     <Wrap
       {...(inert ? {} : { href: url, target: "_blank", rel: "noopener noreferrer" })}
-      className={`relative block overflow-hidden rounded-xl border border-(--c-l-ebebeb) bg-(--c-b-ffffff) text-inherit no-underline transition-colors ${inert ? "" : "hover:border-(--c-l-dcdcdc) hover:bg-(--c-b-fcfcfc)"}`}
+      className={`relative block overflow-hidden rounded-xl border border-(--c-l-ebebeb) bg-(--c-card) text-inherit no-underline transition-colors ${inert ? "" : "hover:border-(--c-l-dcdcdc) hover:bg-(--c-b-fcfcfc)"}`}
     >
       {inert && <OpenLink url={url} label={`Open on ${PLATFORM_NAMES[platform]}`} />}
       {c.image && (wide || platform === "youtube") && <Thumb src={c.image} video={c.video} className="aspect-video w-full" />}
@@ -206,7 +206,7 @@ function Thumb({ src, video, className }: { src: string; video: boolean; classNa
       <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
       {video && (
         <span className="absolute inset-0 flex items-center justify-center">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-(--c-b-ffffff)/90 text-(--c-t-1b1b1b)">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-(--c-popover)/90 text-(--c-t-1b1b1b)">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
               <path d="M8 5.5v13l11-6.5z" />
             </svg>
@@ -227,7 +227,7 @@ export function OpenLink({ url, label }: { url: string; label: string }) {
       onClick={(e) => e.stopPropagation()}
       aria-label={label}
       title={label}
-      className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-(--c-b-ffffff)/90 text-(--c-t-1b1b1b) shadow-[0_1px_3px_rgba(0,0,0,0.15)] hover:bg-(--c-b-ffffff)"
+      className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-(--c-popover)/90 text-(--c-t-1b1b1b) shadow-[0_1px_3px_rgba(0,0,0,0.15)] hover:bg-(--c-popover)"
     >
       <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M6 3.5H3.5v9h9V10M9 2.5h4.5V7M13.5 2.5 7 9" />

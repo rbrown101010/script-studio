@@ -253,7 +253,7 @@ function CommentItem({
 
   return (
     <div
-      className={`group/comment relative flex flex-col gap-2 rounded-xl bg-(--c-b-ffffff) px-4 pb-3.5 pt-3 shadow-[0_1px_3px_rgba(0,0,0,0.07)] ring-1 ring-(--c-hairline)`}
+      className={`group/comment relative flex flex-col gap-2 rounded-xl bg-(--c-card) px-4 pb-3.5 pt-3 shadow-[0_1px_3px_rgba(0,0,0,0.07)] ring-1 ring-(--c-hairline)`}
       onDragOver={(e) => {
         if (!canUpload || !e.dataTransfer.types.includes("Files")) return;
         e.preventDefault();

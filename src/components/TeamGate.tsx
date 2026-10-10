@@ -21,7 +21,7 @@ export function TeamGate({ children }: { children: ReactNode }) {
 }
 
 const inputCls =
-  "h-11 rounded-lg border border-(--c-l-dcdcdc) bg-(--c-b-ffffff) px-3 text-[15px] text-(--c-t-1b1b1b) outline-none placeholder:text-(--c-t-9a9a9a) focus:border-(--c-l-8a8a8a)";
+  "h-11 rounded-lg border border-(--c-l-dcdcdc) bg-(--c-card) px-3 text-[15px] text-(--c-t-1b1b1b) outline-none placeholder:text-(--c-t-9a9a9a) focus:border-(--c-l-8a8a8a)";
 
 function Field({ id, label, hint, ...props }: { id: string; label: string; hint?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (

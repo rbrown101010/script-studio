@@ -211,7 +211,7 @@ export function Captions({
               Add caption
             </button>
             {menu && (
-              <div role="menu" className="absolute left-0 top-9 z-40 w-52 rounded-xl border border-(--c-l-ebebeb) bg-(--c-b-ffffff) p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.10)]">
+              <div role="menu" className="absolute left-0 top-9 z-40 w-52 rounded-xl border border-(--c-l-ebebeb) bg-(--c-popover) p-1.5 shadow-(--shadow-menu)">
                 {choices.map((p) => (
                   <button
                     key={p}
@@ -248,7 +248,7 @@ export function Captions({
 
 const labelCls = "text-[12px] font-medium text-(--c-t-737373)";
 const inputCls =
-  "w-full rounded-lg border border-(--c-l-e5e5e5) bg-(--c-b-ffffff) px-2.5 py-1.5 text-[14px] text-(--c-t-1b1b1b) outline-none placeholder:text-(--c-t-b0b0b0) focus:border-(--c-l-c9c9c9)";
+  "w-full rounded-lg border border-(--c-l-e5e5e5) bg-(--c-card) px-2.5 py-1.5 text-[14px] text-(--c-t-1b1b1b) outline-none placeholder:text-(--c-t-b0b0b0) focus:border-(--c-l-c9c9c9)";
 
 const linkHref = (s: string) => (/^https?:\/\//i.test(s) ? s : `https://${s}`);
 

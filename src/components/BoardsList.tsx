@@ -99,7 +99,7 @@ function BoardRow({ board, onOpen, onPin, onDelete }: { board: BoardItem; onOpen
       <button
         type="button"
         onClick={onOpen}
-        className="block w-full overflow-hidden rounded-2xl bg-(--c-b-ffffff) text-left ring-1 ring-(--c-l-e3e3e0) transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)]"
+        className="block w-full overflow-hidden rounded-2xl bg-(--c-card) text-left ring-1 ring-(--c-l-e3e3e0) transition-shadow hover:shadow-(--shadow-card-hover)"
       >
         <div className="flex h-[232px] items-center justify-center overflow-hidden bg-(--c-b-fafaf9) px-4 py-3">
           {seen ? <RowPreview id={board.id} empty={!board.elementCount} /> : null}
@@ -121,7 +121,7 @@ function BoardRow({ board, onOpen, onPin, onDelete }: { board: BoardItem; onOpen
         onClick={onPin}
         aria-label={board.pinnedAt ? `Unpin ${board.title}` : `Pin ${board.title} to the sidebar`}
         title={board.pinnedAt ? "Unpin from the sidebar" : "Pin to the sidebar"}
-        className={`absolute right-11 top-2.5 hidden h-7 w-7 items-center justify-center rounded-md bg-(--c-b-ffffff) shadow-sm ring-1 ring-(--c-l-ebebeb) group-hover:flex pointer-coarse:flex ${
+        className={`absolute right-11 top-2.5 hidden h-7 w-7 items-center justify-center rounded-md bg-(--c-card) shadow-sm ring-1 ring-(--c-l-ebebeb) group-hover:flex pointer-coarse:flex ${
           board.pinnedAt ? "text-(--c-t-2358d8)" : "text-(--c-t-9a9a9a) hover:text-(--c-t-1b1b1b)"
         }`}
       >
@@ -131,7 +131,7 @@ function BoardRow({ board, onOpen, onPin, onDelete }: { board: BoardItem; onOpen
         type="button"
         onClick={onDelete}
         aria-label={`Delete ${board.title}`}
-        className="absolute right-2.5 top-2.5 hidden h-7 w-7 items-center justify-center rounded-md bg-(--c-b-ffffff) text-(--c-t-9a9a9a) shadow-sm ring-1 ring-(--c-l-ebebeb) hover:text-(--c-t-b42318) group-hover:flex pointer-coarse:flex"
+        className="absolute right-2.5 top-2.5 hidden h-7 w-7 items-center justify-center rounded-md bg-(--c-card) text-(--c-t-9a9a9a) shadow-sm ring-1 ring-(--c-l-ebebeb) hover:text-(--c-t-b42318) group-hover:flex pointer-coarse:flex"
       >
         <IconTrash size={14} />
       </button>

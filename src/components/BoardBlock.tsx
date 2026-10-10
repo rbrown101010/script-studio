@@ -317,7 +317,7 @@ function BoardPicker({
 
   return (
     <div ref={register} className="min-w-0 flex-1 py-1">
-      <div className="overflow-hidden rounded-xl bg-(--c-b-ffffff) shadow-[0_0_0_1px_var(--c-l-e3e3e0),0_8px_28px_rgba(0,0,0,0.07)] animate-[board-pop_220ms_cubic-bezier(0.2,0,0,1)_both]">
+      <div className="overflow-hidden rounded-xl bg-(--c-popover) shadow-(--shadow-picker) animate-[board-pop_220ms_cubic-bezier(0.2,0,0,1)_both]">
         <div className="flex h-11 items-center gap-2 border-b border-(--c-l-ebebeb) px-3 text-(--c-t-9a9a9a)">
           <IconSearch size={15} />
           <input
@@ -432,7 +432,7 @@ function FrameStep({ boardId, framesOnly, onPick, onBack }: { boardId: string; f
 
   const pick = (i: number) => onPick(boardRef(boardId, rows[i]?.id || null));
   return (
-    <div className="overflow-hidden rounded-xl bg-(--c-b-ffffff) shadow-[0_0_0_1px_var(--c-l-e3e3e0),0_8px_28px_rgba(0,0,0,0.07)] animate-[board-pop_220ms_cubic-bezier(0.2,0,0,1)_both]">
+    <div className="overflow-hidden rounded-xl bg-(--c-popover) shadow-(--shadow-picker) animate-[board-pop_220ms_cubic-bezier(0.2,0,0,1)_both]">
       <div className="flex h-11 items-center gap-2 border-b border-(--c-l-ebebeb) px-2">
         <button type="button" onClick={onBack} aria-label="Back to boards" className="flex h-8 w-8 items-center justify-center rounded-lg text-(--c-t-6b6b6b) hover:bg-(--c-b-f4f4f4)">
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

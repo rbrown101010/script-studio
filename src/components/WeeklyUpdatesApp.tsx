@@ -147,7 +147,7 @@ export function WeeklyUpdatesApp() {
                         <div key={k} className="flex flex-col items-center">
                           <span
                             className={`flex h-7 w-7 items-center justify-center rounded-full text-[13px] tabular-nums ${
-                              k === now ? "bg-(--c-t-1b1b1b) font-semibold text-(--c-b-ffffff)" : inMonth ? "text-(--c-t-1b1b1b)" : "text-(--c-t-9a9a9a)"
+                              k === now ? "bg-(--c-t-1b1b1b) font-semibold text-(--c-on-ink)" : inMonth ? "text-(--c-t-1b1b1b)" : "text-(--c-t-9a9a9a)"
                             }`}
                           >
                             {d.getUTCDate()}

@@ -135,7 +135,7 @@ export function DiffBlocks({
               data-active-row={open ? "" : undefined}
               data-has-comments={count > 0 ? "" : undefined}
               className={`relative ${b.color || open ? "-mx-2 rounded-md px-2 py-[3px]" : "py-[3px]"} ${colorChanged ? "ring-1 ring-red-400" : ""} ${
-                open ? "shadow-[0_0_0_1.5px_#efd88f]" : ""
+                open ? "shadow-[0_0_0_1.5px_var(--comment-outline)]" : ""
               } ${mobile && count > 0 ? "pr-9" : ""}`}
               style={{ background: open ? (colorBg(b.color) ?? "var(--c-b-fdf3cf)") : colorBg(b.color) }}
             >

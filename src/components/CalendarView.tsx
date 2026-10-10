@@ -87,7 +87,7 @@ export function CalendarView({ videos, onMove }: { videos: CalendarVideo[]; onMo
               key={key}
               {...dropProps(key)}
               className={`min-h-[56px] border-(--c-l-ebebeb) p-1 sm:min-h-[112px] sm:p-1.5 ${i % 7 ? "border-l" : ""} ${i >= 7 ? "border-t" : ""} ${
-                inMonth ? "bg-(--c-b-ffffff)" : "bg-(--c-b-fcfcfc)"
+                inMonth ? "bg-(--c-card)" : "bg-(--c-b-fcfcfc)"
               } ${dropDay === key ? "bg-(--c-b-f5f8ff)! outline-2 -outline-offset-2 outline-dashed outline-(--c-l-2358d8)" : ""}`}
             >
               <div
@@ -162,7 +162,7 @@ function Chip({ v, wide }: { v: CalendarVideo; wide?: boolean }) {
         e.dataTransfer.effectAllowed = "move";
       }}
       title={v.title || "Untitled"}
-      className={`flex min-w-0 items-start gap-1.5 rounded-md border border-(--c-l-ebebeb) bg-(--c-b-ffffff) px-1.5 py-1 text-[12px] leading-[1.3] text-(--c-t-1b1b1b) no-underline hover:border-(--c-l-d4d4d4) hover:bg-(--c-b-fafafa) ${
+      className={`flex min-w-0 items-start gap-1.5 rounded-md border border-(--c-l-ebebeb) bg-(--c-card) px-1.5 py-1 text-[12px] leading-[1.3] text-(--c-t-1b1b1b) no-underline hover:border-(--c-l-d4d4d4) hover:bg-(--c-b-fafafa) ${
         wide ? "max-w-[280px]" : ""
       }`}
     >

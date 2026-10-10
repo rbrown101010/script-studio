@@ -72,7 +72,7 @@ export function AttachmentList({
               // Photos and videos show whole (their own shape) in a framed card; other files stay small squares
               className={`group/item relative ${
                 a.kind === "image" || a.kind === "video"
-                  ? "max-w-full rounded-xl border border-(--c-l-e3e3e0) bg-(--c-b-ffffff) p-1 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+                  ? "max-w-full rounded-xl border border-(--c-l-e3e3e0) bg-(--c-card) p-1 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
                   : "h-[72px] w-[72px] overflow-hidden rounded-lg bg-(--c-b-f1efe9)"
               } ${ring(a)}`}
             >
@@ -86,7 +86,7 @@ export function AttachmentList({
                   aria-label={`Download ${a.name ?? "file"}`}
                   title="Download"
                   onClick={() => a.url && void downloadFile(a.url, a.name)}
-                  className="absolute bottom-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-(--c-b-ffffff)/95 text-(--c-t-1b1b1b) shadow-[0_1px_3px_rgba(0,0,0,0.2)] hover:bg-(--c-b-ffffff)"
+                  className="absolute bottom-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-(--c-popover)/95 text-(--c-t-1b1b1b) shadow-[0_1px_3px_rgba(0,0,0,0.2)] hover:bg-(--c-popover)"
                 >
                   <IconDownload size={13} />
                 </button>
@@ -121,7 +121,7 @@ function Thumb({ a }: { a: Attachment }) {
     return (
       <span className="relative flex items-center justify-center overflow-hidden rounded-lg bg-[#1b1b1b]">
         <video src={`${a.url ?? ""}#t=0.1`} preload="metadata" muted playsInline className="block h-[144px] w-auto min-w-[80px] max-w-full object-contain" />
-        <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-(--c-b-ffffff)/95 text-(--c-t-1b1b1b)">
+        <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-(--c-popover)/95 text-(--c-t-1b1b1b)">
           <IconPlay size={12} />
         </span>
       </span>
@@ -171,7 +171,7 @@ export function MediaViewer({ items, index, onIndex, onClose }: { items: Attachm
         <button
           type="button"
           onClick={() => a.url && void downloadFile(a.url, a.name)}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-(--c-b-ffffff) px-3.5 text-[13px] font-medium text-(--c-t-1b1b1b) hover:bg-(--c-b-ffffff)/90"
+          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-(--c-popover) px-3.5 text-[13px] font-medium text-(--c-t-1b1b1b) hover:bg-(--c-popover)/90"
         >
           <IconDownload size={14} />
           Download
@@ -275,7 +275,7 @@ function RemoveButton({ onClick, overlay, label }: { onClick: () => void; overla
       }}
       aria-label={`Remove ${label ?? "attachment"}`}
       className={`absolute right-1 top-1 hidden h-6 w-6 items-center justify-center rounded-full group-hover/item:flex pointer-coarse:flex ${
-        overlay ? "bg-black/60 text-white hover:bg-black/80" : "bg-(--c-b-ffffff) text-(--c-t-6b6b6b) shadow hover:text-(--c-t-1b1b1b)"
+        overlay ? "bg-black/60 text-white hover:bg-black/80" : "bg-(--c-card) text-(--c-t-6b6b6b) shadow hover:text-(--c-t-1b1b1b)"
       }`}
     >
       <IconX size={13} />

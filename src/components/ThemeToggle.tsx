@@ -22,7 +22,7 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
           title={o.label}
           onClick={() => setChoice(o.value)}
           className={`flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md text-[12px] ${
-            choice === o.value ? "bg-(--c-b-ffffff) font-medium text-(--c-t-1b1b1b) shadow-[0_1px_2px_rgba(0,0,0,0.08)]" : "text-(--c-t-737373) hover:text-(--c-t-1b1b1b)"
+            choice === o.value ? "bg-(--c-segment) font-medium text-(--c-t-1b1b1b) shadow-[0_1px_2px_rgba(0,0,0,0.08)]" : "text-(--c-t-737373) hover:text-(--c-t-1b1b1b)"
           }`}
         >
           {o.icon}

@@ -50,7 +50,7 @@ export function BrandDeals() {
               key={p.id}
               type="button"
               onClick={() => setOpenId(p.id)}
-              className="flex flex-col items-center gap-3 rounded-2xl bg-(--c-b-ffffff) px-4 pb-4 pt-6 text-center ring-1 ring-(--c-l-e3e3e0) transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)]"
+              className="flex flex-col items-center gap-3 rounded-2xl bg-(--c-card) px-4 pb-4 pt-6 text-center ring-1 ring-(--c-l-e3e3e0) transition-shadow hover:shadow-(--shadow-card-hover)"
             >
               <PartnerLogo p={p} size={56} className="ring-1 ring-(--c-hairline)" />
               <span className="w-full truncate text-[14px] font-medium text-(--c-t-1b1b1b)">{p.name}</span>
@@ -80,7 +80,7 @@ function AddPartner({ onDone }: { onDone: (id: Id<"partners"> | null) => void })
     }
   };
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl bg-(--c-b-ffffff) p-4 ring-1 ring-(--c-l-e3e3e0)">
+    <div className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl bg-(--c-card) p-4 ring-1 ring-(--c-l-e3e3e0)">
       <input
         autoFocus
         value={name}
@@ -88,7 +88,7 @@ function AddPartner({ onDone }: { onDone: (id: Id<"partners"> | null) => void })
         onKeyDown={(e) => e.key === "Enter" && void save()}
         placeholder="Company name"
         aria-label="Company name"
-        className="h-9 min-w-[180px] flex-1 rounded-lg border border-(--c-l-dcdcdc) bg-(--c-b-ffffff) px-3 text-[14px] text-(--c-t-1b1b1b) outline-none focus:border-(--c-l-8a8a8a)"
+        className="h-9 min-w-[180px] flex-1 rounded-lg border border-(--c-l-dcdcdc) bg-(--c-card) px-3 text-[14px] text-(--c-t-1b1b1b) outline-none focus:border-(--c-l-8a8a8a)"
       />
       <input
         value={website}
@@ -96,7 +96,7 @@ function AddPartner({ onDone }: { onDone: (id: Id<"partners"> | null) => void })
         onKeyDown={(e) => e.key === "Enter" && void save()}
         placeholder="Website (for the logo), e.g. notion.com"
         aria-label="Website"
-        className="h-9 min-w-[220px] flex-1 rounded-lg border border-(--c-l-dcdcdc) bg-(--c-b-ffffff) px-3 text-[14px] text-(--c-t-1b1b1b) outline-none focus:border-(--c-l-8a8a8a)"
+        className="h-9 min-w-[220px] flex-1 rounded-lg border border-(--c-l-dcdcdc) bg-(--c-card) px-3 text-[14px] text-(--c-t-1b1b1b) outline-none focus:border-(--c-l-8a8a8a)"
       />
       <button type="button" onClick={() => onDone(null)} className="h-9 rounded-lg px-3 text-[14px] text-(--c-t-6b6b6b) hover:bg-(--c-b-f4f4f4)">
         Cancel
@@ -214,7 +214,7 @@ function PartnerPage({ id, onBack }: { id: Id<"partners">; onBack: () => void })
           placeholder={"Agency, contacts, deal terms, rates, notes…"}
           aria-label="Details"
           rows={Math.max(5, (details ?? "").split("\n").length + 1)}
-          className="w-full resize-none rounded-xl bg-(--c-b-ffffff) p-4 text-[15px] leading-[1.6] text-(--c-t-1b1b1b) outline-none ring-1 ring-(--c-l-e3e3e0) placeholder:text-(--c-t-9a9a9a) focus:ring-(--c-l-c9c9c6)"
+          className="w-full resize-none rounded-xl bg-(--c-card) p-4 text-[15px] leading-[1.6] text-(--c-t-1b1b1b) outline-none ring-1 ring-(--c-l-e3e3e0) placeholder:text-(--c-t-9a9a9a) focus:ring-(--c-l-c9c9c6)"
         />
       </section>
 
@@ -225,7 +225,7 @@ function PartnerPage({ id, onBack }: { id: Id<"partners">; onBack: () => void })
         {p.videos.length === 0 ? (
           <p className="text-[14px] text-(--c-t-8a8a8a)">No videos yet. Set Partner Sponsor in a script&apos;s Details to add one.</p>
         ) : (
-          <div className="overflow-hidden rounded-xl bg-(--c-b-ffffff) ring-1 ring-(--c-l-e3e3e0)">
+          <div className="overflow-hidden rounded-xl bg-(--c-card) ring-1 ring-(--c-l-e3e3e0)">
             {p.videos.map((vid, i) => {
               const st = statusOf(vid.status);
               const sp = SPONSORSHIPS.find((s) => s.value === vid.sponsored);

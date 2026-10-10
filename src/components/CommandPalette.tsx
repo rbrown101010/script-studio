@@ -376,7 +376,7 @@ function Palette({
       className="fixed inset-0 z-[120] flex justify-center bg-black/25 px-3 pt-[12vh] animate-[board-fade_120ms_ease-out] sm:pt-[14vh]"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="flex h-fit max-h-[min(560px,76vh)] w-full max-w-[640px] flex-col overflow-hidden rounded-2xl bg-(--c-b-ffffff) shadow-[0_0_0_1px_var(--c-l-e3e3e0),0_24px_64px_rgba(0,0,0,0.22)] animate-[palette-in_180ms_cubic-bezier(0.2,0,0,1)]">
+      <div className="flex h-fit max-h-[min(560px,76vh)] w-full max-w-[640px] flex-col overflow-hidden rounded-2xl bg-(--c-popover) shadow-(--shadow-palette) animate-[palette-in_180ms_cubic-bezier(0.2,0,0,1)]">
         <div className="flex h-[54px] shrink-0 items-center gap-3 border-b border-(--c-l-ebebeb) px-4 text-(--c-t-9a9a9a)">
           <IconSearch size={17} />
           <input

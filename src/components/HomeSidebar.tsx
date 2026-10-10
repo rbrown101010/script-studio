@@ -143,7 +143,7 @@ export function SidebarFrame({
     return drawer.mounted ? (
       <div className="fixed inset-0 z-50 flex">
         <aside
-          className={`h-full w-[280px] max-w-[85vw] overflow-hidden bg-(--c-b-f9f9f8) shadow-[8px_0_30px_rgba(0,0,0,0.12)] transition-transform duration-200 ease-[cubic-bezier(0.2,0,0,1)] ${
+          className={`h-full w-[280px] max-w-[85vw] overflow-hidden bg-(--c-b-f9f9f8) shadow-(--shadow-drawer) transition-transform duration-200 ease-[cubic-bezier(0.2,0,0,1)] ${
             drawer.visible ? "translate-x-0" : "-translate-x-full"
           }`}
         >
@@ -391,7 +391,7 @@ function Account() {
       className="relative shrink-0 border-t border-(--c-l-ececec) p-2.5"
     >
       {open && (
-        <div className="absolute bottom-[calc(100%-4px)] left-2.5 right-2.5 z-40 rounded-xl border border-(--c-l-ebebeb) bg-(--c-b-ffffff) p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.12)]">
+        <div className="absolute bottom-[calc(100%-4px)] left-2.5 right-2.5 z-40 rounded-xl border border-(--c-l-ebebeb) bg-(--c-popover) p-1.5 shadow-(--shadow-menu-strong)">
           <div className="truncate px-2 py-1.5 text-[12.5px] text-(--c-t-737373)">
             {me?.email}
           </div>

@@ -152,7 +152,7 @@ export function Tweet() {
           <h1 className="m-0 text-[28px] font-semibold tracking-[-0.015em] text-(--c-t-1b1b1b)">Tweet</h1>
         </div>
 
-        <div className="rounded-2xl bg-(--c-b-ffffff) p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-(--c-l-e3e3e0)">
+        <div className="rounded-2xl bg-(--c-card) p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-(--c-l-e3e3e0)">
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <span className="mr-1 text-[13px] text-(--c-t-8a8a8a)">Post from</span>
             {ACCOUNTS.map((a) => {
@@ -164,7 +164,7 @@ export function Tweet() {
                   aria-pressed={on}
                   onClick={() => toggle(a.id)}
                   className={`inline-flex h-9 items-center gap-2 rounded-full pl-1 pr-3 text-[13px] ring-1 ${
-                    on ? "bg-(--c-b-1b1b1b) text-(--c-on-ink) ring-(--c-l-1b1b1b)" : "bg-(--c-b-ffffff) text-(--c-t-4a4a4a) ring-(--c-l-dcdcdc) hover:bg-(--c-b-fafafa)"
+                    on ? "bg-(--c-b-1b1b1b) text-(--c-on-ink) ring-(--c-l-1b1b1b)" : "bg-(--c-card) text-(--c-t-4a4a4a) ring-(--c-l-dcdcdc) hover:bg-(--c-b-fafafa)"
                   }`}
                 >
                   <Avatar a={a} size={28} />
@@ -199,7 +199,7 @@ export function Tweet() {
                 value={when}
                 onChange={(e) => setWhen(e.target.value)}
                 aria-label="Schedule for"
-                className="h-9 rounded-lg border border-(--c-l-dcdcdc) bg-(--c-b-ffffff) px-2.5 text-[13px] text-(--c-t-1b1b1b) outline-none focus:border-(--c-l-8a8a8a)"
+                className="h-9 rounded-lg border border-(--c-l-dcdcdc) bg-(--c-card) px-2.5 text-[13px] text-(--c-t-1b1b1b) outline-none focus:border-(--c-l-8a8a8a)"
               />
             </label>
             <div className="flex-1" />
@@ -256,7 +256,7 @@ export function Tweet() {
             <div className="mb-2 text-[11px] font-medium uppercase tracking-[0.05em] text-(--c-t-9a9a9a)">Preview</div>
             <div className="flex flex-col gap-3">
               {ACCOUNTS.filter((a) => accountIds.includes(a.id)).map((a) => (
-                <div key={a.id} className="flex gap-3 rounded-2xl bg-(--c-b-ffffff) p-4 ring-1 ring-(--c-l-e3e3e0)">
+                <div key={a.id} className="flex gap-3 rounded-2xl bg-(--c-card) p-4 ring-1 ring-(--c-l-e3e3e0)">
                   <Avatar a={a} size={40} />
                   <div className="min-w-0">
                     <div className="text-[15px]">
@@ -290,7 +290,7 @@ export function Tweet() {
                   {g.items.map((q) => (
                     <div
                       key={q.id}
-                      className={`group relative rounded-xl bg-(--c-b-ffffff) p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ${editing === q.id ? "ring-(--c-l-2358d8)" : "ring-(--c-l-e3e3e0)"}`}
+                      className={`group relative rounded-xl bg-(--c-card) p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ${editing === q.id ? "ring-(--c-l-2358d8)" : "ring-(--c-l-e3e3e0)"}`}
                     >
                       <button
                         type="button"
@@ -338,7 +338,7 @@ export function Tweet() {
             <h2 className="m-0 mb-3 text-[16px] font-semibold text-(--c-t-1b1b1b)">Posted</h2>
             <div className="flex flex-col gap-2">
               {done.map((p) => (
-                <div key={p.id} className="group relative rounded-xl bg-(--c-b-ffffff) p-3.5 ring-1 ring-(--c-l-e3e3e0)">
+                <div key={p.id} className="group relative rounded-xl bg-(--c-card) p-3.5 ring-1 ring-(--c-l-e3e3e0)">
                   <div className="mb-1.5 flex items-center gap-1.5 pr-6">
                     <span className="flex -space-x-1.5">
                       {ACCOUNTS.filter((a) => p.accountIds.includes(a.id)).map((a) => (
@@ -401,7 +401,7 @@ function Avatar({ a, size, ring }: { a: Account; size: number; ring?: boolean })
       alt=""
       width={size}
       height={size}
-      className={`shrink-0 rounded-full bg-(--c-b-ececea) object-cover ${ring ? "ring-2 ring-(--c-b-ffffff)" : ""}`}
+      className={`shrink-0 rounded-full bg-(--c-b-ececea) object-cover ${ring ? "ring-2 ring-(--c-card)" : ""}`}
       style={{ width: size, height: size }}
     />
   );

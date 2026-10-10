@@ -63,7 +63,7 @@ export function Mymind() {
   return (
     <div className="min-h-full">
       <div className="mx-auto flex max-w-[640px] items-center gap-2">
-        <label className="flex h-12 flex-1 items-center gap-3 rounded-full bg-(--c-b-ffffff) px-5 text-(--c-t-8a8a8a) shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-(--c-l-e3e3e0) focus-within:ring-(--c-l-c9c9c6)">
+        <label className="flex h-12 flex-1 items-center gap-3 rounded-full bg-(--c-card) px-5 text-(--c-t-8a8a8a) shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-(--c-l-e3e3e0) focus-within:ring-(--c-l-c9c9c6)">
           <IconSearch />
           <input
             id="mymind-search"
@@ -83,13 +83,13 @@ export function Mymind() {
           className={`flex h-11 items-center gap-1.5 rounded-full px-4 text-[14px] ring-1 ${
             onlyBookmarked
               ? "bg-(--c-b-1b1b1b) font-medium text-(--c-on-ink) ring-(--c-l-1b1b1b)"
-              : "bg-(--c-b-ffffff) text-(--c-t-6b6b6b) ring-(--c-l-e3e3e0) hover:text-(--c-t-1b1b1b)"
+              : "bg-(--c-card) text-(--c-t-6b6b6b) ring-(--c-l-e3e3e0) hover:text-(--c-t-1b1b1b)"
           }`}
         >
           <BookmarkIcon filled={onlyBookmarked} />
           <span className="hidden sm:inline">Bookmarks</span>
         </button>
-        <div role="radiogroup" aria-label="Layout" className="flex rounded-full bg-(--c-b-ffffff) p-1 ring-1 ring-(--c-l-e3e3e0)">
+        <div role="radiogroup" aria-label="Layout" className="flex rounded-full bg-(--c-card) p-1 ring-1 ring-(--c-l-e3e3e0)">
           {(["grid", "list"] as const).map((l) => (
             <button
               key={l}
@@ -136,7 +136,7 @@ export function Mymind() {
             </div>
             {ideas && ideas.length === 0 && (
               <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-(--c-l-e0e0dd) px-6 py-12 text-center">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-(--c-b-ffffff) text-(--c-t-8a8a8a) ring-1 ring-(--c-l-e8e8e5)">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-(--c-card) text-(--c-t-8a8a8a) ring-1 ring-(--c-l-e8e8e5)">
                   {debounced ? <IconSearch /> : onlyBookmarked ? <BookmarkIcon /> : <NoteIcon />}
                 </span>
                 <p className="m-0 mt-3 text-[15px] font-medium text-(--c-t-1b1b1b)">
@@ -230,7 +230,7 @@ function AddIdea({ compact }: { compact?: boolean }) {
         setDrag(false);
         pick(e.dataTransfer.files[0]);
       }}
-      className={`bg-(--c-b-ffffff) ring-1 transition-shadow focus-within:shadow-[0_4px_16px_rgba(0,0,0,0.06)] ${compact ? "rounded-xl p-3" : "rounded-2xl p-4"} ${
+      className={`bg-(--c-card) ring-1 transition-shadow focus-within:shadow-[0_4px_16px_rgba(0,0,0,0.06)] ${compact ? "rounded-xl p-3" : "rounded-2xl p-4"} ${
         drag ? "ring-(--c-l-2358d8)" : "ring-(--c-l-e6e6e3) focus-within:ring-(--c-l-d9d9d6)"
       }`}
     >
@@ -315,7 +315,7 @@ function Preview({ idea, large, inert }: { idea: Idea; large?: boolean; /** Insi
   if (idea.url && hasLinkCard(idea.url))
     return (
       // The link card fills the top of the card edge to edge
-      <div className="bg-(--c-b-ffffff) [&>*]:rounded-none! [&>*]:border-0!">
+      <div className="bg-(--c-card) [&>*]:rounded-none! [&>*]:border-0!">
         <LinkCard url={idea.url} inert={inert} />
       </div>
     );
@@ -323,7 +323,7 @@ function Preview({ idea, large, inert }: { idea: Idea; large?: boolean; /** Insi
     return (
       <div className="relative flex items-start gap-2.5 bg-(--c-b-f7f7f5) px-3 py-3 pr-11">
         <OpenLink url={idea.url} label={`Open ${hostOf(idea.url)}`} />
-        <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-(--c-b-ffffff) text-(--c-t-8a8a8a) ring-1 ring-(--c-l-e8e8e5) [&>svg]:h-3 [&>svg]:w-3">
+        <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-(--c-card) text-(--c-t-8a8a8a) ring-1 ring-(--c-l-e8e8e5) [&>svg]:h-3 [&>svg]:w-3">
           <LinkIcon />
         </span>
         <div className="min-w-0">
@@ -352,7 +352,7 @@ export function IdeaCard({ idea, onOpen }: { idea: Idea; onOpen: () => void }) {
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && onOpen()}
-      className="group/card relative cursor-pointer overflow-hidden rounded-xl bg-(--c-b-ffffff) shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-(--c-l-e8e8e5) outline-none transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:ring-(--c-l-d9d9d6) focus-visible:ring-2 focus-visible:ring-(--c-l-2358d8)"
+      className="group/card relative cursor-pointer overflow-hidden rounded-xl bg-(--c-card) shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 ring-(--c-l-e8e8e5) outline-none transition-[box-shadow,transform] duration-150 hover:-translate-y-px hover:shadow-(--shadow-card-lift) hover:ring-(--c-l-d9d9d6) focus-visible:ring-2 focus-visible:ring-(--c-l-2358d8)"
     >
       {preview}
       {(idea.note.trim() || !preview) && (
@@ -391,7 +391,7 @@ export function IdeaRow({ idea, onOpen }: { idea: Idea; onOpen: () => void }) {
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && onOpen()}
-      className="group/card relative flex cursor-pointer items-start gap-3.5 rounded-2xl px-2.5 py-2.5 outline-none transition-colors hover:bg-(--c-b-ffffff) hover:shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:ring-1 hover:ring-(--c-l-e8e8e5) focus-visible:bg-(--c-b-ffffff) focus-visible:ring-1 focus-visible:ring-(--c-l-2358d8) sm:gap-4 sm:px-3"
+      className="group/card relative flex cursor-pointer items-start gap-3.5 rounded-2xl px-2.5 py-2.5 outline-none transition-colors hover:bg-(--c-card) hover:shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:ring-1 hover:ring-(--c-l-e8e8e5) focus-visible:bg-(--c-card) focus-visible:ring-1 focus-visible:ring-(--c-l-2358d8) sm:gap-4 sm:px-3"
     >
       <RowThumb idea={idea} thumb={social ? link.thumb : null} video={social ? link.video : idea.kind === "video"} loading={!!social && link.loading} />
       <div className="min-w-0 flex-1 py-0.5">
@@ -524,7 +524,7 @@ function IdeaDetail({ idea, onClose }: { idea: Idea; onClose: () => void }) {
         role="dialog"
         aria-label="Idea"
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[92vh] w-full max-w-[1000px] flex-col overflow-hidden rounded-2xl bg-(--c-b-ffffff) shadow-[0_24px_60px_rgba(0,0,0,0.18)] md:flex-row"
+        className="flex max-h-[92vh] w-full max-w-[1000px] flex-col overflow-hidden rounded-2xl bg-(--c-popover) shadow-(--shadow-dialog) md:flex-row"
       >
         {idea.kind !== "note" && (
           <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-(--c-b-f4f4f2) md:max-w-[62%]">

@@ -121,7 +121,7 @@ export function KanbanView({
             >
               <header className="flex h-10 items-center gap-2 px-1">
                 {posted ? (
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-(--kb-posted-text) text-white">
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-(--kb-posted-text) text-(--c-on-ink)">
                     <svg viewBox="0 0 12 12" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="m2.5 6.2 2.3 2.3 4.7-4.9" />
                     </svg>
@@ -234,7 +234,7 @@ function Card({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       style={{ background: posted ? "var(--kb-posted-card)" : "var(--kb-card)" }}
-      className={`group/card block rounded-xl px-3 py-2.5 no-underline shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 transition-[box-shadow,transform,opacity] duration-150 hover:-translate-y-px hover:shadow-[0_6px_18px_rgba(0,0,0,0.08)] ${
+      className={`group/card block rounded-xl px-3 py-2.5 no-underline shadow-[0_1px_2px_rgba(0,0,0,0.04)] ring-1 transition-[box-shadow,transform,opacity] duration-150 hover:-translate-y-px hover:shadow-(--kb-card-lift) ${
         posted ? "ring-(--kb-posted-ring)" : "ring-(--kb-card-ring)"
       } ${dragging ? "opacity-40" : ""}`}
     >

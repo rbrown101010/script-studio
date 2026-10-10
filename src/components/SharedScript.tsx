@@ -431,7 +431,7 @@ function PasscodeDialog({ onCancel, onSubmit }: { onCancel: () => void; onSubmit
           setBusy(false);
           setError(err);
         }}
-        className="flex w-full max-w-[380px] flex-col gap-4 rounded-xl border border-(--c-l-ebebeb) bg-(--c-b-ffffff) p-6 shadow-[0_12px_32px_rgba(0,0,0,0.10)]"
+        className="flex w-full max-w-[380px] flex-col gap-4 rounded-xl border border-(--c-l-ebebeb) bg-(--c-popover) p-6 shadow-(--shadow-menu)"
       >
         <div className="flex flex-col gap-1.5">
           <h2 className="m-0 text-[18px] font-semibold text-(--c-t-1b1b1b)">Suggest edits</h2>
