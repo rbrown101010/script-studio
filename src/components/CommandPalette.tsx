@@ -22,6 +22,8 @@ type Item = {
   icon: ReactNode;
   right?: ReactNode;
   href?: string;
+  /** The page's address, for the row's copy-link button */
+  link?: string;
   run?: () => void | Promise<void>;
   at?: number;
 };
@@ -278,6 +280,7 @@ function Palette({
       words: `${p.words} app page`,
       icon: p.icon,
       run: () => goView(p.view),
+      link: `/?view=${p.view}`,
     }));
     const create: Item[] = [
       {
@@ -421,27 +424,31 @@ function Palette({
             return (
               <div key={item.key}>
                 {header && <div className="px-2.5 pb-1 pt-2.5 text-[12px] font-medium text-(--c-t-9a9a9a)">{header}</div>}
-                <button
-                  type="button"
+                <div
                   id={`palette-${item.key}`}
                   role="option"
                   aria-selected={i === active}
                   data-index={i}
                   onMouseMove={() => i !== active && setActive(i)}
                   onClick={(e) => void choose(i, e.metaKey || e.ctrlKey)}
-                  className={`flex h-[42px] w-full items-center gap-3 rounded-lg px-2.5 text-left text-[14px] ${i === active ? "bg-(--c-b-f1f1ef)" : ""}`}
+                  className={`group/opt flex h-[42px] w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 text-left text-[14px] ${i === active ? "bg-(--c-b-f1f1ef)" : ""}`}
                 >
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center text-(--c-t-6b6b6b)">{item.icon}</span>
                   <span className={`min-w-0 flex-1 truncate ${hits.length ? "text-(--c-t-4a4a4a)" : "text-(--c-t-1b1b1b)"}`}>
                     <Highlight text={item.title} hits={hits} />
                   </span>
                   {item.right && <span className="shrink-0 text-[12px] text-(--c-t-9a9a9a)">{item.right}</span>}
-                  {i === active && (
-                    <span aria-hidden="true" className="hidden shrink-0 text-[12px] text-(--c-t-9a9a9a) sm:inline">
-                      ↵
-                    </span>
+                  {(item.href ?? item.link) ? (
+                    // Pages, scripts and boards: copy a link to it (shows on the highlighted row)
+                    <CopyLink path={(item.href ?? item.link)!} shown={i === active} />
+                  ) : (
+                    i === active && (
+                      <span aria-hidden="true" className="hidden shrink-0 text-[12px] text-(--c-t-9a9a9a) sm:inline">
+                        ↵
+                      </span>
+                    )
                   )}
-                </button>
+                </div>
               </div>
             );
           })}
@@ -457,5 +464,51 @@ function Palette({
         </div>
       </div>
     </div>
+  );
+}
+
+/** A row's "Copy link" button: copies the full address of that page, then says Copied for a moment */
+function CopyLink({ path, shown }: { path: string; shown: boolean }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        const url = new URL(path, window.location.origin).toString();
+        const done = () => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1400);
+        };
+        navigator.clipboard.writeText(url).then(done, () => {
+          // Older browsers / no clipboard permission: copy through a hidden text box
+          const t = document.createElement("textarea");
+          t.value = url;
+          t.style.position = "fixed";
+          t.style.opacity = "0";
+          document.body.appendChild(t);
+          t.select();
+          if (document.execCommand("copy")) done();
+          t.remove();
+        });
+      }}
+      title="Copy link"
+      aria-label="Copy link"
+      className={`h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-[12px] font-medium transition-colors ${
+        copied ? "text-(--c-t-15803d)" : "text-(--c-t-737373) hover:bg-(--c-b-e6e6e3) hover:text-(--c-t-1b1b1b)"
+      } ${shown || copied ? "flex" : "hidden pointer-coarse:flex"}`}
+    >
+      {copied ? (
+        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m3.5 8.5 3 3 6-6.5" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M6.75 9.25a2.6 2.6 0 0 0 3.7 0l2.1-2.1a2.6 2.6 0 0 0-3.7-3.7l-.6.6" />
+          <path d="M9.25 6.75a2.6 2.6 0 0 0-3.7 0l-2.1 2.1a2.6 2.6 0 0 0 3.7 3.7l.6-.6" />
+        </svg>
+      )}
+      {copied ? "Copied" : "Copy link"}
+    </button>
   );
 }
