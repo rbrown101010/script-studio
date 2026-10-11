@@ -20,6 +20,7 @@ import type * as comments from "../comments.js";
 import type * as composio from "../composio.js";
 import type * as crons from "../crons.js";
 import type * as docs from "../docs.js";
+import type * as editFeed from "../editFeed.js";
 import type * as http from "../http.js";
 import type * as ideas from "../ideas.js";
 import type * as lib from "../lib.js";
@@ -56,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   composio: typeof composio;
   crons: typeof crons;
   docs: typeof docs;
+  editFeed: typeof editFeed;
   http: typeof http;
   ideas: typeof ideas;
   lib: typeof lib;

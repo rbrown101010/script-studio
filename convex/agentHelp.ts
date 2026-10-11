@@ -48,6 +48,18 @@ video, video file, any web page) and/or a note. The card type is worked out from
 import many at once (up to 200 per call, e.g. bookmarks); links already saved aren't duplicated. Write a short note on
 each idea saying what it is and why it's worth keeping. Use list_ideas to search what's there.
 
+## Edit Feed (short-form video edits)
+Riley's review queue for short-form videos (Edit Feed app in Native Note). Each video has numbered versions and a
+Kanban status: editing → ready (Ready to post) → posted.
+- When a cut is done, add it: add_edit_video {title, video:{url | storageId | base64}, note?, script?} → it's v1.
+- Riley watches it, leaves comments (often at a moment: at = seconds into the video) and presses "Request edits".
+- list_edit_videos {editsRequested:true} shows what's waiting. get_edit_video {video} gives every version and comment;
+  toDo is the list of open comments on the latest version, in video order. Make those changes.
+- Upload the result with add_edit_version {video, file, note:"what changed"} → v2, v3, … (no limit). That clears the
+  request and marks those comments done.
+- Comment (comment_on_edit_video) or move columns (set_edit_status) only when asked.
+For big files: get_upload_url, POST the raw bytes there, then pass {storageId}.
+
 ## Excalidraw boards
 Riley's whiteboards (the Excalidraw app in Native Note, links look like /b/<id>). list_boards to find one, get_board to
 read it: a summary (all text top to bottom, labelled shapes, arrows "A → B", links), its style, and items (everything
@@ -145,6 +157,12 @@ Never invent numbers or videos. Only include view counts you actually saw at tha
 | add_update {script, title, details?, link?, source?, date?, urgent?} | Log what happened on the Updates tab (urgent: needs a response now, pinned to the top of the Feed) |
 | add_ideas {ideas:[{url?, note?, date?}]} | Save ideas to Mymind (bulk import OK) |
 | list_ideas {query?, limit?} | Search Mymind |
+| list_edit_videos {status?, editsRequested?} | Edit Feed videos: status, latest version, edit requests, open comments |
+| get_edit_video {video} | One Edit Feed video: every version (videoUrl, note) and comments; toDo = open comments on the latest |
+| add_edit_video {title, video, note?, script?, agentName?} | Add a short-form video as v1 |
+| add_edit_version {video, file, note?, agentName?, resolveComments?} | Upload the next version (v2, v3, …) after edits |
+| comment_on_edit_video {video, text, version?, at?, agentName?} | Comment on a version (at = seconds) |
+| set_edit_status {video, status} | editing / ready / posted |
 | list_boards {query?} | List / search Excalidraw boards (pinned: shown in the sidebar) |
 | pin_board {board, pinned?} | Pin a board to the sidebar (pinned false unpins) |
 | pin_script {script, pinned?} | Pin a script to the sidebar and the top of Scripts (pinned false unpins) |
@@ -240,6 +258,12 @@ POST /agent/brief-links                 add_brief_links
 POST /agent/update                      add_update
 POST /agent/comment                     comment_on_script
 POST /agent/comment/attach              attach_files
+GET  /agent/edit-videos?status=&requested=1  list_edit_videos
+GET  /agent/edit-video?video=<id>       get_edit_video
+POST /agent/edit-video/create           add_edit_video
+POST /agent/edit-video/version          add_edit_version
+POST /agent/edit-video/comment          comment_on_edit_video
+POST /agent/edit-video/status           set_edit_status
 GET  /agent/boards?q=...                list_boards
 GET  /agent/board?board=<id>&elements=1 get_board
 POST /agent/board/create                create_board

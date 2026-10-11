@@ -8,12 +8,19 @@ import { internal } from "./_generated/api";
 import { authorized } from "./agentAuth";
 import { HELP } from "./agentHelp";
 import { attachFiles, resolveAttachments } from "./agentFiles";
+import { agentAddVersion, agentAddVideo } from "./editFeed";
 
 const PROTOCOL = "2025-06-18";
 
 const RULES = `Native Note is Riley's team app for video scripts. You can change anything except deleting a script. Edit script text directly with edit_lines or edit_script: every edit saves the previous text as a version that can be restored. Read a script (get_script) before changing it, and tell the user what you changed.`;
 
 const scriptArg = { type: "string", description: "The script's id or its share link" };
+const editVideoArg = { type: "string", description: "Edit Feed video id (from list_edit_videos), its link, or its title" };
+const videoFileArg = {
+  type: "object",
+  description: "The video file: ONE of {url}, {storageId} (from get_upload_url), {base64, name}",
+  properties: { url: { type: "string" }, storageId: { type: "string" }, base64: { type: "string" }, name: { type: "string" }, mime: { type: "string" } },
+};
 const statusArg = {
   type: "string",
   enum: ["idea", "upcoming", "inProduction", "sentToEditor", "done"],
@@ -379,6 +386,60 @@ const TOOLS: Tool[] = [
     inputSchema: { type: "object", properties: { query: { type: "string" }, limit: { type: "number" } } },
     annotations: { readOnlyHint: true },
     run: (ctx, a) => ctx.runQuery(internal.agent.listIdeas, a),
+  },
+  {
+    name: "list_edit_videos",
+    description:
+      "Edit Feed: the short-form videos being edited (newest activity first), each with its status (editing / ready / posted), latest version number, whether edits were requested, and how many open comments are on the latest version. Set editsRequested true to see only videos waiting for a new version.",
+    inputSchema: { type: "object", properties: { status: { type: "string", enum: ["editing", "ready", "posted"] }, editsRequested: { type: "boolean" } } },
+    annotations: { readOnlyHint: true },
+    run: (ctx, a) => ctx.runQuery(internal.editFeed.listForAgent, a),
+  },
+  {
+    name: "get_edit_video",
+    description:
+      "Edit Feed: one video with every version (v1, v2, …, each with a downloadable videoUrl and a note of what changed) and all comments. toDo lists the open comments on the latest version in video order (at = seconds into the video): that's what to change for the next version.",
+    inputSchema: { type: "object", properties: { video: editVideoArg }, required: ["video"] },
+    annotations: { readOnlyHint: true },
+    run: (ctx, a) => ctx.runQuery(internal.editFeed.getForAgent, a),
+  },
+  {
+    name: "add_edit_video",
+    description:
+      "Edit Feed: add a finished short-form video as v1 (it goes in the Editing column). video is ONE of {url} (a direct link to the file), {storageId} (uploaded via get_upload_url, any size) or {base64, name} (under 20 MB). Optionally link the script it was made from.",
+    inputSchema: {
+      type: "object",
+      properties: { title: { type: "string" }, video: videoFileArg, note: { type: "string", description: "What this cut is" }, script: scriptArg, agentName: { type: "string" } },
+      required: ["title", "video"],
+    },
+    run: (ctx, a) => agentAddVideo(ctx, a),
+  },
+  {
+    name: "add_edit_version",
+    description:
+      "Edit Feed: upload the next version of a video (v2, v3, … no limit) after making the requested edits. It clears the edit request, marks the latest version's open comments as done (set resolveComments false to keep them open) and moves the video to Editing. Write in note what you changed.",
+    inputSchema: {
+      type: "object",
+      properties: { video: editVideoArg, file: videoFileArg, note: { type: "string", description: "What changed in this version" }, agentName: { type: "string" }, resolveComments: { type: "boolean" } },
+      required: ["video", "file"],
+    },
+    run: (ctx, a) => agentAddVersion(ctx, a),
+  },
+  {
+    name: "comment_on_edit_video",
+    description: "Edit Feed: comment on a video's version (latest by default), optionally at a moment (at = seconds into the video). Shows with an Agent badge. Only when asked.",
+    inputSchema: {
+      type: "object",
+      properties: { video: editVideoArg, text: { type: "string" }, version: { type: "number" }, at: { type: "number", description: "Seconds into the video" }, agentName: { type: "string" } },
+      required: ["video", "text"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.editFeed.commentForAgent, a),
+  },
+  {
+    name: "set_edit_status",
+    description: "Edit Feed: move a video to editing, ready (Ready to post) or posted. Only when asked.",
+    inputSchema: { type: "object", properties: { video: editVideoArg, status: { type: "string", enum: ["editing", "ready", "posted"] } }, required: ["video", "status"] },
+    run: (ctx, a) => ctx.runMutation(internal.editFeed.setStatusForAgent, a),
   },
   {
     name: "list_boards",

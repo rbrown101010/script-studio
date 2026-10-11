@@ -84,8 +84,54 @@ export const blockFields = {
   comments: v.optional(v.array(comment)),
 };
 
+export const editStatus = v.union(v.literal("editing"), v.literal("ready"), v.literal("posted"));
+
 export default defineSchema({
   ...authTables,
+
+  /** Edit Feed: short-form videos being edited, each with numbered versions (v1, v2, …) and comments */
+  editVideos: defineTable({
+    title: v.string(),
+    /** Editing (a version is being worked on), Ready to post, Posted */
+    status: editStatus,
+    /** Someone asked for changes to the latest version; cleared when the next version arrives */
+    editsRequestedAt: v.optional(v.union(v.number(), v.null())),
+    /** What was asked for along with the request, if anything */
+    editsRequestNote: v.optional(v.string()),
+    /** The script this video is made from, if any */
+    scriptId: v.optional(v.union(v.id("videos"), v.null())),
+    notes: v.optional(v.string()),
+    versionCount: v.number(),
+    /** Agent name or person who added it */
+    createdBy: v.union(v.string(), v.null()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_updated", ["updatedAt"]),
+  editVersions: defineTable({
+    editId: v.id("editVideos"),
+    number: v.number(),
+    url: v.optional(v.string()),
+    storageId: v.optional(v.id("_storage")),
+    mime: v.optional(v.string()),
+    /** What changed in this version */
+    note: v.string(),
+    by: v.union(v.string(), v.null()),
+    agent: v.boolean(),
+    createdAt: v.number(),
+  }).index("by_edit", ["editId", "number"]),
+  editComments: defineTable({
+    editId: v.id("editVideos"),
+    /** The version it's about */
+    versionNumber: v.number(),
+    text: v.string(),
+    /** Seconds into the video, when the comment is about a moment */
+    at: v.optional(v.union(v.number(), v.null())),
+    authorName: v.union(v.string(), v.null()),
+    authorId: v.union(v.id("users"), v.null()),
+    agent: v.boolean(),
+    resolved: v.optional(v.boolean()),
+    createdAt: v.number(),
+  }).index("by_edit", ["editId"]),
 
   videos: defineTable({
     title: v.string(),

@@ -26,7 +26,7 @@ export type View =
   | "boards"
   | "topics"
   | "youtube"
-  | "weekly";
+  | "editfeed";
 export type SponsorFilter = "all" | "sponsored" | "notSponsored";
 
 export const SIDEBAR_WIDTH = 252;
@@ -357,7 +357,7 @@ export function HomeSidebar({
           {nav("brands", "Brand deals", <BrandIcon />)}
           {nav("topics", "Topic opportunities", <TrendIcon />)}
           {nav("youtube", "YouTube", <YouTubeIcon />)}
-          {nav("weekly", "Weekly updates", <WeekIcon />)}
+          {nav("editfeed", "Edit Feed", <EditFeedIcon />)}
         </Group>
       </nav>
 
@@ -571,12 +571,11 @@ function TrendIcon() {
   );
 }
 
-function WeekIcon() {
+function EditFeedIcon() {
   return (
     <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="2" y="2.75" width="12" height="11" rx="2" />
-      <path d="M2 6.25h12M5.25 1.5v2.5M10.75 1.5v2.5" />
-      <path d="M4.5 9.25h7" strokeWidth="2.25" />
+      <rect x="4.25" y="1.75" width="7.5" height="12.5" rx="1.75" />
+      <path d="M7 6.25v3.5L10 8 7 6.25Z" />
     </svg>
   );
 }

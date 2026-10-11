@@ -18,7 +18,7 @@ import { PinnedVideos } from "@/components/PinnedVideos";
 import { BoardsList } from "@/components/BoardsList";
 import { TopicsApp } from "@/components/TopicsApp";
 import { YouTubeApp } from "@/components/YouTubeApp";
-import { WeeklyUpdatesApp } from "@/components/WeeklyUpdatesApp";
+import { EditFeed } from "@/components/EditFeed";
 import { HomeDashboard } from "@/components/HomeDashboard";
 import { FilterSelect } from "@/components/FeedView";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -275,7 +275,7 @@ function ScriptList() {
   const mobile = useIsMobile();
   const { view, setView, newScript: newScriptRef } = useHomeView();
   useDocumentTitle(
-    { home: "Home", list: "Scripts", calendar: "Calendar", kanban: "Kanban", feed: "Feed", mymind: "Mymind", library: "Library", tweet: "Tweet", brands: "Brand deals", boards: "Excalidraw", topics: "Topic opportunities", youtube: "YouTube", weekly: "Weekly updates" }[view],
+    { home: "Home", list: "Scripts", calendar: "Calendar", kanban: "Kanban", feed: "Feed", mymind: "Mymind", library: "Library", tweet: "Tweet", brands: "Brand deals", boards: "Excalidraw", topics: "Topic opportunities", youtube: "YouTube", editfeed: "Edit Feed" }[view],
   );
   /** The status / sponsorship / format filters only show after pressing Filter */
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -287,7 +287,7 @@ function ScriptList() {
       const saved = localStorage.getItem("home-view");
       // ?view=… (e.g. coming back from a board) wins over the remembered view
       const asked = new URLSearchParams(window.location.search).get("view") ?? saved;
-      if (asked && ["home", "calendar", "kanban", "feed", "mymind", "library", "tweet", "brands", "boards", "topics", "youtube", "weekly", "list"].includes(asked)) setView(asked as View);
+      if (asked && ["home", "calendar", "kanban", "feed", "mymind", "library", "tweet", "brands", "boards", "topics", "youtube", "editfeed", "list"].includes(asked)) setView(asked as View);
       setFiltersOpen(localStorage.getItem("home-filters") === "1");
     } catch {}
   }, [setView]);
@@ -399,7 +399,7 @@ function ScriptList() {
           </div>
           <HomeDashboard />
         </div>
-      ) : view === "mymind" || view === "library" || view === "tweet" || view === "brands" || view === "boards" || view === "topics" || view === "youtube" || view === "weekly" ? (
+      ) : view === "mymind" || view === "library" || view === "tweet" || view === "brands" || view === "boards" || view === "topics" || view === "youtube" || view === "editfeed" ? (
         // Mymind is its own light-grey space for ideas, separate from scripts
         <div className="relative min-h-screen min-w-0 flex-1 bg-(--c-b-f7f7f5)">
           <div className="px-5 pb-24 pt-6 sm:px-8">
@@ -407,7 +407,7 @@ function ScriptList() {
               {(!sidebarOpen || mobile) && <ShowSidebarButton onClick={() => toggleSidebar(true)} className="-ml-1.5" />}
             </div>
             <div className="mt-4">
-              {view === "library" ? <Library /> : view === "tweet" ? <Tweet /> : view === "brands" ? <BrandDeals /> : view === "boards" ? <BoardsList /> : view === "topics" ? <TopicsApp /> : view === "youtube" ? <YouTubeApp /> : view === "weekly" ? <WeeklyUpdatesApp /> : <Mymind />}
+              {view === "library" ? <Library /> : view === "tweet" ? <Tweet /> : view === "brands" ? <BrandDeals /> : view === "boards" ? <BoardsList /> : view === "topics" ? <TopicsApp /> : view === "youtube" ? <YouTubeApp /> : view === "editfeed" ? <EditFeed /> : <Mymind />}
             </div>
           </div>
         </div>

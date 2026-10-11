@@ -37,6 +37,12 @@ import {
   httpSuggestEdit,
   httpUpdateDetails,
   httpPinBoard,
+  httpEditVideos,
+  httpEditVideo,
+  httpAddEditVideo,
+  httpAddEditVersion,
+  httpCommentEditVideo,
+  httpEditStatus,
   httpPinScript,
   httpAttach,
   httpFile,
@@ -83,6 +89,12 @@ http.route({ path: "/agent/board/create", method: "POST", handler: httpCreateBoa
 http.route({ path: "/agent/board/add", method: "POST", handler: httpAddToBoard });
 http.route({ path: "/agent/board/edit", method: "POST", handler: httpEditBoard });
 http.route({ path: "/agent/board/pin", method: "POST", handler: httpPinBoard });
+http.route({ path: "/agent/edit-videos", method: "GET", handler: httpEditVideos });
+http.route({ path: "/agent/edit-video", method: "GET", handler: httpEditVideo });
+http.route({ path: "/agent/edit-video/create", method: "POST", handler: httpAddEditVideo });
+http.route({ path: "/agent/edit-video/version", method: "POST", handler: httpAddEditVersion });
+http.route({ path: "/agent/edit-video/comment", method: "POST", handler: httpCommentEditVideo });
+http.route({ path: "/agent/edit-video/status", method: "POST", handler: httpEditStatus });
 http.route({ path: "/agent/pin", method: "POST", handler: httpPinScript });
 http.route({ path: "/agent/topics", method: "GET", handler: httpListTopics });
 http.route({ path: "/agent/topics", method: "POST", handler: httpAddTopics });

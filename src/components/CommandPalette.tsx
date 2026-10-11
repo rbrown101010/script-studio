@@ -12,7 +12,7 @@ import { IconBoard, IconPlus, IconSearch } from "./icons";
 /** Ask the switcher to open (e.g. from a button) */
 export const openCommandPalette = () => window.dispatchEvent(new Event("native-note:palette"));
 
-type View = "home" | "list" | "calendar" | "kanban" | "feed" | "library" | "tweet" | "brands" | "boards" | "topics" | "youtube" | "weekly" | "mymind";
+type View = "home" | "list" | "calendar" | "kanban" | "feed" | "library" | "tweet" | "brands" | "boards" | "topics" | "youtube" | "editfeed" | "mymind";
 type Item = {
   key: string;
   group: "Recent" | "Scripts" | "Boards" | "Views" | "Apps" | "Create";
@@ -46,7 +46,7 @@ const PAGES: { view: View; title: string; words: string; icon: ReactNode }[] = [
   { view: "brands", title: "Brand deals", words: "sponsors partners sponsorships", icon: svg(<><path d="M8.5 2.5H13.5V7.5L7.5 13.5 2.5 8.5z" /><circle cx="10.75" cy="5.25" r="1" /></>) },
   { view: "boards", title: "Excalidraw", words: "boards whiteboard drawings", icon: <IconBoard size={16} /> },
   { view: "topics", title: "Topic opportunities", words: "ideas research youtube outliers keywords", icon: svg(<><path d="M2 12l4-4 2.5 2.5L14 5" /><path d="M10 5h4v4" /></>) },
-  { view: "weekly", title: "Weekly updates", words: "agent news calendar week grokbot muse dot chatgpt claude code codex tweets", icon: svg(<><rect x="2" y="2.75" width="12" height="11" rx="2" /><path d="M2 6.25h12M5.25 1.5v2.5M10.75 1.5v2.5" /></>) },
+  { view: "editfeed", title: "Edit Feed", words: "short form shorts reels tiktok edits editor versions review cuts", icon: svg(<><rect x="4.25" y="1.75" width="7.5" height="12.5" rx="1.75" /><path d="M7 6.25v3.5L10 8 7 6.25Z" /></>) },
   { view: "youtube", title: "YouTube", words: "channel analytics stats views reports dashboard weekly", icon: svg(<><rect x="1.75" y="3.25" width="12.5" height="9.5" rx="2.5" /><path d="M6.75 6v4l3.5-2-3.5-2Z" /></>) },
 ];
 
