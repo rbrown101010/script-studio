@@ -84,7 +84,9 @@ export const blockFields = {
   comments: v.optional(v.array(comment)),
 };
 
-export const editStatus = v.union(v.literal("editing"), v.literal("ready"), v.literal("posted"));
+export const editStatus = v.union(v.literal("editing"), v.literal("ready"), v.literal("posted"), v.literal("archived"));
+/** A file on an Edit Feed comment: stored in Native Note, or a link */
+export const editAttachment = v.object({ storageId: v.optional(v.id("_storage")), url: v.optional(v.string()), mime: v.optional(v.string()), name: v.optional(v.string()) });
 
 export default defineSchema({
   ...authTables,
@@ -92,8 +94,9 @@ export default defineSchema({
   /** Edit Feed: short-form videos being edited, each with numbered versions (v1, v2, …) and comments */
   editVideos: defineTable({
     title: v.string(),
-    /** Editing (a version is being worked on), Ready to post, Posted */
+    /** Editing (a version is being worked on), Ready to post, Posted, or Archived (dropped; comments say why) */
     status: editStatus,
+    archivedAt: v.optional(v.union(v.number(), v.null())),
     /** Someone asked for changes to the latest version; cleared when the next version arrives */
     editsRequestedAt: v.optional(v.union(v.number(), v.null())),
     /** What was asked for along with the request, if anything */
@@ -136,6 +139,12 @@ export default defineSchema({
     text: v.string(),
     /** Seconds into the video, when the comment is about a moment */
     at: v.optional(v.union(v.number(), v.null())),
+    /** End of the moment, when the comment is on a stretch of the transcript */
+    end: v.optional(v.union(v.number(), v.null())),
+    /** The transcript words the comment is on */
+    quote: v.optional(v.string()),
+    /** Pasted or dropped images and videos */
+    attachments: v.optional(v.array(editAttachment)),
     authorName: v.union(v.string(), v.null()),
     authorId: v.union(v.id("users"), v.null()),
     agent: v.boolean(),

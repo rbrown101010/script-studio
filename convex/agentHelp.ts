@@ -57,6 +57,9 @@ Kanban status: editing → ready (Ready to post) → posted.
   toDo is the list of open comments on the latest version, in video order. Make those changes.
 - Upload the result with add_edit_version {video, file, note:"what changed"} → v2, v3, … (no limit). That clears the
   request and marks those comments done.
+- Comments can be on a stretch of the transcript (quote, at to end seconds) and can carry images/videos (attachments).
+- Archive: Riley archives videos he dropped and explains why in the comments. Before making a new cut, read the
+  archived ones (list_edit_videos {status:"archived"}, then get_edit_video) and avoid what he didn't like.
 - Comment (comment_on_edit_video) or move columns (set_edit_status) only when asked.
 For big files: get_upload_url, POST the raw bytes there, then pass {storageId}.
 
@@ -161,8 +164,8 @@ Never invent numbers or videos. Only include view counts you actually saw at tha
 | get_edit_video {video} | One Edit Feed video: every version (videoUrl, note) and comments; toDo = open comments on the latest |
 | add_edit_video {title, video, note?, script?, agentName?} | Add a short-form video as v1 |
 | add_edit_version {video, file, note?, agentName?, resolveComments?} | Upload the next version (v2, v3, …) after edits |
-| comment_on_edit_video {video, text, version?, at?, agentName?} | Comment on a version (at = seconds) |
-| set_edit_status {video, status} | editing / ready / posted |
+| comment_on_edit_video {video, text, version?, at?, attachments?, agentName?} | Comment on a version (at = seconds) |
+| set_edit_status {video, status} | editing / ready / posted / archived |
 | list_boards {query?} | List / search Excalidraw boards (pinned: shown in the sidebar) |
 | pin_board {board, pinned?} | Pin a board to the sidebar (pinned false unpins) |
 | pin_script {script, pinned?} | Pin a script to the sidebar and the top of Scripts (pinned false unpins) |

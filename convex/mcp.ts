@@ -8,7 +8,7 @@ import { internal } from "./_generated/api";
 import { authorized } from "./agentAuth";
 import { HELP } from "./agentHelp";
 import { attachFiles, resolveAttachments } from "./agentFiles";
-import { agentAddVersion, agentAddVideo } from "./editFeed";
+import { agentAddVersion, agentAddVideo, agentComment } from "./editFeed";
 
 const PROTOCOL = "2025-06-18";
 
@@ -390,8 +390,8 @@ const TOOLS: Tool[] = [
   {
     name: "list_edit_videos",
     description:
-      "Edit Feed: the short-form videos being edited (newest activity first), each with its status (editing / ready / posted), latest version number, whether edits were requested, and how many open comments are on the latest version. Set editsRequested true to see only videos waiting for a new version.",
-    inputSchema: { type: "object", properties: { status: { type: "string", enum: ["editing", "ready", "posted"] }, editsRequested: { type: "boolean" } } },
+      "Edit Feed: the short-form videos being edited (newest activity first), each with its status (editing / ready / posted), latest version number, whether edits were requested, and how many open comments are on the latest version. Set editsRequested true to see only videos waiting for a new version. Archived videos are left out unless status is archived: Riley archives videos he dropped and says why in the comments, so read those (get_edit_video) to learn what to avoid.",
+    inputSchema: { type: "object", properties: { status: { type: "string", enum: ["editing", "ready", "posted", "archived"] }, editsRequested: { type: "boolean" } } },
     annotations: { readOnlyHint: true },
     run: (ctx, a) => ctx.runQuery(internal.editFeed.listForAgent, a),
   },
@@ -427,18 +427,18 @@ const TOOLS: Tool[] = [
   },
   {
     name: "comment_on_edit_video",
-    description: "Edit Feed: comment on a video's version (latest by default), optionally at a moment (at = seconds into the video). Shows with an Agent badge. Only when asked.",
+    description: "Edit Feed: comment on a video's version (latest by default), optionally at a moment (at = seconds into the video), with images or videos attached. Shows with an Agent badge. Only when asked.",
     inputSchema: {
       type: "object",
-      properties: { video: editVideoArg, text: { type: "string" }, version: { type: "number" }, at: { type: "number", description: "Seconds into the video" }, agentName: { type: "string" } },
+      properties: { video: editVideoArg, text: { type: "string" }, version: { type: "number" }, at: { type: "number", description: "Seconds into the video" }, attachments: attachmentsArg, agentName: { type: "string" } },
       required: ["video", "text"],
     },
-    run: (ctx, a) => ctx.runMutation(internal.editFeed.commentForAgent, a),
+    run: (ctx, a) => agentComment(ctx, a),
   },
   {
     name: "set_edit_status",
-    description: "Edit Feed: move a video to editing, ready (Ready to post) or posted. Only when asked.",
-    inputSchema: { type: "object", properties: { video: editVideoArg, status: { type: "string", enum: ["editing", "ready", "posted"] } }, required: ["video", "status"] },
+    description: "Edit Feed: move a video to editing, ready (Ready to post), posted or archived. Only when asked.",
+    inputSchema: { type: "object", properties: { video: editVideoArg, status: { type: "string", enum: ["editing", "ready", "posted", "archived"] } }, required: ["video", "status"] },
     run: (ctx, a) => ctx.runMutation(internal.editFeed.setStatusForAgent, a),
   },
   {

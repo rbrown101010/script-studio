@@ -17,7 +17,7 @@ import { insertIdea } from "./ideas";
 import { reattachComments } from "./commentAnchors";
 import { queueAssetSync } from "./library";
 import { boardCard, boardIdOf } from "./boards";
-import { agentAddVersion, agentAddVideo } from "./editFeed";
+import { agentAddVersion, agentAddVideo, agentComment } from "./editFeed";
 import { attachFiles, resolveAttachments, storeBlob } from "./agentFiles";
 
 /** Agents may still send the old statuses; they're mapped to the new ones. */
@@ -869,14 +869,14 @@ export const httpAddToBoard = route((ctx, b) => ctx.runMutation(internal.boards.
 export const httpEditBoard = route((ctx, b) => ctx.runMutation(internal.boards.editForAgent, b as any));
 export const httpEditVideos = route((ctx, _b, url) =>
   ctx.runQuery(internal.editFeed.listForAgent, {
-    status: (url.searchParams.get("status") as "editing" | "ready" | "posted" | null) ?? undefined,
+    status: (url.searchParams.get("status") as "editing" | "ready" | "posted" | "archived" | null) ?? undefined,
     editsRequested: url.searchParams.has("requested") ? url.searchParams.get("requested") !== "0" : undefined,
   }),
 );
 export const httpEditVideo = route((ctx, _b, url) => ctx.runQuery(internal.editFeed.getForAgent, { video: url.searchParams.get("video") ?? "" }));
 export const httpAddEditVideo = route((ctx, b) => agentAddVideo(ctx, b));
 export const httpAddEditVersion = route((ctx, b) => agentAddVersion(ctx, b));
-export const httpCommentEditVideo = route((ctx, b) => ctx.runMutation(internal.editFeed.commentForAgent, b as any));
+export const httpCommentEditVideo = route((ctx, b) => agentComment(ctx, b));
 export const httpEditStatus = route((ctx, b) => ctx.runMutation(internal.editFeed.setStatusForAgent, b as any));
 export const httpPinBoard = route((ctx, b) => ctx.runMutation(internal.boards.setPinnedForAgent, b as any));
 export const httpPinScript = route((ctx, b) => ctx.runMutation(internal.agent.setScriptPinned, b as any));

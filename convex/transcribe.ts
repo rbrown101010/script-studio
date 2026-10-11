@@ -1,6 +1,6 @@
 "use node";
 // Transcribes Edit Feed versions with word timings. Uses whichever speech-to-text key is set on the Convex
-// deployment: DEEPGRAM_API_KEY, ELEVENLABS_API_KEY or OPENAI_API_KEY (checked in that order).
+// deployment: ELEVENLABS_API_KEY (Scribe v2, the most accurate), DEEPGRAM_API_KEY or OPENAI_API_KEY, in that order.
 
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
@@ -21,13 +21,18 @@ async function deepgram(key: string, url: string): Promise<Word[]> {
   return words.map((x: { word: string; punctuated_word?: string; start: number; end: number }) => ({ w: x.punctuated_word ?? x.word, s: round(x.start), e: round(x.end) }));
 }
 
-async function elevenlabs(key: string, url: string): Promise<Word[]> {
+async function elevenlabs(key: string, url: string, model = "scribe_v2"): Promise<Word[]> {
   const form = new FormData();
-  form.append("model_id", "scribe_v1");
+  form.append("model_id", model);
   form.append("cloud_storage_url", url);
   form.append("timestamps_granularity", "word");
   const res = await fetch("https://api.elevenlabs.io/v1/speech-to-text", { method: "POST", headers: { "xi-api-key": key }, body: form });
-  if (!res.ok) throw new Error(`ElevenLabs ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) {
+    const body = (await res.text()).slice(0, 200);
+    // Fall back to the previous Scribe model if this account doesn't have v2
+    if (model === "scribe_v2" && res.status >= 400 && res.status < 500 && /model/i.test(body)) return elevenlabs(key, url, "scribe_v1");
+    throw new Error(`ElevenLabs ${res.status}: ${body}`);
+  }
   const data = await res.json();
   return (data?.words ?? [])
     .filter((x: { type?: string }) => x.type === "word" || x.type === undefined)
@@ -60,13 +65,13 @@ export const version = internalAction({
       return null;
     }
     const keys = { deepgram: process.env.DEEPGRAM_API_KEY, elevenlabs: process.env.ELEVENLABS_API_KEY, openai: process.env.OPENAI_API_KEY };
-    const provider = keys.deepgram ? "deepgram" : keys.elevenlabs ? "elevenlabs" : keys.openai ? "openai" : null;
+    const provider = keys.elevenlabs ? "elevenlabs" : keys.deepgram ? "deepgram" : keys.openai ? "openai" : null;
     if (!provider) {
       await ctx.runMutation(internal.editFeedInternal.saveTranscript, {
         versionId,
         status: "unavailable",
         words: [],
-        error: "No transcription key is set up yet (DEEPGRAM_API_KEY, ELEVENLABS_API_KEY or OPENAI_API_KEY)",
+        error: "No transcription key is set up yet (ELEVENLABS_API_KEY, DEEPGRAM_API_KEY or OPENAI_API_KEY)",
       });
       return null;
     }

@@ -8,7 +8,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireUser } from "./lib";
 import { resolveAttachments, type AttachmentInput } from "./agentFiles";
-import { editStatus } from "./schema";
+import { editAttachment, editStatus } from "./schema";
 
 const MAX_TEXT = 4000;
 const site = () => process.env.SITE_URL ?? "";
@@ -39,17 +39,22 @@ async function commentsOf(ctx: QueryCtx, editId: Id<"editVideos">) {
     .query("editComments")
     .withIndex("by_edit", (q) => q.eq("editId", editId))
     .collect();
-  return rows.map((c) => ({
+  return Promise.all(rows.map(async (c) => ({
     id: c._id,
     versionNumber: c.versionNumber,
     text: c.text,
     at: c.at ?? null,
+    end: c.end ?? null,
+    quote: c.quote ?? null,
+    attachments: await Promise.all(
+      (c.attachments ?? []).map(async (a) => ({ url: a.storageId ? await ctx.storage.getUrl(a.storageId) : (a.url ?? null), mime: a.mime ?? null, name: a.name ?? null })),
+    ),
     authorName: c.authorName,
     authorId: c.authorId,
     agent: c.agent,
     resolved: !!c.resolved,
     createdAt: c.createdAt,
-  }));
+  })));
 }
 
 // ---------- The app ----------
@@ -186,7 +191,7 @@ export const update = mutation({
     await mustGet(ctx, id);
     await ctx.db.patch(id, {
       ...(title !== undefined ? { title: title.trim().slice(0, 300) || "Untitled video" } : {}),
-      ...(status ? { status } : {}),
+      ...(status ? { status, archivedAt: status === "archived" ? Date.now() : null } : {}),
       ...(notes !== undefined ? { notes: notes.slice(0, MAX_TEXT) } : {}),
       updatedAt: Date.now(),
     });
@@ -225,17 +230,28 @@ export const remove = mutation({
 });
 
 export const addComment = mutation({
-  args: { id: v.id("editVideos"), versionNumber: v.number(), text: v.string(), at: v.optional(v.union(v.number(), v.null())) },
-  handler: async (ctx, { id, versionNumber, text, at }) => {
+  args: {
+    id: v.id("editVideos"),
+    versionNumber: v.number(),
+    text: v.string(),
+    at: v.optional(v.union(v.number(), v.null())),
+    end: v.optional(v.union(v.number(), v.null())),
+    quote: v.optional(v.string()),
+    attachments: v.optional(v.array(editAttachment)),
+  },
+  handler: async (ctx, { id, versionNumber, text, at, end, quote, attachments }) => {
     const { userId, name } = await me(ctx);
     const e = await mustGet(ctx, id);
     const t = text.trim();
-    if (!t) throw new ConvexError("Write something first");
+    if (!t && !attachments?.length) throw new ConvexError("Write something first");
     const cid = await ctx.db.insert("editComments", {
       editId: id,
       versionNumber: Math.min(Math.max(1, Math.round(versionNumber)), e.versionCount),
       text: t.slice(0, MAX_TEXT),
       at: at ?? null,
+      end: end ?? null,
+      ...(quote ? { quote: quote.slice(0, 1000) } : {}),
+      ...(attachments?.length ? { attachments: attachments.slice(0, 20) } : {}),
       authorName: name,
       authorId: userId,
       agent: false,
@@ -286,7 +302,7 @@ export const listForAgent = internalQuery({
     const rows = await ctx.db.query("editVideos").withIndex("by_updated").order("desc").collect();
     const out = [];
     for (const e of rows) {
-      if (status && e.status !== status) continue;
+      if (status ? e.status !== status : e.status === "archived") continue;
       if (editsRequested !== undefined && !!e.editsRequestedAt !== editsRequested) continue;
       const comments = (await ctx.db.query("editComments").withIndex("by_edit", (q) => q.eq("editId", e._id)).collect()).filter(
         (c) => c.versionNumber === e.versionCount && !c.resolved,
@@ -339,8 +355,21 @@ export const getForAgent = internalQuery({
       toDo: comments
         .filter((c) => c.versionNumber === e.versionCount && !c.resolved)
         .sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity) || a.createdAt - b.createdAt)
-        .map((c) => ({ id: c.id, at: c.at, text: c.text, by: c.authorName, agent: c.agent })),
-      comments: comments.map((c) => ({ id: c.id, version: c.versionNumber, at: c.at, text: c.text, by: c.authorName, agent: c.agent, resolved: c.resolved, createdAt: new Date(c.createdAt).toISOString() })),
+        .map((c) => ({ id: c.id, at: c.at, end: c.end, quote: c.quote, text: c.text, by: c.authorName, agent: c.agent, attachments: c.attachments })),
+      comments: comments.map((c) => ({
+        id: c.id,
+        version: c.versionNumber,
+        at: c.at,
+        end: c.end,
+        quote: c.quote,
+        text: c.text,
+        by: c.authorName,
+        agent: c.agent,
+        resolved: c.resolved,
+        attachments: c.attachments,
+        createdAt: new Date(c.createdAt).toISOString(),
+      })),
+      archived: e.status === "archived" ? { at: e.archivedAt ? new Date(e.archivedAt).toISOString() : null, why: "See the comments: they say why this video was dropped." } : null,
     };
   },
 });
@@ -377,13 +406,30 @@ export const addVersionInternal = internalMutation({
 });
 
 export const commentForAgent = internalMutation({
-  args: { video: v.string(), text: v.string(), version: v.optional(v.number()), at: v.optional(v.union(v.number(), v.null())), agentName: v.optional(v.string()) },
-  handler: async (ctx, { video, text, version, at, agentName }) => {
+  args: {
+    video: v.string(),
+    text: v.string(),
+    version: v.optional(v.number()),
+    at: v.optional(v.union(v.number(), v.null())),
+    agentName: v.optional(v.string()),
+    attachments: v.optional(v.array(editAttachment)),
+  },
+  handler: async (ctx, { video, text, version, at, agentName, attachments }) => {
     const e = await findEdit(ctx, video);
     const t = text.trim();
     if (!t) throw new ConvexError("text is empty");
     const n = version ? Math.min(Math.max(1, Math.round(version)), e.versionCount) : e.versionCount;
-    const id = await ctx.db.insert("editComments", { editId: e._id, versionNumber: n, text: t.slice(0, MAX_TEXT), at: at ?? null, authorName: agentName?.trim().slice(0, 80) || "Agent", authorId: null, agent: true, createdAt: Date.now() });
+    const id = await ctx.db.insert("editComments", {
+      editId: e._id,
+      versionNumber: n,
+      text: t.slice(0, MAX_TEXT),
+      at: at ?? null,
+      ...(attachments?.length ? { attachments } : {}),
+      authorName: agentName?.trim().slice(0, 80) || "Agent",
+      authorId: null,
+      agent: true,
+      createdAt: Date.now(),
+    });
     await ctx.db.patch(e._id, { updatedAt: Date.now() });
     return { id, version: n };
   },
@@ -408,6 +454,17 @@ export async function resolveVideoFile(ctx: ActionCtx, video: AttachmentInput | 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const agentAddVideo = async (ctx: ActionCtx, a: any) =>
   ctx.runMutation(internal.editFeed.createInternal, { title: String(a.title ?? ""), file: await resolveVideoFile(ctx, a.video), note: a.note, script: a.script, agentName: a.agentName });
+export const agentComment = async (ctx: ActionCtx, a: any) => {
+  const files = a.attachments?.length ? await resolveAttachments(ctx, a.attachments) : [];
+  return ctx.runMutation(internal.editFeed.commentForAgent, {
+    video: String(a.video ?? ""),
+    text: String(a.text ?? ""),
+    version: a.version,
+    at: a.at,
+    agentName: a.agentName,
+    attachments: files.map((f) => ({ storageId: f.storageId, url: f.url, mime: f.mime, name: f.name })),
+  });
+};
 export const agentAddVersion = async (ctx: ActionCtx, a: any) =>
   ctx.runMutation(internal.editFeed.addVersionInternal, { video: String(a.video ?? ""), file: await resolveVideoFile(ctx, a.file), note: a.note, agentName: a.agentName, resolveComments: a.resolveComments });
 /* eslint-enable @typescript-eslint/no-explicit-any */
