@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -236,6 +236,8 @@ function VideoDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const [version, setVersion] = useState<number | null>(null);
   const player = useRef<HTMLVideoElement>(null);
   const [title, setTitle] = useState<string | null>(null);
+  /** The right side shows the transcript (follows the video) or the comments */
+  const [tab, setTab] = useState<"transcript" | "comments">("transcript");
 
   useEffect(() => {
     const esc = (e: KeyboardEvent) => {
@@ -389,11 +391,21 @@ function VideoDetail({ id, onClose }: { id: string; onClose: () => void }) {
         {/* Comments */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-(--c-l-ebebeb) px-5 py-3">
-            <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-semibold text-(--c-t-1b1b1b)">Comments on v{shown?.number}</div>
-              <div className="text-[12.5px] text-(--c-t-9a9a9a)">
-                {shown?.number === data.version ? "Leave notes, then request edits for the next version." : "An earlier version. Comments here are for reference."}
-              </div>
+            <div className="flex min-w-0 flex-1 items-center gap-1" role="tablist" aria-label="Transcript or comments">
+              {(["transcript", "comments"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t}
+                  onClick={() => setTab(t)}
+                  className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[13.5px] font-medium ${tab === t ? "bg-(--c-b-f1f1ef) text-(--c-t-1b1b1b)" : "text-(--c-t-737373) hover:text-(--c-t-1b1b1b)"}`}
+                >
+                  {t === "transcript" ? "Transcript" : "Comments"}
+                  {t === "comments" && comments.length > 0 && <span className="text-[12px] font-normal text-(--c-t-9a9a9a)">{comments.length}</span>}
+                </button>
+              ))}
+              <span className="ml-1 text-[12.5px] text-(--c-t-9a9a9a)">v{shown?.number}{shown?.number === data.version ? "" : " (earlier)"}</span>
             </div>
             {data.editsRequestedAt ? (
               <div className="flex items-center gap-2">
@@ -413,6 +425,22 @@ function VideoDetail({ id, onClose }: { id: string; onClose: () => void }) {
               </button>
             )}
           </div>
+          {tab === "transcript" && shown ? (
+            <Transcript
+              key={shown.number}
+              versionId={shown.id}
+              transcript={shown.transcript}
+              player={player}
+              seek={(t) => {
+                const p = player.current;
+                if (!p) return;
+                p.currentTime = t;
+                void p.play().catch(() => {});
+              }}
+              onComment={() => setTab("comments")}
+            />
+          ) : (
+          <>
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
             {comments.length === 0 ? (
               <div className="py-8 text-center text-[13.5px] text-(--c-t-9a9a9a)">No comments on this version yet.</div>
@@ -434,6 +462,8 @@ function VideoDetail({ id, onClose }: { id: string; onClose: () => void }) {
             )}
           </div>
           {shown && <Composer editId={editId} version={shown.number} player={player} />}
+          </>
+          )}
         </div>
       </div>
     </>,
@@ -543,6 +573,149 @@ function Composer({ editId, version, player }: { editId: Id<"editVideos">; versi
             Comment
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+type Word = { w: string; s: number; e: number };
+type TranscriptData = { status: "working" | "done" | "failed" | "unavailable"; words: Word[]; error?: string } | null;
+
+/** Words in short lines: a new line after a pause, or at a sentence end once the line is long enough */
+function lines(words: Word[]) {
+  const out: { start: number; words: { w: Word; i: number }[] }[] = [];
+  words.forEach((w, i) => {
+    const cur = out[out.length - 1];
+    const prev = cur?.words[cur.words.length - 1]?.w;
+    if (!cur || (prev && (w.s - prev.e > 1 || (/[.!?]$/.test(prev.w) && cur.words.length >= 8) || cur.words.length >= 30))) out.push({ start: w.s, words: [{ w, i }] });
+    else cur.words.push({ w, i });
+  });
+  return out;
+}
+
+/**
+ * The version's transcript, like Descript: the word being said lights up and the text scrolls along as the
+ * video plays. Click any word to jump there.
+ */
+function Transcript({
+  versionId,
+  transcript,
+  player,
+  seek,
+  onComment,
+}: {
+  versionId: string;
+  transcript: TranscriptData;
+  player: React.RefObject<HTMLVideoElement | null>;
+  seek: (t: number) => void;
+  onComment: () => void;
+}) {
+  const retry = useMutation(api.editFeed.retranscribe);
+  const words = useMemo(() => (transcript?.status === "done" ? transcript.words : []), [transcript]);
+  const [active, setActive] = useState(-1);
+  const box = useRef<HTMLDivElement>(null);
+  const userScrolled = useRef(0);
+
+  // Follow the video smoothly (every frame while it plays, not just on the coarse timeupdate event)
+  useEffect(() => {
+    if (!words.length) return;
+    let raf = 0;
+    let last = -2;
+    const find = (t: number) => {
+      let lo = 0;
+      let hi = words.length - 1;
+      let hit = -1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        if (words[mid].s <= t) {
+          hit = mid;
+          lo = mid + 1;
+        } else hi = mid - 1;
+      }
+      return hit;
+    };
+    const tick = () => {
+      const p = player.current;
+      if (p) {
+        const i = find(p.currentTime + 0.05);
+        if (i !== last) {
+          last = i;
+          setActive(i);
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [words, player]);
+
+  // Keep the current word in view, unless you've just scrolled the transcript yourself
+  useEffect(() => {
+    if (active < 0 || Date.now() - userScrolled.current < 2500) return;
+    const el = box.current?.querySelector<HTMLElement>(`[data-w="${active}"]`);
+    const b = box.current;
+    if (!el || !b) return;
+    const r = el.getBoundingClientRect();
+    const br = b.getBoundingClientRect();
+    if (r.top < br.top + 40 || r.bottom > br.bottom - 60) b.scrollTo({ top: b.scrollTop + (r.top - br.top) - br.height / 3, behavior: "smooth" });
+  }, [active]);
+
+  if (!transcript || transcript.status !== "done") {
+    const msg =
+      !transcript
+        ? "This version was added before transcripts existed."
+        : transcript.status === "working"
+          ? "Transcribing…"
+          : transcript.status === "unavailable"
+            ? "Transcripts aren't switched on yet: a speech-to-text key needs adding to Native Note."
+            : `Couldn't transcribe this version${transcript.error ? `: ${transcript.error}` : "."}`;
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-8 text-center text-[13.5px] text-(--c-t-8a8a8a)">
+        {transcript?.status === "working" && <span className="h-2 w-2 animate-pulse rounded-full bg-(--c-b-2358d8)" />}
+        <p className="m-0 max-w-[340px]">{msg}</p>
+        {transcript?.status !== "working" && (
+          <button type="button" onClick={() => void retry({ versionId: versionId as Id<"editVersions"> })} className="h-8 rounded-lg px-3 text-[13px] font-medium text-(--c-t-2358d8) ring-1 ring-(--c-l-e3e3e0) hover:bg-(--c-b-f4f4f4)">
+            {transcript ? "Try again" : "Transcribe"}
+          </button>
+        )}
+      </div>
+    );
+  }
+  if (!words.length) return <div className="flex flex-1 items-center justify-center text-[13.5px] text-(--c-t-9a9a9a)">No speech in this version.</div>;
+
+  return (
+    <div
+      ref={box}
+      onWheel={() => (userScrolled.current = Date.now())}
+      onTouchMove={() => (userScrolled.current = Date.now())}
+      className="min-h-0 flex-1 overflow-y-auto px-6 py-5"
+    >
+      {lines(words).map((l) => (
+        <p key={l.start} className="m-0 mb-3.5 flex gap-3 text-[15.5px] leading-[1.75]">
+          <button type="button" onClick={() => seek(l.start)} className="mt-[5px] h-5 shrink-0 rounded px-1 text-[11.5px] tabular-nums text-(--c-t-b0b0b0) hover:bg-(--c-b-f4f4f4) hover:text-(--c-t-2358d8)">
+            {clock(l.start)}
+          </button>
+          <span className="min-w-0">
+            {l.words.map(({ w, i }) => (
+              <span key={i}>
+                <span
+                  data-w={i}
+                  onClick={() => seek(w.s)}
+                  className={`cursor-pointer rounded-[4px] px-[1px] transition-colors duration-100 ${
+                    i === active ? "bg-(--c-b-dbe6fb) text-(--c-t-163b99)" : i < active ? "text-(--c-t-1b1b1b)" : "text-(--c-t-8a8a8a) hover:text-(--c-t-1b1b1b)"
+                  }`}
+                >
+                  {w.w}
+                </span>{" "}
+              </span>
+            ))}
+          </span>
+        </p>
+      ))}
+      <div className="sticky bottom-0 flex justify-center pt-2">
+        <button type="button" onClick={onComment} className="h-8 rounded-full bg-(--c-b-1b1b1b) px-3.5 text-[12.5px] font-medium text-(--c-on-ink) shadow-sm hover:bg-(--c-b-333333)">
+          Comment at this moment
+        </button>
       </div>
     </div>
   );

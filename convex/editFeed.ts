@@ -21,6 +21,8 @@ async function versionsOf(ctx: QueryCtx, editId: Id<"editVideos">) {
     .collect();
   return Promise.all(
     rows.map(async (r) => ({
+      id: r._id,
+      transcript: r.transcript ?? null,
       number: r.number,
       url: r.storageId ? await ctx.storage.getUrl(r.storageId) : (r.url ?? null),
       mime: r.mime ?? null,
@@ -132,7 +134,18 @@ async function insertVersion(
 ) {
   const number = e.versionCount + 1;
   const now = Date.now();
-  await ctx.db.insert("editVersions", { editId: e._id, number, ...file, note: note.slice(0, MAX_TEXT), by, agent, createdAt: now });
+  const versionId = await ctx.db.insert("editVersions", {
+    editId: e._id,
+    number,
+    ...file,
+    note: note.slice(0, MAX_TEXT),
+    by,
+    agent,
+    createdAt: now,
+    transcript: { status: "working", words: [], text: "" },
+  });
+  // Transcribe it straight away (word timings, for the transcript that follows the video)
+  await ctx.scheduler.runAfter(0, internal.transcribe.version, { versionId });
   // A new version goes (back) to Editing, and answers any request for edits
   await ctx.db.patch(e._id, { versionCount: number, status: "editing", editsRequestedAt: null, editsRequestNote: "", updatedAt: now });
   return number;
@@ -311,7 +324,17 @@ export const getForAgent = internalQuery({
       editsRequestNote: e.editsRequestNote || null,
       notes: e.notes || null,
       script: script ? { id: script._id, title: script.title } : null,
-      versions: versions.map((x) => ({ version: x.number, videoUrl: x.url, mime: x.mime, note: x.note, by: x.by, agent: x.agent, createdAt: new Date(x.createdAt).toISOString() })),
+      versions: versions.map((x) => ({
+        version: x.number,
+        videoUrl: x.url,
+        mime: x.mime,
+        note: x.note,
+        by: x.by,
+        agent: x.agent,
+        createdAt: new Date(x.createdAt).toISOString(),
+        // What's said, in timed lines (seconds), so edits can be found by what's said
+        transcript: x.transcript?.status === "done" ? segments(x.transcript.words) : x.transcript ? x.transcript.status : null,
+      })),
       // What to change: the open comments on the latest version, in video order (timed ones first)
       toDo: comments
         .filter((c) => c.versionNumber === e.versionCount && !c.resolved)
@@ -388,3 +411,30 @@ export const agentAddVideo = async (ctx: ActionCtx, a: any) =>
 export const agentAddVersion = async (ctx: ActionCtx, a: any) =>
   ctx.runMutation(internal.editFeed.addVersionInternal, { video: String(a.video ?? ""), file: await resolveVideoFile(ctx, a.file), note: a.note, agentName: a.agentName, resolveComments: a.resolveComments });
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+/** Words grouped into short timed lines (a new line after a pause or at a sentence end once it's long enough) */
+export function segments(words: { w: string; s: number; e: number }[]) {
+  const out: { start: number; end: number; text: string }[] = [];
+  let cur: typeof words = [];
+  const flush = () => {
+    if (cur.length) out.push({ start: cur[0].s, end: cur[cur.length - 1].e, text: cur.map((x) => x.w).join(" ") });
+    cur = [];
+  };
+  for (const w of words) {
+    const prev = cur[cur.length - 1];
+    if (prev && (w.s - prev.e > 1 || (/[.!?]$/.test(prev.w) && cur.length >= 8) || cur.length >= 24)) flush();
+    cur.push(w);
+  }
+  flush();
+  return out;
+}
+
+/** Try transcribing a version again (e.g. after a transcription key was added) */
+export const retranscribe = mutation({
+  args: { versionId: v.id("editVersions") },
+  handler: async (ctx, { versionId }) => {
+    await requireUser(ctx);
+    await ctx.db.patch(versionId, { transcript: { status: "working", words: [], text: "" } });
+    await ctx.scheduler.runAfter(0, internal.transcribe.version, { versionId });
+  },
+});

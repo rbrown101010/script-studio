@@ -118,6 +118,16 @@ export default defineSchema({
     by: v.union(v.string(), v.null()),
     agent: v.boolean(),
     createdAt: v.number(),
+    /** Made automatically when the version is added: every word with its start/end time (seconds) */
+    transcript: v.optional(
+      v.object({
+        status: v.union(v.literal("working"), v.literal("done"), v.literal("failed"), v.literal("unavailable")),
+        words: v.array(v.object({ w: v.string(), s: v.number(), e: v.number() })),
+        text: v.string(),
+        error: v.optional(v.string()),
+        provider: v.optional(v.string()),
+      }),
+    ),
   }).index("by_edit", ["editId", "number"]),
   editComments: defineTable({
     editId: v.id("editVideos"),
