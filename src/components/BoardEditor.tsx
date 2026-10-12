@@ -15,6 +15,7 @@ import { SidebarIcon, useMaybeAppSidebar } from "./HomeSidebar";
 import { BlurLayer, BlurToggle, blurView, blursOnTop, isBlur, setBlur, type BlurEl, type BlurView } from "./boardBlur";
 import { GradientControls, gradientSelection, setGradient, type GradientSelection } from "./boardGradient";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
+import { PencilIcon, PencilPaper, PencilTray, applyPencil, registerPencilApi } from "./boardPencil";
 
 // The real Excalidraw editor (browser only)
 const Excalidraw = dynamic(async () => (await import("@excalidraw/excalidraw")).Excalidraw, {
@@ -79,6 +80,23 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
     return () => mq.removeEventListener("change", update);
   }, []);
   /** What's selected right now (drives the phone action bar) */
+  // Pencil mode (Riley's drawing-board style), saved with the board
+  const [pencil, setPencil] = useState(false);
+  const pencilRef = useRef(false);
+  useEffect(() => {
+    const on = !!(initial && JSON.parse(initial.appState || "{}").pencil);
+    pencilRef.current = on;
+    setPencil(on);
+    // A pencil board opens with the pencil defaults (thick ink, fonts…), which Excalidraw doesn't save itself
+    if (on) applyPencil(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial?.id]);
+  const togglePencil = () => {
+    const on = !pencilRef.current;
+    pencilRef.current = on;
+    setPencil(on);
+    applyPencil(on);
+  };
   const [picked, setPicked] = useState<{ count: number; styleOpen: boolean; frame: string | null }>({ count: 0, styleOpen: false, frame: null });
   const [copied, setCopied] = useState(false);
   /** Blur rectangles: where they are on screen, and whether the selected rectangles are blurred (null: none selected) */
@@ -266,7 +284,7 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
       }, 0);
     }
     // Cheap change check: element versions and the background
-    const key = `${elements.length}:${elements.reduce((n, e) => n + e.version, 0)}:${String(appState.viewBackgroundColor)}:${files.current.length}`;
+    const key = `${elements.length}:${elements.reduce((n, e) => n + e.version, 0)}:${String(appState.viewBackgroundColor)}:${files.current.length}:${pencilRef.current}`;
     void storeFiles(map);
     if (key === lastKey.current) return;
     const first = lastKey.current === null && pending.current === null && state === "saved";
@@ -274,6 +292,7 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
     if (first && initial && elements.filter((e) => !e.isDeleted).length === (JSON.parse(initial.elements) as El[]).filter((e) => !e.isDeleted).length) return; // the initial render
     const keep: Record<string, unknown> = {};
     for (const k of KEEP) keep[k] = appState[k];
+    if (pencilRef.current) keep.pencil = true;
     pending.current = { elements: sceneJson(elements), appState: JSON.stringify(keep) };
     setState("saving");
     if (timer.current) clearTimeout(timer.current);
@@ -347,6 +366,19 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
           className={`mx-1.5 h-1.5 w-1.5 shrink-0 rounded-full transition-colors ${state === "error" ? "bg-[#e03131]" : state === "saving" ? "bg-[#f08c00]" : "bg-[#40c057]"}`}
         />
       )}
+      {!readOnly && (
+        <button
+          type="button"
+          onClick={togglePencil}
+          aria-pressed={pencil}
+          aria-label={pencil ? "Turn off pencil mode" : "Pencil mode"}
+          title={pencil ? "Pencil mode is on: paper, thick ink and your short-form style. Click to turn off." : "Pencil mode: draw in your short-form drawing-board style"}
+          className={`flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 text-[12px] font-medium hover:bg-(--button-hover-bg) ${pencil ? "bg-[#F6D36B]/40 text-[#2B2B2C]" : "text-(--c-t-6b6b6b)"}`}
+        >
+          <PencilIcon size={14} />
+          {pencil && <span className="hidden sm:inline">Pencil</span>}
+        </button>
+      )}
       {!readOnly && pinnedList && (
         <button
           type="button"
@@ -397,7 +429,7 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
   );
 
   return (
-    <div ref={boardRoot} className={`nn-board flex flex-col bg-(--c-b-ffffff) ${onClose ? "h-full" : "h-dvh"}`}>
+    <div ref={boardRoot} className={`nn-board flex flex-col bg-(--c-b-ffffff) ${pencil ? "nn-pencil" : ""} ${onClose ? "h-full" : "h-dvh"}`}>
       <BlurLayer root={boardRoot} view={blurs} dark={dark} />
       {!readOnly && <GradientControls root={boardRoot} selection={gradientPicked} onChange={(gradient) => void setGradient(excalidraw.current, gradient)} />}
       {!readOnly && blurPicked !== null && <BlurToggle root={boardRoot} on={blurPicked} onToggle={() => void setBlur(excalidraw.current, !blurPicked)} />}
@@ -407,10 +439,15 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
         {phone && !readOnly && picked.count > 0 && <PhoneActions api={excalidraw} styleOpen={picked.styleOpen} onCopyFrame={picked.frame ? copyFrame : undefined} copied={copied} />}
         {initial && (
           <Excalidraw
-            theme={dark ? "dark" : "light"}
+            // Pencil mode is paper, so it's always light
+            theme={dark && !pencil ? "dark" : "light"}
             name={initial.title}
             viewModeEnabled={readOnly}
-            excalidrawAPI={(api) => (excalidraw.current = api)}
+            excalidrawAPI={(api) => {
+              excalidraw.current = api;
+              registerPencilApi(api);
+              if (initial && JSON.parse(initial.appState || "{}").pencil) setTimeout(() => applyPencil(true), 0);
+            }}
             renderTopRightUI={() => (phone ? null : controls)}
             initialData={{
               elements: JSON.parse(initial.elements),
@@ -424,6 +461,8 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
             onChange={onChange as any}
           />
         )}
+        {pencil && <PencilPaper />}
+        {pencil && !readOnly && <PencilTray />}
       </div>
     </div>
   );
