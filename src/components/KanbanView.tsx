@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { FormatIcon } from "./FormatIcon";
 import { PartnerLogo } from "./VideoMeta";
 import { IconPlus } from "./icons";
@@ -39,11 +39,34 @@ export function KanbanView({
   onNew: (status: VideoStatus) => void;
 }) {
   const [dragging, setDragging] = useState<string | null>(null);
+  // Where cards were just dropped, shown right away (the save takes a moment to come back)
+  const [moves, setMoves] = useState<Record<string, VideoStatus>>({});
+  useEffect(() => {
+    // Forget a drop once the saved status has arrived
+    const done = Object.entries(moves).filter(([id, st]) => {
+      const v = videos.find((x) => x._id === id);
+      return !v || statusOf(v.status).value === st;
+    });
+    if (done.length)
+      setMoves((m) => {
+        const next = { ...m };
+        for (const [id] of done) delete next[id];
+        return next;
+      });
+  }, [videos, moves]);
   const [over, setOver] = useState<VideoStatus | null>(null);
   const [allPosted, setAllPosted] = useState(false);
   // Opens with In production at the left edge; Idea and Upcoming are a scroll to the left
   const scroller = useRef<HTMLDivElement>(null);
   const placed = useRef(false);
+  // While In production is still at the left edge, keep it there when the window changes size
+  const atProd = useRef(true);
+  const prodOffset = () => {
+    const box = scroller.current;
+    const prod = box?.querySelector<HTMLElement>('section[data-status="inProduction"]');
+    if (!box || !prod) return 0;
+    return prod.getBoundingClientRect().left - box.getBoundingClientRect().left - parseFloat(getComputedStyle(box).paddingLeft);
+  };
   // Room after Posted so In production can sit at the left edge even on wide screens
   const [tail, setTail] = useState<number | null>(null);
   useLayoutEffect(() => {
@@ -56,6 +79,7 @@ export function KanbanView({
       const cs = getComputedStyle(box);
       const room = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
       setTail(Math.max(0, room - (last.offsetLeft + last.offsetWidth - prod.offsetLeft) - 16));
+      if (placed.current && atProd.current) requestAnimationFrame(() => box && (box.scrollLeft += prodOffset()));
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -67,11 +91,11 @@ export function KanbanView({
     const prod = box?.querySelector<HTMLElement>('section[data-status="inProduction"]');
     if (!box || !prod || placed.current || tail === null) return;
     placed.current = true;
-    box.scrollLeft += prod.getBoundingClientRect().left - box.getBoundingClientRect().left - parseFloat(getComputedStyle(box).paddingLeft);
+    box.scrollLeft += prodOffset();
   }, [tail]);
 
   const columns = STATUSES.map((s) => {
-    const list = videos.filter((v) => statusOf(v.status).value === s.value);
+    const list = videos.filter((v) => (moves[v._id] ?? statusOf(v.status).value) === s.value);
     // Dated scripts first, soonest first (Posted: most recent first), then the latest edits
     list.sort((a, b) => {
       if (!!a.liveDate !== !!b.liveDate) return a.liveDate ? -1 : 1;
@@ -82,13 +106,14 @@ export function KanbanView({
   });
 
   return (
-    <div ref={scroller} className="-mx-5 overflow-x-auto scroll-px-5 px-5 pb-4 [scrollbar-width:thin] max-lg:snap-x max-lg:snap-mandatory">
+    <div ref={scroller} onScroll={() => placed.current && (atProd.current = Math.abs(prodOffset()) < 4)} className="-mx-5 overflow-x-auto scroll-px-5 px-5 pb-4 [scrollbar-width:thin] max-lg:snap-x max-lg:snap-mandatory">
       <div className="flex min-w-max items-start gap-4">
         {columns.map((col) => {
           const quiet = QUIET.includes(col.value);
           const posted = col.value === "done";
           // Posted starts folded up: just its header and a button to open the whole column
-          const folded = posted && !allPosted && !dragging;
+          // (it stays folded while dragging so nothing jumps; drop on it to mark a script posted)
+          const folded = posted && !allPosted;
           const shown = folded ? [] : col.list;
           const isOver = over === col.value && dragging !== null;
           return (
@@ -108,7 +133,13 @@ export function KanbanView({
               onDrop={(e) => {
                 e.preventDefault();
                 const id = e.dataTransfer.getData("text/x-script") || dragging;
-                if (id) onMove(id, col.value);
+                const v = id ? videos.find((x) => x._id === id) : undefined;
+                if (v && statusOf(v.status).value !== col.value) {
+                  setMoves((m) => ({ ...m, [v._id]: col.value }));
+                  onMove(v._id, col.value);
+                  // If the save never lands, show where it really is again
+                  setTimeout(() => setMoves((m) => (m[v._id] === col.value ? (({ [v._id]: _gone, ...rest }) => rest)(m) : m)), 10000);
+                }
                 setDragging(null);
                 setOver(null);
               }}
@@ -152,7 +183,9 @@ export function KanbanView({
                     onDragStart={(e) => {
                       e.dataTransfer.setData("text/x-script", v._id);
                       e.dataTransfer.effectAllowed = "move";
-                      setDragging(v._id);
+                      // Changing the page during dragstart can cancel the drag in Chrome, so mark it just after
+                      const id = v._id;
+                      setTimeout(() => setDragging(id), 0);
                     }}
                     onDragEnd={() => {
                       setDragging(null);
@@ -160,7 +193,12 @@ export function KanbanView({
                     }}
                   />
                 ))}
-                {folded && col.list.length > 0 && (
+                {folded && col.list.length > 0 && dragging && (
+                  <div className={`flex h-10 items-center justify-center rounded-xl border border-dashed text-[12.5px] font-medium text-(--kb-posted-text) ${isOver ? "border-(--kb-posted-text) bg-(--kb-posted-card)" : "border-(--kb-posted-ring)"}`}>
+                    Drop to mark posted
+                  </div>
+                )}
+                {folded && col.list.length > 0 && !dragging && (
                   <button
                     type="button"
                     onClick={() => setAllPosted(true)}
