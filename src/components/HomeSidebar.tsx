@@ -18,6 +18,7 @@ export type View =
   | "list"
   | "calendar"
   | "kanban"
+  | "journal"
   | "feed"
   | "mymind"
   | "library"
@@ -304,6 +305,7 @@ export function HomeSidebar({
           {nav("list", "All scripts", <ListIcon />)}
           {nav("calendar", "Calendar", <CalendarIcon />)}
           {nav("kanban", "Kanban", <KanbanIcon />)}
+          {nav("journal", "Journal", <JournalIcon />)}
           {nav("feed", "Feed", <FeedIcon />)}
         </Group>
 
@@ -763,6 +765,15 @@ function KanbanIcon() {
       <rect x="1.75" y="2.25" width="3.5" height="11.5" rx="1" />
       <rect x="6.25" y="2.25" width="3.5" height="8" rx="1" />
       <rect x="10.75" y="2.25" width="3.5" height="5" rx="1" />
+    </svg>
+  );
+}
+
+function JournalIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3.25 2.25h8.5a1 1 0 0 1 1 1v9.5a1 1 0 0 1-1 1h-8.5z" />
+      <path d="M5.75 2.25v11.5M8 5.5h2.5M8 8h2.5" />
     </svg>
   );
 }

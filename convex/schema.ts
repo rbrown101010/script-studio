@@ -172,6 +172,8 @@ export default defineSchema({
     editPasscode: v.union(v.string(), v.null()),
     createdBy: v.union(v.id("users"), v.null()),
     updatedAt: v.number(),
+    /** "journal" = a Journal entry: the same document and editor as a script, kept out of the script views */
+    kind: v.optional(v.literal("journal")),
   })
     .index("by_slug", ["shareSlug"])
     .index("by_updated", ["updatedAt"])

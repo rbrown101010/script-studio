@@ -48,6 +48,12 @@ video, video file, any web page) and/or a note. The card type is worked out from
 import many at once (up to 200 per call, e.g. bookmarks); links already saved aren't duplicated. Write a short note on
 each idea saying what it is and why it's worth keeping. Use list_ideas to search what's there.
 
+## Journal
+Riley's journal entries and internal docs. They're the same kind of document as scripts (same editor, lines, comments,
+versions) but kept out of the script views and have no status, format or other details. list_journal to find one,
+get_script {script: id} to read it, edit_lines / edit_script to change it, create_journal_entry {title, lines?} to
+add one (only when asked). list_scripts never includes them.
+
 ## Edit Feed (short-form video edits)
 Riley's review queue for short-form videos (Edit Feed app in Native Note). Each video has numbered versions and a
 Kanban status: editing → ready (Ready to post) → posted.
@@ -166,6 +172,8 @@ Never invent numbers or videos. Only include view counts you actually saw at tha
 | add_edit_version {video, file, note?, agentName?, resolveComments?} | Upload the next version (v2, v3, …) after edits |
 | comment_on_edit_video {video, text, version?, at?, attachments?, agentName?} | Comment on a version (at = seconds) |
 | set_edit_status {video, status} | editing / ready / posted / archived |
+| list_journal {query?} | Journal entries (personal notes, internal docs) |
+| create_journal_entry {title, lines?, agentName?} | New Journal entry |
 | list_boards {query?} | List / search Excalidraw boards (pinned: shown in the sidebar) |
 | pin_board {board, pinned?} | Pin a board to the sidebar (pinned false unpins) |
 | pin_script {script, pinned?} | Pin a script to the sidebar and the top of Scripts (pinned false unpins) |

@@ -114,6 +114,7 @@ export const listScripts = internalQuery({
     const videos = await ctx.db.query("videos").withIndex("by_updated").order("desc").collect();
     const out = [];
     for (const vid of videos) {
+      if (vid.kind === "journal") continue; // see list_journal
       if (q && !vid.title.toLowerCase().includes(q)) continue;
       const edited = await ctx.db
         .query("documents")
@@ -186,6 +187,18 @@ export const script = internalQuery({
 
 // ---------- Writes (all additive or reviewable) ----------
 
+/** Journal entries for agents: id, title, dates (read or edit one like a script with get_script / edit_lines) */
+export const listJournal = internalQuery({
+  args: { query: v.optional(v.string()) },
+  handler: async (ctx, { query }) => {
+    const q = query?.trim().toLowerCase();
+    const rows = (await ctx.db.query("videos").withIndex("by_updated").order("desc").collect()).filter((v) => v.kind === "journal");
+    return rows
+      .filter((v) => !q || v.title.toLowerCase().includes(q))
+      .map((v) => ({ id: v._id, title: v.title, createdAt: new Date(v._creationTime).toISOString(), updatedAt: new Date(v.updatedAt).toISOString(), url: `${process.env.SITE_URL ?? ""}/v/${v._id}` }));
+  },
+});
+
 export const createScript = internalMutation({
   args: {
     title: v.string(),
@@ -198,6 +211,8 @@ export const createScript = internalMutation({
     brief: v.optional(v.string()),
     updates: v.optional(v.array(update)),
     agentName: v.optional(v.string()),
+    /** Make a Journal entry instead of a script */
+    journal: v.optional(v.boolean()),
   },
   handler: async (ctx, a) => {
     if (a.brief && a.brief.length > 50000) throw new ConvexError("The brief can be at most 50,000 characters");
@@ -215,6 +230,7 @@ export const createScript = internalMutation({
       editPasscode: null,
       createdBy: null,
       updatedAt: now,
+      ...(a.journal ? { kind: "journal" as const } : {}),
     });
     const mainId = await ctx.db.insert("documents", { videoId, kind: "main", editorName: null, guestToken: null, updatedAt: now });
     const insId = await ctx.db.insert("documents", { videoId, kind: "instructions", editorName: null, guestToken: null, updatedAt: now });

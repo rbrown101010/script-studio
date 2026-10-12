@@ -10,7 +10,8 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     await requireUser(ctx);
-    const videos = await ctx.db.query("videos").withIndex("by_updated").order("desc").collect();
+    // Journal entries live in the Journal, not in the script views
+    const videos = (await ctx.db.query("videos").withIndex("by_updated").order("desc").collect()).filter((v) => v.kind !== "journal");
     return Promise.all(
       videos.map(async (video) => {
         const edited = await ctx.db
@@ -48,8 +49,8 @@ export const get = query({
 });
 
 export const create = mutation({
-  args: { format, status: v.optional(status) },
-  handler: async (ctx, { format, status }) => {
+  args: { format, status: v.optional(status), journal: v.optional(v.boolean()) },
+  handler: async (ctx, { format, status, journal }) => {
     const userId = await requireUser(ctx);
     const now = Date.now();
     const videoId = await ctx.db.insert("videos", {
@@ -62,6 +63,7 @@ export const create = mutation({
       editPasscode: null,
       createdBy: userId,
       updatedAt: now,
+      ...(journal ? { kind: "journal" as const } : {}),
     });
     for (const kind of ["main", "instructions"] as const) {
       await ctx.db.insert("documents", { videoId, kind, editorName: null, guestToken: null, updatedAt: now });
@@ -140,5 +142,35 @@ export const remove = mutation({
     for (const u of updates) await ctx.db.delete(u._id);
     await ctx.db.delete(id);
     await queueAssetSync(ctx, id);
+  },
+});
+
+/** The Journal: entries newest first, each with the start of what's written */
+export const journal = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireUser(ctx);
+    const rows = (await ctx.db.query("videos").withIndex("by_updated").order("desc").collect()).filter((v) => v.kind === "journal");
+    return Promise.all(
+      rows.map(async (v) => {
+        const main = await ctx.db
+          .query("documents")
+          .withIndex("by_video", (q) => q.eq("videoId", v._id).eq("kind", "main"))
+          .first();
+        const blocks = main
+          ? await ctx.db
+              .query("blocks")
+              .withIndex("by_document", (q) => q.eq("documentId", main._id))
+              .take(12)
+          : [];
+        const preview = blocks
+          .sort((a, b) => a.position - b.position)
+          .map((b) => b.content.trim())
+          .filter(Boolean)
+          .join(" ")
+          .slice(0, 220);
+        return { id: v._id, title: v.title, preview, createdAt: v._creationTime, updatedAt: v.updatedAt, pinnedAt: v.pinnedAt ?? null };
+      }),
+    );
   },
 });

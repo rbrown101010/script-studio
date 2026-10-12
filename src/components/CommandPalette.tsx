@@ -12,10 +12,10 @@ import { IconBoard, IconPlus, IconSearch } from "./icons";
 /** Ask the switcher to open (e.g. from a button) */
 export const openCommandPalette = () => window.dispatchEvent(new Event("native-note:palette"));
 
-type View = "home" | "list" | "calendar" | "kanban" | "feed" | "library" | "tweet" | "brands" | "boards" | "topics" | "youtube" | "editfeed" | "mymind";
+type View = "home" | "list" | "calendar" | "kanban" | "journal" | "feed" | "library" | "tweet" | "brands" | "boards" | "topics" | "youtube" | "editfeed" | "mymind";
 type Item = {
   key: string;
-  group: "Recent" | "Scripts" | "Boards" | "Views" | "Apps" | "Create";
+  group: "Recent" | "Scripts" | "Journal" | "Boards" | "Views" | "Apps" | "Create";
   title: string;
   /** Extra words to match on (status, kind) */
   words?: string;
@@ -38,6 +38,7 @@ const PAGES: { view: View; title: string; words: string; icon: ReactNode }[] = [
   { view: "home", title: "Home", words: "dashboard overview start today", icon: svg(<path d="M2.5 7 8 2.5 13.5 7v6.5h-3.75V10h-3.5v3.5H2.5z" />) },
   { view: "list", title: "Scripts", words: "list all scripts home", icon: svg(<path d="M3 4h10M3 8h10M3 12h7" />) },
   { view: "calendar", title: "Calendar", words: "schedule dates live", icon: svg(<><rect x="2.5" y="3.5" width="11" height="10" rx="2" /><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" /></>) },
+  { view: "journal", title: "Journal", words: "journal diary notes entries internal docs", icon: svg(<><path d="M3.25 2.25h8.5a1 1 0 0 1 1 1v9.5a1 1 0 0 1-1 1h-8.5z" /><path d="M5.75 2.25v11.5" /></>) },
   { view: "kanban", title: "Kanban", words: "board pipeline columns status editor posted", icon: svg(<><rect x="2" y="2.5" width="3.5" height="11" rx="1" /><rect x="6.25" y="2.5" width="3.5" height="7.5" rx="1" /><rect x="10.5" y="2.5" width="3.5" height="4.5" rx="1" /></>) },
   { view: "feed", title: "Feed", words: "updates urgent", icon: svg(<path d="M3 4h10M3 8h10M3 12h10" />) },
   { view: "mymind", title: "Mymind", words: "ideas bookmarks saved", icon: svg(<><circle cx="5" cy="5" r="2.2" /><circle cx="11" cy="5" r="2.2" /><circle cx="5" cy="11" r="2.2" /><circle cx="11" cy="11" r="2.2" /></>) },
@@ -188,17 +189,20 @@ export function CommandPalette() {
 
   const videos = useQuery(api.videos.list, warm ? {} : "skip");
   const boards = useQuery(api.boards.list, warm ? {} : "skip");
+  const journal = useQuery(api.videos.journal, warm ? {} : "skip");
   if (!open) return null;
-  return createPortal(<Palette videos={videos} boards={boards} onClose={() => setOpen(false)} />, document.body);
+  return createPortal(<Palette videos={videos} boards={boards} journal={journal} onClose={() => setOpen(false)} />, document.body);
 }
 
 function Palette({
   videos,
   boards,
+  journal,
   onClose,
 }: {
   videos: ReturnType<typeof useQuery<typeof api.videos.list>>;
   boards: ReturnType<typeof useQuery<typeof api.boards.list>>;
+  journal: ReturnType<typeof useQuery<typeof api.videos.journal>>;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -263,6 +267,16 @@ function Palette({
         at: v.updatedAt,
       };
     });
+    const js: Item[] = (journal ?? []).map((e) => ({
+      key: `j:${e.id}`,
+      group: "Journal",
+      title: e.title.trim() || "Untitled entry",
+      words: `journal entry ${e.preview.slice(0, 120)}`,
+      icon: svg(<><path d="M3.25 2.25h8.5a1 1 0 0 1 1 1v9.5a1 1 0 0 1-1 1h-8.5z" /><path d="M5.75 2.25v11.5" /></>),
+      right: <span>{ago(e.updatedAt)}</span>,
+      href: `/v/${e.id}`,
+      at: e.updatedAt,
+    }));
     const bs: Item[] = (boards ?? []).map((b) => ({
       key: `b:${b.id}`,
       group: "Boards",
@@ -275,7 +289,7 @@ function Palette({
     }));
     const pages: Item[] = PAGES.map((p) => ({
       key: `p:${p.view}`,
-      group: p.view === "home" || p.view === "list" || p.view === "calendar" || p.view === "kanban" || p.view === "feed" ? "Views" : "Apps",
+      group: p.view === "home" || p.view === "list" || p.view === "calendar" || p.view === "kanban" || p.view === "journal" || p.view === "feed" ? "Views" : "Apps",
       title: p.title,
       words: `${p.words} app page`,
       icon: p.icon,
@@ -306,13 +320,13 @@ function Palette({
         },
       },
     ];
-    return { scripts, bs, pages, create };
-  }, [videos, boards, goView, createVideo, createBoard, router]);
+    return { scripts, js, bs, pages, create };
+  }, [videos, boards, journal, goView, createVideo, createBoard, router]);
 
   /** What shows: recents and pages when empty; otherwise the best matches, grouped */
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
-    const byHref = new Map([...all.scripts, ...all.bs].map((i) => [i.href!, i]));
+    const byHref = new Map([...all.scripts, ...all.js, ...all.bs].map((i) => [i.href!, i]));
     if (!term) {
       const recents = recent
         .map((r) => byHref.get(r.href))
@@ -336,7 +350,7 @@ function Palette({
         // Ties go to the one touched most recently
         .sort((a, b) => b.score - a.score || (b.item.at ?? 0) - (a.item.at ?? 0))
         .slice(0, limit);
-    const groups = [scored(all.scripts, 8), scored(all.bs, 5), scored(all.pages.filter((p) => p.group === "Views"), 4), scored(all.pages.filter((p) => p.group === "Apps"), 6), scored(all.create, 2)];
+    const groups = [scored(all.scripts, 8), scored(all.js, 5), scored(all.bs, 5), scored(all.pages.filter((p) => p.group === "Views"), 4), scored(all.pages.filter((p) => p.group === "Apps"), 6), scored(all.create, 2)];
     // The group with the best match comes first
     groups.sort((a, b) => (b[0]?.score ?? -1e9) - (a[0]?.score ?? -1e9));
     return groups.flat();

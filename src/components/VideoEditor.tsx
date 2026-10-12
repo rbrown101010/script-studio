@@ -89,6 +89,8 @@ function enqueue(job: () => Promise<void>) {
 
 export function VideoEditor({ id }: { id: string }) {
   const data = useQuery(api.videos.get, { id });
+  /** A Journal entry: the same editor, without the script parts */
+  const journal = data?.video.kind === "journal";
   const comments = useQuery(
     api.comments.list,
     data?.video ? { videoId: data.video._id } : "skip",
@@ -620,7 +622,7 @@ export function VideoEditor({ id }: { id: string }) {
               />
             )}
             <Link
-              href="/"
+              href={journal ? "/?view=journal" : "/"}
               onClick={(e) => {
                 // Came here from the Scripts page: go back to it, so its view, filters and scroll are just as you left them
                 if (cameFromHome.current && window.history.length > 1) {
@@ -632,7 +634,7 @@ export function VideoEditor({ id }: { id: string }) {
             >
               <IconArrowLeft />
               {/* Phones: just the arrow, so the top bar fits next to the sidebar button */}
-              <span className="max-sm:hidden">Scripts</span>
+              <span className="max-sm:hidden">{journal ? "Journal" : "Scripts"}</span>
             </Link>
           </>
         }
@@ -850,7 +852,8 @@ export function VideoEditor({ id }: { id: string }) {
               ?.focus()
           }
         />
-        <ScriptTabs
+        {/* Journal entries are just the writing: no instructions, details, captions or brief */}
+        {!journal && <ScriptTabs
           collapsible
           tabs={[
             {
@@ -914,7 +917,7 @@ export function VideoEditor({ id }: { id: string }) {
               content: <Updates videoId={id} readOnly={!!review} />,
             },
           ]}
-        />
+        />}
         {review ? (
           <div className="mt-2">
             {review.doc.kind === "edited" ? (

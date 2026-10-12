@@ -617,6 +617,19 @@ const TOOLS: Tool[] = [
     run: (ctx, a) => ctx.runMutation(internal.agent.updateDetails, a),
   },
   {
+    name: "list_journal",
+    description: "Riley's Journal: personal entries and internal docs (newest first). They're documents like scripts but kept out of the script views: read one with get_script and edit it with edit_lines / edit_script using its id.",
+    inputSchema: { type: "object", properties: { query: { type: "string", description: "Optional title search" } } },
+    annotations: { readOnlyHint: true },
+    run: (ctx, a) => ctx.runQuery(internal.agent.listJournal, a),
+  },
+  {
+    name: "create_journal_entry",
+    description: "Add a Journal entry (a personal note or internal doc, not a script). Only when asked.",
+    inputSchema: { type: "object", properties: { title: { type: "string" }, lines: { type: "array", items: lineArg }, agentName: { type: "string" } }, required: ["title"] },
+    run: (ctx, a) => ctx.runMutation(internal.agent.createScript, { title: a.title, lines: a.lines, agentName: a.agentName, journal: true }),
+  },
+  {
     name: "create_script",
     description: "Create a new script. Don't create scripts in bulk unless asked.",
     inputSchema: {
