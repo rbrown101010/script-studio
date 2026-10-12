@@ -469,6 +469,36 @@ const TOOLS: Tool[] = [
     run: (ctx, a) => ctx.runMutation(internal.scratchboards.addForAgent, a),
   },
   {
+    name: "edit_scratchboard",
+    description:
+      "Change items already on a scratchboard by id (ids from get_scratchboard, or returned by add_to_scratchboard). Ops, applied in order: update {id, set:{field: value}} changes any fields (text, x, y, width, h, color, fill, style, size, url…; null removes one), move {id, dx, dy}, scale {id, scale} (resize, e.g. 1.5 or 0.5), delete {id}, front/back {id} (draw order). Each op takes id or ids:[...]. Text written inside a shape moves and deletes with it. Only touch what you drew or were asked to change. Can also rename with title.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        board: { type: "string" },
+        title: { type: "string" },
+        ops: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              op: { type: "string", enum: ["update", "move", "scale", "delete", "front", "back"] },
+              id: { type: "string" },
+              ids: { type: "array", items: { type: "string" } },
+              set: { type: "object" },
+              dx: { type: "number" },
+              dy: { type: "number" },
+              scale: { type: "number" },
+            },
+            required: ["op"],
+          },
+        },
+      },
+      required: ["board"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.scratchboards.editForAgent, a),
+  },
+  {
     name: "list_boards",
     description: "List the team's Excalidraw boards (newest first), optionally searching their titles and contents. Returns ids and links.",
     inputSchema: { type: "object", properties: { query: { type: "string" } } },

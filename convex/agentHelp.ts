@@ -58,7 +58,11 @@ add one (only when asked). list_scripts never includes them.
 Riley's drawings in his short-form "drawing board" style, drawn by Native Note's own engine (not Excalidraw): warm
 paper, hand-inked lines with a slow waver and pencil grain, colored-pencil hatching, Archivo 800/900 headings and big
 numbers, Architects Daughter handwritten notes, blue JetBrains Mono labels. Links look like /sb/<id>.
-list_scratchboards, get_scratchboard {board}, create_scratchboard {title, items?}, add_to_scratchboard {board, items}.
+list_scratchboards, get_scratchboard {board}, create_scratchboard {title, items?}, add_to_scratchboard {board, items},
+edit_scratchboard {board, ops, title?}. Every item has an id (get_scratchboard shows them; add_to_scratchboard returns the new
+ones). To fix a draft, edit it in place instead of adding again: update {id, set:{text:"…", x:…}} (any field; null removes it),
+move {id, dx, dy}, scale {id, scale:1.5}, delete {id}, front/back {id}; each takes id or ids:[…]. Only change what you drew
+or were asked to change.
 Items (coordinates in px; a sheet is usually ~1080 wide), drawn in order:
   {"kind":"text","style":"head","text":"What drives the funnel","x":540,"y":120,"align":"center"}   heading (uppercase)
   {"kind":"text","style":"big","text":"20M","x":540,"y":420,"size":260,"align":"center","fill":{"color":"#E2774F"}}

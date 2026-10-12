@@ -157,9 +157,135 @@ export const addForAgent = internalMutation({
     const id = ctx.db.normalizeId("scratchboards", idOf(board));
     const b = id ? await ctx.db.get(id) : null;
     if (!b) throw new ConvexError("Scratchboard not found. Use list_scratchboards for ids.");
-    const els = JSON.stringify([...JSON.parse(b.elements), ...clean(items)]);
+    const added = clean(items);
+    const els = JSON.stringify([...JSON.parse(b.elements), ...added]);
     if (els.length > MAX) throw new ConvexError("The scratchboard would be too big");
     await ctx.db.patch(b._id, { elements: els, summary: summarize(b.title, els), updatedAt: Date.now() });
-    return { id: b._id, url: link(b._id), added: Array.isArray(items) ? items.length : 0 };
+    return { id: b._id, url: link(b._id), added: added.length, ids: added.map((it) => it.id) };
+  },
+});
+
+// ---------- Agents editing what's already there (by item id) ----------
+
+type It = Record<string, unknown> & { id: string; kind: string };
+type P = [number, number];
+const num = (n: unknown, d = 0) => (typeof n === "number" && isFinite(n) ? n : d);
+const shiftPt = (p: unknown, dx: number, dy: number): P => [num((p as P)?.[0]) + dx, num((p as P)?.[1]) + dy];
+
+function moveItem(it: It, dx: number, dy: number): It {
+  const out: It = { ...it };
+  if (Array.isArray(it.pts)) out.pts = (it.pts as P[]).map((p) => shiftPt(p, dx, dy));
+  if (it.a) out.a = shiftPt(it.a, dx, dy);
+  if (it.b) out.b = shiftPt(it.b, dx, dy);
+  if (typeof it.x === "number") out.x = it.x + dx;
+  if (typeof it.y === "number") out.y = it.y + dy;
+  if (typeof it.cx === "number") out.cx = it.cx + dx;
+  if (typeof it.cy === "number") out.cy = it.cy + dy;
+  return out;
+}
+
+/** Scale an item by k, keeping its top-left (or center for circles, badges and centered text) in place */
+function scaleItem(it: It, k: number): It {
+  const out: It = { ...it };
+  const around = (p: P, o: P): P => [o[0] + (p[0] - o[0]) * k, o[1] + (p[1] - o[1]) * k];
+  if (Array.isArray(it.pts) && (it.pts as P[]).length) {
+    const pts = it.pts as P[];
+    const o: P = [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1]))];
+    out.pts = pts.map((p) => around(p, o));
+    if (typeof it.w === "number" || it.kind === "pen") out.w = num(it.w, 2.6);
+  }
+  if (it.a && it.b) {
+    const a = it.a as P;
+    out.b = around(it.b as P, a);
+  }
+  if (typeof it.width === "number") out.width = it.width * k;
+  if (typeof it.h === "number") out.h = it.h * k;
+  if (typeof it.rx === "number") out.rx = it.rx * k;
+  if (typeof it.ry === "number") out.ry = it.ry * k;
+  if (typeof it.r === "number" && it.kind === "badge") out.r = it.r * k;
+  if (typeof it.s === "number" || it.kind === "tick") out.s = num(it.s, 1) * k;
+  if (it.kind === "text") {
+    const base = { note: 36, head: 46, label: 24, big: 200 }[String(it.style ?? "note")] ?? 36;
+    out.size = Math.max(8, Math.round(num(it.size, base) * k));
+  }
+  return out;
+}
+
+const LOCKED = new Set(["id", "kind", "seed"]);
+
+export const editForAgent = internalMutation({
+  args: {
+    board: v.string(),
+    title: v.optional(v.string()),
+    ops: v.optional(v.any()),
+  },
+  handler: async (ctx, { board, title, ops }) => {
+    const id = ctx.db.normalizeId("scratchboards", idOf(board));
+    const b = id ? await ctx.db.get(id) : null;
+    if (!b) throw new ConvexError("Scratchboard not found. Use list_scratchboards for ids.");
+    let items = JSON.parse(b.elements) as It[];
+    const list = ops === undefined ? [] : ops;
+    if (!Array.isArray(list)) throw new ConvexError("ops must be a list");
+    const done: string[] = [];
+    list.forEach((raw, i) => {
+      const o = (raw ?? {}) as Record<string, unknown>;
+      const op = String(o.op ?? "");
+      const ids = (Array.isArray(o.ids) ? o.ids : [o.id]).filter((x): x is string => typeof x === "string");
+      if (op !== "clear" && !ids.length) throw new ConvexError(`Op ${i + 1}: give id (or ids)`);
+      const missing = ids.filter((x) => !items.some((it) => it.id === x));
+      if (missing.length) throw new ConvexError(`Op ${i + 1}: no item with id ${missing.join(", ")} (get_scratchboard lists ids)`);
+      const want = new Set(ids);
+      // Text written inside a shape goes with the shape
+      const withText = new Set(ids);
+      for (const it of items) if (typeof it.bind === "string" && want.has(it.bind)) withText.add(it.id);
+      switch (op) {
+        case "update": {
+          const set = o.set as Record<string, unknown> | undefined;
+          if (!set || typeof set !== "object") throw new ConvexError(`Op ${i + 1}: update needs set: {field: value}`);
+          items = items.map((it) => {
+            if (!want.has(it.id)) return it;
+            const next: It = { ...it };
+            for (const [k, val] of Object.entries(set)) {
+              if (LOCKED.has(k)) continue;
+              if (val === null) delete next[k];
+              else next[k] = val;
+            }
+            if (next.kind === "image" && (typeof next.url !== "string" || !/^https:\/\//.test(next.url))) throw new ConvexError(`Op ${i + 1}: an image needs an https url`);
+            return next;
+          });
+          break;
+        }
+        case "move": {
+          const dx = num(o.dx),
+            dy = num(o.dy);
+          items = items.map((it) => (withText.has(it.id) ? moveItem(it, dx, dy) : it));
+          break;
+        }
+        case "scale": {
+          const k = num(o.scale, 1);
+          if (k <= 0 || k > 20) throw new ConvexError(`Op ${i + 1}: scale must be between 0 and 20`);
+          items = items.map((it) => (want.has(it.id) ? scaleItem(it, k) : it));
+          break;
+        }
+        case "delete":
+          items = items.filter((it) => !withText.has(it.id));
+          break;
+        case "front":
+        case "back": {
+          const chosen = items.filter((it) => withText.has(it.id));
+          const rest = items.filter((it) => !withText.has(it.id));
+          items = op === "front" ? [...rest, ...chosen] : [...chosen, ...rest];
+          break;
+        }
+        default:
+          throw new ConvexError(`Op ${i + 1}: op must be update, move, scale, delete, front or back`);
+      }
+      done.push(`${op} ${ids.join(", ")}`);
+    });
+    const els = JSON.stringify(items);
+    if (els.length > MAX) throw new ConvexError("The scratchboard would be too big");
+    const t = title?.trim() ? title.trim().slice(0, 200) : b.title;
+    await ctx.db.patch(b._id, { title: t, elements: els, summary: summarize(t, els), updatedAt: Date.now() });
+    return { id: b._id, url: link(b._id), done, items: items.length };
   },
 });
