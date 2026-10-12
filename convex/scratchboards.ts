@@ -7,7 +7,7 @@
 //   {kind:"diamond", x, y, width, h, color?, fill?}          diamond
 //   {kind:"ellipse", cx, cy, rx, ry, color?, fill?}          circle / ellipse
 //   {kind:"poly", pts:[[x,y],…], closed?, sketch?, fill?}    any polygon (closed by default, fillable)
-//   {kind:"text", style:"note"|"head"|"label"|"big", text, x, y, size?, color?, align?}
+//   {kind:"text", style:"note"|"head"|"label"|"big", text, x, y, size?, color?, align?, bind?}  (bind = id of the shape it's written inside)
 //   {kind:"badge", cx, cy, r?, text, color?}                 numbered circle, filled
 //   {kind:"tick", x, y, s?}                                  green check
 //   {kind:"image", x, y, width, h, url}                      picture (pasted, dropped or added; https url)

@@ -40,8 +40,71 @@ export type Item = {
   style?: TextStyle;
   size?: number;
   align?: "left" | "center" | "right";
+  /** text: the shape (rect, diamond or ellipse id) it's written inside; it stays centered in it */
+  bind?: string;
   s?: number;
 };
+
+/** Shapes you can write inside (double-click them, like Excalidraw) */
+export const CONTAINERS = new Set<Item["kind"]>(["rect", "diamond", "ellipse"]);
+export const centerOf = (it: Item): Pt => {
+  if (it.kind === "ellipse") return [it.cx ?? 0, it.cy ?? 0];
+  const b = box(it);
+  return [b.x + b.w / 2, b.y + b.h / 2];
+};
+/** Is the point inside the shape (not just on its outline)? */
+export function inside(it: Item, p: Pt) {
+  if (it.kind === "ellipse") return Math.hypot((p[0] - (it.cx ?? 0)) / (Math.abs(it.rx ?? 1) || 1), (p[1] - (it.cy ?? 0)) / (Math.abs(it.ry ?? 1) || 1)) <= 1;
+  const b = box(it);
+  if (it.kind === "diamond") return Math.abs(p[0] - (b.x + b.w / 2)) / (b.w / 2 || 1) + Math.abs(p[1] - (b.y + b.h / 2)) / (b.h / 2 || 1) <= 1;
+  return p[0] >= b.x && p[0] <= b.x + b.w && p[1] >= b.y && p[1] <= b.y + b.h;
+}
+/** Keep text written inside shapes centered in them, and drop it when its shape is gone */
+export function settleBound(list: Item[]): Item[] {
+  if (!list.some((it) => it.bind)) return list;
+  const byId = new Map(list.map((it) => [it.id, it]));
+  let changed = false;
+  const out: Item[] = [];
+  for (const it of list) {
+    if (!it.bind) {
+      out.push(it);
+      continue;
+    }
+    const shape = byId.get(it.bind);
+    if (!shape || !CONTAINERS.has(shape.kind)) {
+      changed = true;
+      continue;
+    }
+    const [cx, cy] = centerOf(shape);
+    const size = it.size ?? TEXT[it.style ?? "note"].size;
+    const y = cy - ((textLines(it).length - 1) * lineGap(it)) / 2 + size * 0.33;
+    if (it.x === cx && it.y === y && it.align === "center") out.push(it);
+    else {
+      changed = true;
+      out.push({ ...it, x: cx, y, align: "center" });
+    }
+  }
+  return changed ? out : list;
+}
+/** Copies of items with new ids; text inside a copied shape goes with the copy */
+export function cloneItems(chosen: Item[], newId: () => string): Item[] {
+  const ids = new Map(chosen.map((it) => [it.id, newId()]));
+  return chosen.map((it) => {
+    const copy: Item = { ...it, id: ids.get(it.id)! };
+    // Text copied without its shape becomes plain text
+    if (it.bind) {
+      if (ids.has(it.bind)) copy.bind = ids.get(it.bind);
+      else delete copy.bind;
+    }
+    return copy;
+  });
+}
+/** The ids plus any text written inside those shapes */
+export function withBound(ids: Set<string>, list: Item[]): Set<string> {
+  const out = new Set(ids);
+  for (const it of list) if (it.bind && ids.has(it.bind)) out.add(it.id);
+  return out;
+}
 
 export const INK = "#2B2B2C";
 export const PALETTE: { name: string; hex: string }[] = [

@@ -73,6 +73,8 @@ Items (coordinates in px; a sheet is usually ~1080 wide), drawn in order:
   {"kind":"badge","cx":90,"cy":100,"r":44,"text":"1","fill":{"color":"#4F8DD6"}}
   {"kind":"tick","x":610,"y":190}
   {"kind":"image","x":600,"y":200,"width":360,"h":240,"url":"https://…/photo.jpg"}   picture (keep its aspect ratio)
+  {"kind":"rect","id":"b1","x":100,"y":200,"width":300,"h":140} then {"kind":"text","style":"note","text":"Hook","bind":"b1"}
+    text written inside a shape (rect, diamond or ellipse): give the shape an id and the text bind = that id; it stays centered
 Palette: ink #2B2B2C, graphite #6B6A66, blue labels #5B8FC7, coral #E2774F, blue #4F8DD6, violet #9B6FC9, pink #C96FA6,
 tan #C28F55, green #7FA752, red #E24B3F, grey #8E8B84, highlighter #F6D36B. Style rules: ink outline first, color
 underneath; no boxes around groups (group with space and headings); one light tint per region (fill.tint true) plus

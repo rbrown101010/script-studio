@@ -11,7 +11,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import { uploadToUrl } from "@/lib/upload";
-import { INK, PALETTE, TEXT, bounds, box, build, hit, lineGap, moved, onImageLoad, shownText, textWidth, tidyPath, type Drawable, type Item, type Pt, type TextStyle } from "@/lib/scratchDraw";
+import { CONTAINERS, INK, PALETTE, TEXT, bounds, box, build, cloneItems, hit, inside, lineGap, settleBound, withBound, moved, onImageLoad, shownText, textWidth, tidyPath, type Drawable, type Item, type Pt, type TextStyle } from "@/lib/scratchDraw";
 
 const FONTS_CSS = "https://fonts.googleapis.com/css2?family=Archivo:wght@500..900&family=Architects+Daughter&family=Inter:wght@400..700&family=JetBrains+Mono:wght@400..700&display=block";
 const DESK = "#2A2928";
@@ -154,7 +154,7 @@ export function ScratchboardEditor({ id }: { id: string }) {
   useEffect(() => {
     if (!board) return;
     if (!loaded) {
-      const list = JSON.parse(board.elements || "[]") as Item[];
+      const list = settleBound(JSON.parse(board.elements || "[]") as Item[]);
       itemsRef.current = list;
       setItemsState(list);
       lastSaved.current = board.elements;
@@ -162,7 +162,7 @@ export function ScratchboardEditor({ id }: { id: string }) {
       return;
     }
     if (board.elements !== lastSaved.current && !saveTimer.current && !gesture.current) {
-      const list = JSON.parse(board.elements || "[]") as Item[];
+      const list = settleBound(JSON.parse(board.elements || "[]") as Item[]);
       itemsRef.current = list;
       setItemsState(list);
       lastSaved.current = board.elements;
@@ -196,6 +196,7 @@ export function ScratchboardEditor({ id }: { id: string }) {
   /** Change the drawing (with undo) */
   const commit = useCallback(
     (next: Item[], undoable = true) => {
+      next = settleBound(next);
       if (undoable) {
         history.current.past.push(JSON.stringify(itemsRef.current));
         if (history.current.past.length > 200) history.current.past.shift();
@@ -477,7 +478,9 @@ export function ScratchboardEditor({ id }: { id: string }) {
           return;
         }
       }
-      const it = topHit(p);
+      let it = topHit(p);
+      // Text written inside a shape picks up the shape (double-click edits the text)
+      if (it?.bind) it = itemsRef.current.find((x) => x.id === it!.bind) ?? it;
       if (it) {
         const next = new Set(e.shiftKey ? sel : sel.has(it.id) ? sel : []);
         if (e.shiftKey && sel.has(it.id)) next.delete(it.id);
@@ -486,9 +489,10 @@ export function ScratchboardEditor({ id }: { id: string }) {
         // Alt-drag duplicates, like Excalidraw
         let ids = next;
         if (e.altKey) {
-          const copies = itemsRef.current.filter((x) => next.has(x.id)).map((x) => ({ ...x, id: uid() }));
+          const all = withBound(next, itemsRef.current);
+          const copies = cloneItems(itemsRef.current.filter((x) => all.has(x.id)), uid);
           commit([...itemsRef.current, ...copies]);
-          ids = new Set(copies.map((x) => x.id));
+          ids = new Set(copies.filter((x) => !x.bind).map((x) => x.id));
           setSel(ids);
         }
         gesture.current = { type: "move", start: p, last: p, ids, before: JSON.stringify(itemsRef.current), moved: false };
@@ -519,6 +523,13 @@ export function ScratchboardEditor({ id }: { id: string }) {
       e.preventDefault();
       const existing = topHit(p);
       if (existing?.kind === "text") return setEditing({ id: existing.id, isNew: false });
+      // Clicking a shape with the text tool writes inside it
+      const shape = [...itemsRef.current].reverse().find((x) => CONTAINERS.has(x.kind) && inside(x, p));
+      if (shape && (!existing || existing === shape)) {
+        writeIn(shape);
+        if (!locked) setToolState("select");
+        return;
+      }
       const it = makeItem("text", [p[0], p[1] + (style.textSize ?? TEXT[style.textStyle].size) * 0.35]);
       commit([...itemsRef.current, it]);
       setEditing({ id: it.id, isNew: true });
@@ -568,7 +579,7 @@ export function ScratchboardEditor({ id }: { id: string }) {
         const nb = bounds(sized);
         next = { ...sized, x: (o.x ?? 0) + b.x - nb.x, y: (o.y ?? 0) + b.y - nb.y };
       }
-      itemsRef.current = itemsRef.current.map((it) => (it.id === o.id ? next : it));
+      itemsRef.current = settleBound(itemsRef.current.map((it) => (it.id === o.id ? next : it)));
       setItemsState(itemsRef.current);
       return;
     }
@@ -577,7 +588,7 @@ export function ScratchboardEditor({ id }: { id: string }) {
         dy = p[1] - g.last[1];
       g.last = p;
       g.moved = true;
-      itemsRef.current = itemsRef.current.map((it) => (g.ids.has(it.id) ? moved(it, dx, dy) : it));
+      itemsRef.current = settleBound(itemsRef.current.map((it) => (g.ids.has(it.id) ? moved(it, dx, dy) : it)));
       setItemsState(itemsRef.current);
       return;
     }
@@ -673,7 +684,8 @@ export function ScratchboardEditor({ id }: { id: string }) {
       if (!tiny) {
         if (d.kind === "pen") d = { ...d, pts: tidyPath(d.pts ?? []) };
         commit([...itemsRef.current, d]);
-        if (d.kind !== "pen" && !locked) {
+        // Pen, line and arrow stay on until you pick another tool
+        if (d.kind !== "pen" && d.kind !== "line" && d.kind !== "arrow" && !locked) {
           setToolState("select");
           setSel(new Set([d.id]));
         }
@@ -683,12 +695,26 @@ export function ScratchboardEditor({ id }: { id: string }) {
     if (g.type === "marquee") redraw();
   };
 
+  /** Edit the text inside a shape (starting it if there's none yet) */
+  const writeIn = (shape: Item) => {
+    const existing = itemsRef.current.find((x) => x.kind === "text" && x.bind === shape.id);
+    setSel(new Set());
+    if (existing) return setEditing({ id: existing.id, isNew: false });
+    const t: Item = { ...makeItem("text", [0, 0]), bind: shape.id, align: "center" };
+    commit([...itemsRef.current, t]);
+    setEditing({ id: t.id, isNew: true });
+  };
+
   const onDoubleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     const sp = screenPt(e);
     const p = toWorld(sp[0], sp[1]);
     const it = topHit(p);
     if (it?.kind === "text") return setEditing({ id: it.id, isNew: false });
+    // Double-click a shape to write inside it, like Excalidraw
+    const list = itemsRef.current;
+    const shape = it && CONTAINERS.has(it.kind) ? it : [...list].reverse().find((x) => CONTAINERS.has(x.kind) && inside(x, p));
+    if (shape && (!it || it === shape)) return writeIn(shape);
     if (!it) {
       const t = makeItem("text", [p[0], p[1] + (style.textSize ?? TEXT[style.textStyle].size) * 0.35]);
       commit([...itemsRef.current, t]);
@@ -818,7 +844,7 @@ export function ScratchboardEditor({ id }: { id: string }) {
         const parsed = JSON.parse(text);
         if (Array.isArray(parsed?.scratchboard)) {
           e.preventDefault();
-          const copies = (parsed.scratchboard as Item[]).map((it) => moved({ ...it, id: uid() }, 24, 24));
+          const copies = cloneItems(parsed.scratchboard as Item[], uid).map((it) => moved(it, 24, 24));
           commit([...itemsRef.current, ...copies]);
           setSel(new Set(copies.map((c) => c.id)));
           return;
@@ -826,7 +852,7 @@ export function ScratchboardEditor({ id }: { id: string }) {
       } catch {}
       if (clipboard.current.length && !text) {
         e.preventDefault();
-        const copies = clipboard.current.map((it) => moved({ ...it, id: uid() }, 24, 24));
+        const copies = cloneItems(clipboard.current, uid).map((it) => moved(it, 24, 24));
         clipboard.current = copies;
         commit([...itemsRef.current, ...copies]);
         setSel(new Set(copies.map((c) => c.id)));
@@ -870,13 +896,15 @@ export function ScratchboardEditor({ id }: { id: string }) {
         setSel(new Set(itemsRef.current.map((it) => it.id)));
       } else if (mod && k === "d") {
         e.preventDefault();
-        const copies = itemsRef.current.filter((it) => sel.has(it.id)).map((it) => moved({ ...it, id: uid() }, 20, 20));
+        const all = withBound(sel, itemsRef.current);
+        const copies = cloneItems(itemsRef.current.filter((it) => all.has(it.id)), uid).map((it) => moved(it, 20, 20));
         if (copies.length) {
           commit([...itemsRef.current, ...copies]);
-          setSel(new Set(copies.map((c) => c.id)));
+          setSel(new Set(copies.filter((c) => !c.bind).map((c) => c.id)));
         }
       } else if (mod && (k === "c" || k === "x")) {
-        const chosen = itemsRef.current.filter((it) => sel.has(it.id));
+        const all = withBound(sel, itemsRef.current);
+        const chosen = itemsRef.current.filter((it) => all.has(it.id));
         if (!chosen.length) return;
         e.preventDefault();
         clipboard.current = chosen;
@@ -939,6 +967,9 @@ export function ScratchboardEditor({ id }: { id: string }) {
         if (it?.kind === "text") {
           e.preventDefault();
           setEditing({ id: it.id, isNew: false });
+        } else if (it && CONTAINERS.has(it.kind)) {
+          e.preventDefault();
+          writeIn(it);
         }
       } else if (e.key.startsWith("Arrow") && sel.size) {
         e.preventDefault();
