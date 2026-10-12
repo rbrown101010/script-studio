@@ -10,6 +10,7 @@
 //   {kind:"text", style:"note"|"head"|"label"|"big", text, x, y, size?, color?, align?}
 //   {kind:"badge", cx, cy, r?, text, color?}                 numbered circle, filled
 //   {kind:"tick", x, y, s?}                                  green check
+//   {kind:"image", x, y, width, h, url}                      picture (pasted, dropped or added; https url)
 // fill: {color, tint?:true} (tint = the light wide hatching for big regions). Colors are hex; ink #2B2B2C default.
 // Every item also has an id and a seed (so its hand-drawn wobble stays the same every time).
 
@@ -123,13 +124,18 @@ export const getForAgent = internalQuery({
   },
 });
 
-const KINDS = new Set(["pen", "line", "arrow", "rect", "diamond", "ellipse", "poly", "text", "badge", "tick"]);
+const KINDS = new Set(["pen", "line", "arrow", "rect", "diamond", "ellipse", "poly", "text", "badge", "tick", "image"]);
 function clean(items: unknown) {
   if (!Array.isArray(items)) throw new ConvexError("items must be a list");
   if (items.length > 400) throw new ConvexError("At most 400 items at once");
   return items.map((raw, i) => {
     const it = raw as Record<string, unknown>;
     if (!it || typeof it !== "object" || !KINDS.has(String(it.kind))) throw new ConvexError(`Item ${i + 1}: kind must be one of ${[...KINDS].join(", ")}`);
+    if (it.kind === "image") {
+      if (typeof it.url !== "string" || !/^https:\/\//.test(it.url)) throw new ConvexError(`Item ${i + 1}: an image needs an https url`);
+      if (![it.x, it.y, it.width, it.h].every((n) => typeof n === "number" && isFinite(n)) || (it.width as number) <= 0 || (it.h as number) <= 0)
+        throw new ConvexError(`Item ${i + 1}: an image needs x, y, width and h (px)`);
+    }
     return { ...it, id: typeof it.id === "string" ? it.id : crypto.randomUUID(), seed: typeof it.seed === "number" ? it.seed : Math.floor(Math.random() * 1e6) };
   });
 }

@@ -10,15 +10,23 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
-import { INK, PALETTE, TEXT, bounds, build, hit, lineGap, moved, shownText, textWidth, tidyPath, type Drawable, type Item, type Pt, type TextStyle } from "@/lib/scratchDraw";
+import { uploadToUrl } from "@/lib/upload";
+import { INK, PALETTE, TEXT, bounds, box, build, hit, lineGap, moved, onImageLoad, shownText, textWidth, tidyPath, type Drawable, type Item, type Pt, type TextStyle } from "@/lib/scratchDraw";
 
 const FONTS_CSS = "https://fonts.googleapis.com/css2?family=Archivo:wght@500..900&family=Architects+Daughter&family=Inter:wght@400..700&family=JetBrains+Mono:wght@400..700&display=block";
 const DESK = "#2A2928";
+const RESIZABLE = new Set<Item["kind"]>(["image", "rect", "diamond", "ellipse", "text"]);
+/** Pictures land at their natural size, but no wider or taller than this on the board */
+const MAX_IMAGE = 720;
+/** Pictures uploaded this session: local (blob:) url → saved url */
+const UPLOADED = new Map<string, string>();
+/** How much to scale a w×h box so its corner follows a pointer moved by dx,dy (projected onto the box's diagonal) */
+const diagScale = (w: number, h: number, dx: number, dy: number) => ((w + dx) * w + (h + dy) * h) / Math.max(1, w * w + h * h);
 const RED = "#E24B3F";
 
-type Tool = "hand" | "select" | "rect" | "diamond" | "ellipse" | "arrow" | "line" | "pen" | "text" | "eraser";
+type Tool = "hand" | "select" | "rect" | "diamond" | "ellipse" | "arrow" | "line" | "pen" | "text" | "image" | "eraser";
 // Excalidraw's shortcuts: letters and the number row
-const KEYS: Record<string, Tool> = { h: "hand", v: "select", "1": "select", r: "rect", "2": "rect", d: "diamond", "3": "diamond", o: "ellipse", "4": "ellipse", a: "arrow", "5": "arrow", l: "line", "6": "line", p: "pen", "7": "pen", t: "text", "8": "text", e: "eraser", "0": "eraser" };
+const KEYS: Record<string, Tool> = { h: "hand", v: "select", "1": "select", r: "rect", "2": "rect", d: "diamond", "3": "diamond", o: "ellipse", "4": "ellipse", a: "arrow", "5": "arrow", l: "line", "6": "line", p: "pen", "7": "pen", t: "text", "8": "text", "9": "image", e: "eraser", "0": "eraser" };
 const TOOLS: { tool: Tool; label: string; key: string; icon: ReactNode }[] = [
   { tool: "hand", label: "Hand (panning tool)", key: "H", icon: <path d="M7 9.5V4a1 1 0 0 1 2 0v4.5m0-1V3a1 1 0 0 1 2 0v4.5m0-.5V4a1 1 0 0 1 2 0v6.5c0 2.5-1.8 4-4 4H8.6a3 3 0 0 1-2.4-1.2L3.9 10.3a1 1 0 0 1 1.5-1.3L7 10.5" /> },
   { tool: "select", label: "Selection", key: "V or 1", icon: <path d="M4 2.5 12.5 9l-4 .8L10.6 14l-1.6.7-2-4.2-3 2.6z" /> },
@@ -29,6 +37,7 @@ const TOOLS: { tool: Tool; label: string; key: string; icon: ReactNode }[] = [
   { tool: "line", label: "Line", key: "L or 6", icon: <path d="M2.5 13.5 13.5 2.5" /> },
   { tool: "pen", label: "Draw", key: "P or 7", icon: <path d="M11 2.5 13.5 5 6 12.5 2.5 13.5 3.5 10 11 2.5Z" /> },
   { tool: "text", label: "Text", key: "T or 8", icon: <path d="M3 3.5h10M8 3.5v9.5M6 13h4" /> },
+  { tool: "image", label: "Insert image", key: "9", icon: <><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><circle cx="6" cy="6.5" r="1.1" /><path d="m2.5 11.5 3.5-3 2.5 2 2-1.5 3 2.5" /></> },
   { tool: "eraser", label: "Eraser", key: "E or 0", icon: <path d="M6 13.5h7.5M9.5 3.5l3.5 3.5-6 6.5H5l-2.5-2.5z" /> },
 ];
 
@@ -41,6 +50,10 @@ type Style = { color: string; fill: string | null; tint: boolean; w: number; tex
 export function ScratchboardEditor({ id }: { id: string }) {
   const board = useQuery(api.scratchboards.get, { id });
   const save = useMutation(api.scratchboards.save);
+  const uploadUrl = useMutation(api.docs.generateUploadUrl);
+  const fileUrl = useMutation(api.docs.fileUrl);
+  const [uploading, setUploading] = useState(0);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [S, setS] = useState<any>(null); // the sketch kit (browser only)
   const [fontsReady, setFontsReady] = useState(0);
   const [items, setItemsState] = useState<Item[]>([]);
@@ -161,7 +174,15 @@ export function ScratchboardEditor({ id }: { id: string }) {
     setSaving("saving");
     saveTimer.current = setTimeout(async () => {
       saveTimer.current = null;
-      const json = JSON.stringify(itemsRef.current);
+      // A picture still uploading has a local url: save its uploaded url if it's done (undo/redo and copies can
+      // bring the local one back), and leave it out until then
+      const json = JSON.stringify(
+        itemsRef.current.flatMap((it) => {
+          if (it.kind !== "image" || !it.url?.startsWith("blob:")) return [it];
+          const done = UPLOADED.get(it.url);
+          return done ? [{ ...it, url: done }] : [];
+        }),
+      );
       try {
         await save({ id: id as Id<"scratchboards">, elements: json });
         lastSaved.current = json;
@@ -323,6 +344,15 @@ export function ScratchboardEditor({ id }: { id: string }) {
             c.strokeRect(b.x - 4 / z.z, b.y - 4 / z.z, b.w + 8 / z.z, b.h + 8 / z.z);
           }
         c.setLineDash([]);
+        const only = sel.size === 1 ? itemsRef.current.find((x) => sel.has(x.id)) : null;
+        if (only && RESIZABLE.has(only.kind)) {
+          const b = bounds(only);
+          const s = 9 / z.z;
+          c.fillStyle = "#FBFAF7";
+          c.lineWidth = 1.5 / z.z;
+          c.fillRect(b.x + b.w + 4 / z.z - s / 2, b.y + b.h + 4 / z.z - s / 2, s, s);
+          c.strokeRect(b.x + b.w + 4 / z.z - s / 2, b.y + b.h + 4 / z.z - s / 2, s, s);
+        }
       }
       // Marquee
       const g = gesture.current;
@@ -436,6 +466,17 @@ export function ScratchboardEditor({ id }: { id: string }) {
       return;
     }
     if (tool === "select") {
+      // The corner handle of a single selected picture or shape resizes it
+      const only = sel.size === 1 ? itemsRef.current.find((x) => sel.has(x.id)) : null;
+      if (only && RESIZABLE.has(only.kind)) {
+        const b = bounds(only);
+        const hx = b.x + b.w + 4 / camRef.current.z,
+          hy = b.y + b.h + 4 / camRef.current.z;
+        if (Math.hypot(p[0] - hx, p[1] - hy) < 12 / camRef.current.z) {
+          gesture.current = { type: "resize", start: p, orig: only, before: JSON.stringify(itemsRef.current) };
+          return;
+        }
+      }
       const it = topHit(p);
       if (it) {
         const next = new Set(e.shiftKey ? sel : sel.has(it.id) ? sel : []);
@@ -466,6 +507,13 @@ export function ScratchboardEditor({ id }: { id: string }) {
       }
       return;
     }
+    if (tool === "image") {
+      e.preventDefault();
+      setDropAt(p);
+      fileInput.current?.click();
+      if (!locked) setToolState("select");
+      return;
+    }
     if (tool === "text") {
       // Keep the browser from moving focus off the text box we're about to open
       e.preventDefault();
@@ -490,6 +538,38 @@ export function ScratchboardEditor({ id }: { id: string }) {
     if (g.type === "pan") {
       movingRef.current = Date.now();
       moveCam({ ...g.cam, x: g.cam.x + sp[0] - g.start[0], y: g.cam.y + sp[1] - g.start[1] });
+      return;
+    }
+    if (g.type === "resize") {
+      const o: Item = g.orig;
+      const dx = p[0] - g.start[0],
+        dy = p[1] - g.start[1];
+      let next: Item = o;
+      if (o.kind === "image" || o.kind === "rect" || o.kind === "diamond") {
+        const b = box(o);
+        let w = Math.max(16, b.w + dx),
+          h = Math.max(16, b.h + dy);
+        // Pictures keep their shape (hold Shift to stretch); shapes stretch freely (hold Shift to keep shape)
+        const keep = o.kind === "image" ? !e.shiftKey : e.shiftKey;
+        if (keep) {
+          const k = Math.max(16 / Math.min(b.w, b.h), diagScale(b.w, b.h, dx, dy));
+          w = b.w * k;
+          h = b.h * k;
+        }
+        next = { ...o, x: b.x, y: b.y, width: w, h };
+      } else if (o.kind === "ellipse") {
+        next = { ...o, rx: Math.max(8, Math.abs(o.rx ?? 0) + dx / 2), ry: Math.max(8, Math.abs(o.ry ?? 0) + dy / 2), cx: (o.cx ?? 0) + dx / 2, cy: (o.cy ?? 0) + dy / 2 };
+        if (e.shiftKey) next.ry = next.rx;
+      } else if (o.kind === "text") {
+        // Scale the lettering with the corner (whichever way you pull further), keeping its top-left corner where it was
+        const b = bounds(o);
+        const k = Math.max(0.1, diagScale(b.w, b.h, dx, dy));
+        const sized: Item = { ...o, size: Math.round(Math.max(8, (o.size ?? TEXT[o.style ?? "note"].size) * k)) };
+        const nb = bounds(sized);
+        next = { ...sized, x: (o.x ?? 0) + b.x - nb.x, y: (o.y ?? 0) + b.y - nb.y };
+      }
+      itemsRef.current = itemsRef.current.map((it) => (it.id === o.id ? next : it));
+      setItemsState(itemsRef.current);
       return;
     }
     if (g.type === "move") {
@@ -570,6 +650,11 @@ export function ScratchboardEditor({ id }: { id: string }) {
     const g = gesture.current;
     gesture.current = null;
     if (!g) return;
+    if (g.type === "resize" && JSON.stringify(itemsRef.current) !== g.before) {
+      history.current.past.push(g.before);
+      history.current.future = [];
+      persist();
+    }
     if (g.type === "move" && g.moved) {
       history.current.past.push(g.before);
       history.current.future = [];
@@ -650,6 +735,116 @@ export function ScratchboardEditor({ id }: { id: string }) {
     commit(itemsRef.current.map((it) => (sel.has(it.id) ? { ...it, ...(itemPatch(it) ?? {}) } : it)));
   };
 
+  // ---------- pictures: paste, drop, or the image tool ----------
+  const [dropAt, setDropAt] = useState<Pt | null>(null);
+  useEffect(() => onImageLoad(() => {
+    snapRef.current = null;
+    redraw();
+  }), [redraw]);
+  const viewCenter = (): Pt => {
+    const el = wrap.current!;
+    return toWorld(el.clientWidth / 2, el.clientHeight / 2);
+  };
+  /** Shows each picture straight away (from the file), uploads it, then swaps in its saved address */
+  const addImages = useCallback(
+    async (files: File[], at?: Pt) => {
+      const imgs = files.filter((f) => f.type.startsWith("image/"));
+      if (!imgs.length) return;
+      const center = at ?? viewCenter();
+      const added: Item[] = [];
+      let offset = 0;
+      for (const f of imgs) {
+        const local = URL.createObjectURL(f);
+        const dims = await new Promise<{ w: number; h: number }>((res) => {
+          const im = new Image();
+          im.onload = () => res({ w: im.naturalWidth || 400, h: im.naturalHeight || 300 });
+          im.onerror = () => res({ w: 400, h: 300 });
+          im.src = local;
+        });
+        // Retina screenshots come in at 2x: show them at their on-screen size
+        const k = Math.min(1, MAX_IMAGE / Math.max(dims.w, dims.h), f.name.includes("@2x") || /CleanShot|Screenshot/.test(f.name) ? 0.5 : 1);
+        const w = dims.w * k,
+          h = dims.h * k;
+        added.push({ id: uid(), seed: newSeed(), kind: "image", url: local, x: center[0] - w / 2 + offset, y: center[1] - h / 2 + offset, width: w, h });
+        offset += 28;
+      }
+      commit([...itemsRef.current, ...added]);
+      setToolState("select");
+      setSel(new Set(added.map((a) => a.id)));
+      setUploading((n) => n + added.length);
+      await Promise.all(
+        added.map(async (it, i) => {
+          try {
+            const storageId = await uploadToUrl(await uploadUrl(), imgs[i], () => {});
+            const url = await fileUrl({ storageId: storageId as Id<"_storage"> });
+            if (!url) throw new Error("no url");
+            // Load the saved copy before swapping, so the picture never flickers
+            await new Promise((res) => {
+              const im = new Image();
+              im.onload = im.onerror = () => res(null);
+              im.src = url;
+            });
+            UPLOADED.set(it.url!, url);
+            itemsRef.current = itemsRef.current.map((x) => (x.kind === "image" && x.url === it.url ? { ...x, url } : x));
+            setItemsState(itemsRef.current);
+            persist();
+          } catch {
+            itemsRef.current = itemsRef.current.filter((x) => !(x.kind === "image" && x.url === it.url));
+            setItemsState(itemsRef.current);
+            alert("Couldn't upload that picture. Try again.");
+          } finally {
+            setUploading((n) => n - 1);
+          }
+        }),
+      );
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [commit, persist, uploadUrl, fileUrl],
+  );
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest?.("input, textarea, [contenteditable=true]") || editing) return;
+      const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
+      if (files.length) {
+        e.preventDefault();
+        const p = pointer.current;
+        void addImages(files, p ? toWorld(p.x, p.y) : undefined);
+        return;
+      }
+      const text = e.clipboardData?.getData("text/plain") ?? "";
+      // Things copied from a scratchboard (this one or another)
+      try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed?.scratchboard)) {
+          e.preventDefault();
+          const copies = (parsed.scratchboard as Item[]).map((it) => moved({ ...it, id: uid() }, 24, 24));
+          commit([...itemsRef.current, ...copies]);
+          setSel(new Set(copies.map((c) => c.id)));
+          return;
+        }
+      } catch {}
+      if (clipboard.current.length && !text) {
+        e.preventDefault();
+        const copies = clipboard.current.map((it) => moved({ ...it, id: uid() }, 24, 24));
+        clipboard.current = copies;
+        commit([...itemsRef.current, ...copies]);
+        setSel(new Set(copies.map((c) => c.id)));
+        return;
+      }
+      // Plain text becomes a note, like pasting text into Excalidraw
+      if (text.trim()) {
+        e.preventDefault();
+        const [x, y] = viewCenter();
+        const it: Item = { id: uid(), seed: newSeed(), kind: "text", style: style.textStyle, text: text.slice(0, 2000), x, y, size: style.textSize ?? TEXT[style.textStyle].size, color: style.color };
+        commit([...itemsRef.current, it]);
+        setSel(new Set([it.id]));
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  });
+
   // ---------- keyboard: Excalidraw's shortcuts ----------
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -691,12 +886,8 @@ export function ScratchboardEditor({ id }: { id: string }) {
           setSel(new Set());
         }
       } else if (mod && k === "v") {
-        if (!clipboard.current.length) return;
-        e.preventDefault();
-        const copies = clipboard.current.map((it) => moved({ ...it, id: uid() }, 24, 24));
-        clipboard.current = copies;
-        commit([...itemsRef.current, ...copies]);
-        setSel(new Set(copies.map((c) => c.id)));
+        // handled by the paste listener (images, copied scratchboard items, or text)
+        return;
       } else if (mod && (e.key === "]" || e.key === "[")) {
         // Bring forward / send backward (shift: all the way)
         e.preventDefault();
@@ -814,7 +1005,20 @@ export function ScratchboardEditor({ id }: { id: string }) {
 
   return (
     <div className="relative h-dvh w-full overflow-hidden select-none" style={{ background: DESK }}>
-      <div ref={wrap} className="absolute inset-0">
+      <div
+        ref={wrap}
+        className="absolute inset-0"
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes("Files")) e.preventDefault();
+        }}
+        onDrop={(e) => {
+          const files = Array.from(e.dataTransfer.files);
+          if (!files.length) return;
+          e.preventDefault();
+          const r = canvas.current!.getBoundingClientRect();
+          void addImages(files, toWorld(e.clientX - r.left, e.clientY - r.top));
+        }}
+      >
         <canvas
           ref={canvas}
           className="block h-full w-full touch-none"
@@ -839,6 +1043,24 @@ export function ScratchboardEditor({ id }: { id: string }) {
       </div>
 
       {editItem && <TextEditor item={editItem} cam={cam} onDone={finishText} />}
+      <input
+        ref={fileInput}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          e.target.value = "";
+          void addImages(files, dropAt ?? undefined);
+          setDropAt(null);
+        }}
+      />
+      {uploading > 0 && chrome && (
+        <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-[#33312F]/95 px-3 py-1.5 text-[11px] uppercase tracking-[0.1em] text-[#EDEAE3]" style={{ fontFamily: "JetBrains Mono, monospace" }}>
+          Saving {uploading} picture{uploading === 1 ? "" : "s"}…
+        </div>
+      )}
 
       {/* Top left: back, title, saved */}
       {chrome && <div className="absolute left-3 top-3 z-10 flex h-10 items-center gap-1 rounded-xl bg-[#33312F]/95 px-1.5 text-[#EDEAE3] shadow-[0_6px_24px_rgba(0,0,0,0.3)]">

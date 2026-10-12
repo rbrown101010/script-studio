@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { bounds, build, type Item } from "@/lib/scratchDraw";
+import { bounds, build, onImageLoad, type Item } from "@/lib/scratchDraw";
 import { IconPlus, IconTrash } from "./icons";
 
 const FONTS_CSS = "https://fonts.googleapis.com/css2?family=Archivo:wght@500..900&family=Architects+Daughter&family=Inter:wght@400..700&family=JetBrains+Mono:wght@400..700&display=block";
@@ -90,6 +90,10 @@ export function ScratchboardList() {
 /** A small picture of the sheet, drawn with the real kit */
 function Thumb({ S, json }: { S: any; json: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  // Pictures load after the first paint; draw again once they arrive
+  const hasImages = json.includes('"kind":"image"');
+  const [loads, setLoads] = useState(0);
+  useEffect(() => (hasImages ? onImageLoad(() => setLoads((n) => n + 1)) : undefined), [hasImages]);
   useEffect(() => {
     const cv = ref.current;
     if (!cv || !S) return;
@@ -128,6 +132,6 @@ function Thumb({ S, json }: { S: any; json: string }) {
     return () => {
       alive = false;
     };
-  }, [S, json]);
+  }, [S, json, loads]);
   return <canvas ref={ref} className="block aspect-[24/17] w-full" />;
 }

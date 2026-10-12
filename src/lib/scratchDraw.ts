@@ -8,7 +8,9 @@ export type TextStyle = "note" | "head" | "label" | "big";
 export type Item = {
   id: string;
   seed: number;
-  kind: "pen" | "line" | "arrow" | "rect" | "diamond" | "ellipse" | "poly" | "text" | "badge" | "tick";
+  kind: "pen" | "line" | "arrow" | "rect" | "diamond" | "ellipse" | "poly" | "text" | "badge" | "tick" | "image";
+  /** image: where the picture lives (x, y, width, h is its box) */
+  url?: string;
   /** poly: closed shape (fillable); sketch = each side its own overshooting line */
   closed?: boolean;
   sketch?: boolean;
@@ -117,6 +119,53 @@ export function arrowCtrl(a: Pt, b: Pt, bend = 0.25): [Pt, Pt, Pt, Pt] {
 
 export type Drawable = { el: any; layer: number; tool: boolean; dur: number };
 
+// Pictures load once and are shared; whoever is drawing gets told when one arrives
+const IMAGES = new Map<string, HTMLImageElement>();
+const imageListeners = new Set<() => void>();
+export function onImageLoad(cb: () => void) {
+  imageListeners.add(cb);
+  return () => void imageListeners.delete(cb);
+}
+export function getImage(url: string) {
+  let img = IMAGES.get(url);
+  if (!img) {
+    img = new Image();
+    img.decoding = "async";
+    img.onload = () => imageListeners.forEach((f) => f());
+    img.src = url;
+    IMAGES.set(url, img);
+  }
+  return img;
+}
+/** A pasted picture: pops in on Play (squash and stretch), sits flat on the paper otherwise */
+function imageEl(it: Item) {
+  const b = box(it);
+  return {
+    kind: "image",
+    color: INK,
+    draw(c: CanvasRenderingContext2D, p: number) {
+      if (p <= 0 || !it.url) return;
+      const img = getImage(it.url);
+      const k = p >= 1 ? 1 : 1 + 2.4 * Math.pow(p - 1, 3) + 1.4 * Math.pow(p - 1, 2);
+      c.save();
+      c.translate(b.x + b.w / 2, b.y + b.h / 2);
+      c.scale(k, k);
+      c.translate(-b.w / 2, -b.h / 2);
+      // Soft shadow, like a print laid on the sheet
+      c.shadowColor = "rgba(40,30,15,0.18)";
+      c.shadowBlur = 14;
+      c.shadowOffsetY = 4;
+      if (img.complete && img.naturalWidth) c.drawImage(img, 0, 0, b.w, b.h);
+      else {
+        c.fillStyle = "rgba(43,43,44,0.06)";
+        c.fillRect(0, 0, b.w, b.h);
+      }
+      c.restore();
+    },
+    head: () => [b.x + b.w / 2, b.y + b.h / 2],
+  };
+}
+
 /** The kit drawables for one item (fills under ink, as in the style) */
 export function build(S: any, it: Item): Drawable[] {
   S.seed(it.seed || 1);
@@ -210,6 +259,9 @@ export function build(S: any, it: Item): Drawable[] {
     case "tick":
       out.push({ el: S.ink([S.K.tick(it.x ?? 0, it.y ?? 0, it.s ?? 1.4)]), layer: 2, tool: true, dur: 0.3 });
       break;
+    case "image":
+      out.push({ el: imageEl(it), layer: 0, tool: false, dur: 0.5 });
+      break;
   }
   return out;
 }
@@ -237,6 +289,8 @@ export function bounds(it: Item): { x: number; y: number; w: number; h: number }
       const b = box(it);
       return { x: b.x - pad, y: b.y - pad, w: b.w + pad * 2, h: b.h + pad * 2 };
     }
+    case "image":
+      return box(it);
     case "ellipse":
       return { x: (it.cx ?? 0) - Math.abs(it.rx ?? 0) - pad, y: (it.cy ?? 0) - Math.abs(it.ry ?? 0) - pad, w: Math.abs(it.rx ?? 0) * 2 + pad * 2, h: Math.abs(it.ry ?? 0) * 2 + pad * 2 };
     case "badge": {
@@ -309,6 +363,10 @@ export function hit(it: Item, p: Pt, tol: number): boolean {
         ry = Math.abs(it.ry ?? 1) || 1;
       const d = Math.hypot((p[0] - (it.cx ?? 0)) / rx, (p[1] - (it.cy ?? 0)) / ry);
       return Math.abs(d - 1) * Math.min(rx, ry) < tol + 4 || (!!it.fill && d < 1);
+    }
+    case "image": {
+      const b = box(it);
+      return p[0] >= b.x && p[0] <= b.x + b.w && p[1] >= b.y && p[1] <= b.y + b.h;
     }
     default: {
       const b = bounds(it);
