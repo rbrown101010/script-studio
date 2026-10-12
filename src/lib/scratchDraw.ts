@@ -71,13 +71,17 @@ export const shownText = (it: Item) => {
 };
 
 let measureCtx: CanvasRenderingContext2D | null = null;
+/** Text can have several lines (Enter while typing); each line sits this far below the last */
+export const lineGap = (it: Item) => (it.size ?? TEXT[it.style ?? "note"].size) * (it.style === "big" ? 1.0 : 1.3);
+export const textLines = (it: Item) => shownText(it).split("\n");
+
+/** Width of the widest line */
 export function textWidth(it: Item) {
   if (!measureCtx) measureCtx = document.createElement("canvas").getContext("2d");
   const st = TEXT[it.style ?? "note"];
   const size = it.size ?? st.size;
   measureCtx!.font = `${st.weight} ${size}px ${st.family}`;
-  const s = shownText(it);
-  return measureCtx!.measureText(s).width + st.spacing * Math.max(0, s.length - 1);
+  return Math.max(0, ...textLines(it).map((s) => measureCtx!.measureText(s).width + st.spacing * Math.max(0, s.length - 1)));
 }
 
 const ellipsePts = (cx: number, cy: number, rx: number, ry: number, n = 64): Pt[] => Array.from({ length: n }, (_, i) => [cx + Math.cos((i / n) * Math.PI * 2) * rx, cy + Math.sin((i / n) * Math.PI * 2) * ry]);
@@ -179,17 +183,19 @@ export function build(S: any, it: Item): Drawable[] {
     case "text": {
       const style = it.style ?? "note";
       const st = TEXT[style];
-      const s = shownText(it);
-      if (!s) break;
+      if (!shownText(it).trim()) break;
       const size = it.size ?? st.size;
       const align = it.align ?? "left";
-      const x = it.x ?? 0,
-        y = it.y ?? 0;
-      if (style === "big") out.push({ el: S.bigText(s, x, y, { size, color: it.fill?.color ?? col, align }), layer: 1, tool: true, dur: 1.4 });
-      else {
-        const o = { size, color: col, align, family: st.family, weight: st.weight, spacing: st.spacing };
-        out.push({ el: S.text(s, x, y, o), layer: 2, tool: true, dur: Math.min(1.2, Math.max(0.3, s.length * 0.045)) });
-      }
+      const x = it.x ?? 0;
+      textLines(it).forEach((s, i) => {
+        if (!s.trim()) return;
+        const y = (it.y ?? 0) + i * lineGap(it);
+        if (style === "big") out.push({ el: S.bigText(s, x, y, { size, color: it.fill?.color ?? col, align }), layer: 1, tool: true, dur: 1.4 });
+        else {
+          const o = { size, color: col, align, family: st.family, weight: st.weight, spacing: st.spacing };
+          out.push({ el: S.text(s, x, y, o), layer: 2, tool: true, dur: Math.min(1.2, Math.max(0.3, s.length * 0.045)) });
+        }
+      });
       break;
     }
     case "badge": {
@@ -246,7 +252,7 @@ export function bounds(it: Item): { x: number; y: number; w: number; h: number }
       const size = it.size ?? st.size;
       const w = textWidth(it);
       const x0 = it.align === "center" ? (it.x ?? 0) - w / 2 : it.align === "right" ? (it.x ?? 0) - w : (it.x ?? 0);
-      return { x: x0 - 6, y: (it.y ?? 0) - size * 0.9, w: w + 12, h: size * 1.15 };
+      return { x: x0 - 6, y: (it.y ?? 0) - size * 0.9, w: w + 12, h: size * 1.15 + (textLines(it).length - 1) * lineGap(it) };
     }
   }
 }

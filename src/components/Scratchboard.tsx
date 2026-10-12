@@ -10,7 +10,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
-import { INK, PALETTE, TEXT, bounds, build, hit, moved, shownText, textWidth, tidyPath, type Drawable, type Item, type Pt, type TextStyle } from "@/lib/scratchDraw";
+import { INK, PALETTE, TEXT, bounds, build, hit, lineGap, moved, shownText, textWidth, tidyPath, type Drawable, type Item, type Pt, type TextStyle } from "@/lib/scratchDraw";
 
 const FONTS_CSS = "https://fonts.googleapis.com/css2?family=Archivo:wght@500..900&family=Architects+Daughter&family=Inter:wght@400..700&family=JetBrains+Mono:wght@400..700&display=block";
 const DESK = "#2A2928";
@@ -53,7 +53,14 @@ export function ScratchboardEditor({ id }: { id: string }) {
   const [style, setStyle] = useState<Style>({ color: INK, fill: null, tint: false, w: 2.6, textStyle: "note", textSize: null, corner: true });
   const [cam, setCam] = useState<Cam>({ x: 0, y: 0, z: 1 });
   const camRef = useRef(cam);
-  camRef.current = cam;
+  /** Update the camera right away (several wheel events can land before React re-renders) */
+  const moveCam = (c: Cam) => {
+    camRef.current = c;
+    setCam(c);
+  };
+  useEffect(() => {
+    camRef.current = cam;
+  }, [cam]);
   const [saving, setSaving] = useState<"saved" | "saving" | "error">("saved");
   const [editing, setEditing] = useState<{ id: string; isNew: boolean } | null>(null);
   const [playing, setPlaying] = useState<number | null>(null); // play start time (ms)
@@ -96,6 +103,9 @@ export function ScratchboardEditor({ id }: { id: string }) {
     };
   }, []);
   const overlay = useRef<HTMLCanvasElement>(null);
+  const snapRef = useRef<{ canvas: HTMLCanvasElement; cam: Cam } | null>(null);
+  const movingRef = useRef(0);
+  const settleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const history = useRef<{ past: string[]; future: string[] }>({ past: [], future: [] });
@@ -265,9 +275,25 @@ export function ScratchboardEditor({ id }: { id: string }) {
         cv.height = Math.round(H * dpr);
       }
       const c = cv.getContext("2d")!;
+      const z = camRef.current;
+      // While zooming or panning: move the last full picture (instant), then redraw properly once you stop
+      const snap = snapRef.current;
+      if (t === undefined && snap && Date.now() - movingRef.current < 140 && !gesture.current?.type?.match(/draw|move|marquee|erase/)) {
+        c.setTransform(1, 0, 0, 1, 0, 0);
+        c.fillStyle = "#FBFAF7";
+        c.fillRect(0, 0, cv.width, cv.height);
+        const k = z.z / snap.cam.z;
+        c.setTransform(dpr * k, 0, 0, dpr * k, dpr * (z.x - snap.cam.x * k), dpr * (z.y - snap.cam.y * k));
+        c.drawImage(snap.canvas, 0, 0, snap.canvas.width / dpr, snap.canvas.height / dpr);
+        if (settleRef.current) clearTimeout(settleRef.current);
+        settleRef.current = setTimeout(() => {
+          movingRef.current = 0;
+          redraw();
+        }, 150);
+        return;
+      }
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       S.drawPaper(c, W, H);
-      const z = camRef.current;
       c.save();
       c.translate(z.x, z.y);
       c.scale(z.z, z.z);
@@ -311,8 +337,16 @@ export function ScratchboardEditor({ id }: { id: string }) {
       }
       c.restore();
       S.drawGrain(c, W, H);
+      // Keep this frame for fast zooming/panning
+      if (t === undefined) {
+        const keep = snapRef.current?.canvas ?? document.createElement("canvas");
+        keep.width = cv.width;
+        keep.height = cv.height;
+        keep.getContext("2d")!.drawImage(cv, 0, 0);
+        snapRef.current = { canvas: keep, cam: { ...z } };
+      }
     },
-    [S, drawablesOf, sel, editing],
+    [S, drawablesOf, sel, editing, redraw],
   );
 
   // Static frames: redraw when anything changes
@@ -454,7 +488,8 @@ export function ScratchboardEditor({ id }: { id: string }) {
     const sp = screenPt(e);
     const p = toWorld(sp[0], sp[1]);
     if (g.type === "pan") {
-      setCam({ ...g.cam, x: g.cam.x + sp[0] - g.start[0], y: g.cam.y + sp[1] - g.start[1] });
+      movingRef.current = Date.now();
+      moveCam({ ...g.cam, x: g.cam.x + sp[0] - g.start[0], y: g.cam.y + sp[1] - g.start[1] });
       return;
     }
     if (g.type === "move") {
@@ -577,12 +612,18 @@ export function ScratchboardEditor({ id }: { id: string }) {
   };
 
   const onWheel = (e: React.WheelEvent) => {
+    movingRef.current = Date.now();
     const sp = screenPt(e);
     const c = camRef.current;
     if (e.ctrlKey || e.metaKey) {
-      const z = Math.min(8, Math.max(0.1, c.z * Math.exp(-e.deltaY * 0.01)));
-      setCam({ z, x: sp[0] - ((sp[0] - c.x) * z) / c.z, y: sp[1] - ((sp[1] - c.y) * z) / c.z });
-    } else setCam({ ...c, x: c.x - (e.shiftKey ? e.deltaY : e.deltaX), y: c.y - (e.shiftKey ? 0 : e.deltaY) });
+      // Excalidraw's zoom curve: each wheel/pinch step moves the zoom by delta/100 (capped), plus a boost when zoomed in
+      const sign = Math.sign(e.deltaY);
+      const delta = Math.abs(e.deltaY) > 10 ? 10 * sign : e.deltaY;
+      let next = c.z - delta / 100;
+      next += Math.log10(Math.max(1, c.z)) * -sign * Math.min(1, Math.abs(e.deltaY) / 20);
+      const z = Math.min(30, Math.max(0.1, next));
+      moveCam({ z, x: sp[0] - ((sp[0] - c.x) * z) / c.z, y: sp[1] - ((sp[1] - c.y) * z) / c.z });
+    } else moveCam({ ...c, x: c.x - (e.shiftKey ? e.deltaY : e.deltaX), y: c.y - (e.shiftKey ? 0 : e.deltaY) });
   };
   // Stop the page itself zooming on ctrl+wheel / pinch
   useEffect(() => {
@@ -596,10 +637,10 @@ export function ScratchboardEditor({ id }: { id: string }) {
   const zoomBy = (k: number) => {
     const el = wrap.current!;
     const c = camRef.current;
-    const z = Math.min(8, Math.max(0.1, c.z * k));
+    const z = Math.min(30, Math.max(0.1, c.z * k));
     const sx = el.clientWidth / 2,
       sy = el.clientHeight / 2;
-    setCam({ z, x: sx - ((sx - c.x) * z) / c.z, y: sy - ((sy - c.y) * z) / c.z });
+    moveCam({ z, x: sx - ((sx - c.x) * z) / c.z, y: sy - ((sy - c.y) * z) / c.z });
   };
 
   /** Change the selected things' style (and what's drawn next) */
@@ -1096,10 +1137,11 @@ function TextEditor({ item, cam, onDone }: { item: Item; cam: Cam; onDone: (v: s
       ref={ref}
       value={value}
       rows={1}
-      onChange={(e) => setValue(e.target.value.replace(/\n/g, " "))}
+      onChange={(e) => setValue(e.target.value)}
       onBlur={() => onDone(value)}
       onKeyDown={(e) => {
-        if (e.key === "Escape" || (e.key === "Enter" && !e.shiftKey)) {
+        // Enter makes a new line; Escape (or ⌘Enter, or clicking away) finishes, like Excalidraw
+        if (e.key === "Escape" || (e.key === "Enter" && (e.metaKey || e.ctrlKey))) {
           e.preventDefault();
           (e.target as HTMLTextAreaElement).blur();
         }
@@ -1112,11 +1154,12 @@ function TextEditor({ item, cam, onDone }: { item: Item; cam: Cam; onDone: (v: s
         top: y,
         width: align === "left" ? Math.max(40, w) : 800,
         textAlign: align,
-        height: lineH,
+        height: lineH + (value.split("\n").length - 1) * lineGap(item) * cam.z,
         fontFamily: st.family,
         fontWeight: st.weight,
         fontSize: size,
-        lineHeight: `${lineH}px`,
+        lineHeight: `${lineGap(item) * cam.z}px`,
+        paddingTop: (lineH - lineGap(item) * cam.z) / 2,
         letterSpacing: st.spacing * cam.z,
         textTransform: st.upper ? "uppercase" : "none",
         color: item.style === "big" ? (item.fill?.color ?? "#E2774F") : (item.color ?? INK),
