@@ -10,10 +10,11 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
-import { INK, PALETTE, TEXT, bounds, build, hit, moved, shownText, tidyPath, type Drawable, type Item, type Pt, type TextStyle } from "@/lib/scratchDraw";
+import { INK, PALETTE, TEXT, bounds, build, hit, moved, shownText, textWidth, tidyPath, type Drawable, type Item, type Pt, type TextStyle } from "@/lib/scratchDraw";
 
 const FONTS_CSS = "https://fonts.googleapis.com/css2?family=Archivo:wght@500..900&family=Architects+Daughter&family=Inter:wght@400..700&family=JetBrains+Mono:wght@400..700&display=block";
 const DESK = "#2A2928";
+const RED = "#E24B3F";
 
 type Tool = "hand" | "select" | "rect" | "diamond" | "ellipse" | "arrow" | "line" | "pen" | "text" | "eraser";
 // Excalidraw's shortcuts: letters and the number row
@@ -80,6 +81,20 @@ export function ScratchboardEditor({ id }: { id: string }) {
   };
   // The big pencil from the videos is the cursor
   const pointer = useRef<{ x: number; y: number; down: boolean } | null>(null);
+  /** Holding ⌘⇧ turns the pencil red: drag to draw in red, whatever tool is picked */
+  const [red, setRed] = useState(false);
+  useEffect(() => {
+    const check = (e: KeyboardEvent) => setRed((e.metaKey || e.ctrlKey) && e.shiftKey);
+    const off = () => setRed(false);
+    window.addEventListener("keydown", check);
+    window.addEventListener("keyup", check);
+    window.addEventListener("blur", off);
+    return () => {
+      window.removeEventListener("keydown", check);
+      window.removeEventListener("keyup", check);
+      window.removeEventListener("blur", off);
+    };
+  }, []);
   const overlay = useRef<HTMLCanvasElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
@@ -344,10 +359,10 @@ export function ScratchboardEditor({ id }: { id: string }) {
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.clearRect(0, 0, cv.width, cv.height);
     const p = pointer.current;
-    if (!S || !p || playing !== null || tool === "hand" || editing) return;
+    if (!S || !p || playing !== null || (tool === "hand" && !red) || editing) return;
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    S.drawPencil(c, p.x, p.y, { angle: -0.98, color: tool === "eraser" ? "#F4AE92" : style.color, lift: p.down ? 0 : 8, scale: 0.72 });
-  }, [S, tool, style.color, playing, editing]);
+    S.drawPencil(c, p.x, p.y, { angle: -0.98, color: red ? RED : tool === "eraser" ? "#F4AE92" : style.color, lift: p.down ? 0 : 8, scale: 0.72 });
+  }, [S, tool, style.color, playing, editing, red]);
   useEffect(() => drawCursor());
 
   // ---------- pointer ----------
@@ -375,6 +390,13 @@ export function ScratchboardEditor({ id }: { id: string }) {
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     const sp = screenPt(e);
     const p = toWorld(sp[0], sp[1]);
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.button === 0) {
+      // ⌘⇧-drag: the red pencil
+      draft.current = { ...makeItem("pen", p), color: RED };
+      gesture.current = { type: "draw", start: p };
+      redraw();
+      return;
+    }
     if (tool === "hand" || spaceDown.current || e.button === 1) {
       gesture.current = { type: "pan", start: sp, cam: { ...camRef.current } };
       return;
@@ -745,7 +767,7 @@ export function ScratchboardEditor({ id }: { id: string }) {
   const showText = tool === "text" || (one?.kind === "text");
   const showFill = !one || ["rect", "diamond", "ellipse", "badge"].includes(one.kind) || (one.kind === "text" && one.style === "big");
 
-  const pencilCursor = playing === null && tool !== "hand" && !editing;
+  const pencilCursor = playing === null && (tool !== "hand" || red) && !editing;
   const cursor = playing !== null ? "default" : tool === "hand" ? "grab" : pencilCursor ? "none" : "default";
   const chrome = !zen && playing === null;
 
@@ -1064,7 +1086,10 @@ function TextEditor({ item, cam, onDone }: { item: Item; cam: Cam; onDone: (v: s
     return () => clearTimeout(t);
   }, []);
   const x = (item.x ?? 0) * cam.z + cam.x;
-  const y = (item.y ?? 0) * cam.z + cam.y - size * 0.92;
+  // A tall line box so tall letters and tails (g, y, 9) never get clipped; its baseline sits on the item's baseline
+  const lineH = size * 1.6;
+  const y = (item.y ?? 0) * cam.z + cam.y - size * 1.18;
+  const w = textWidth({ ...item, text: value || " " }) * cam.z + size;
   const align = item.align ?? "left";
   return (
     <textarea
@@ -1085,13 +1110,13 @@ function TextEditor({ item, cam, onDone }: { item: Item; cam: Cam; onDone: (v: s
       style={{
         left: align === "center" ? x - 400 : align === "right" ? x - 800 : x,
         top: y,
-        width: align === "left" ? Math.max(40, value.length * size * 0.62 + size) : 800,
+        width: align === "left" ? Math.max(40, w) : 800,
         textAlign: align,
-        height: size * 1.25,
+        height: lineH,
         fontFamily: st.family,
         fontWeight: st.weight,
         fontSize: size,
-        lineHeight: 1.15,
+        lineHeight: `${lineH}px`,
         letterSpacing: st.spacing * cam.z,
         textTransform: st.upper ? "uppercase" : "none",
         color: item.style === "big" ? (item.fill?.color ?? "#E2774F") : (item.color ?? INK),
