@@ -56,6 +56,31 @@ export function ScratchboardEditor({ id }: { id: string }) {
   const [saving, setSaving] = useState<"saved" | "saving" | "error">("saved");
   const [editing, setEditing] = useState<{ id: string; isNew: boolean } | null>(null);
   const [playing, setPlaying] = useState<number | null>(null); // play start time (ms)
+  /** Presenting (Excalidraw's zen mode, Alt+Z): no toolbars or panels at all */
+  const [zen, setZenState] = useState(false);
+  /** The style panel only opens when you ask for it (nothing pops up when you select things) */
+  const [panel, setPanelState] = useState(false);
+  useEffect(() => {
+    try {
+      setZenState(localStorage.getItem("sb-zen") === "1");
+      setPanelState(localStorage.getItem("sb-panel") === "1");
+    } catch {}
+  }, []);
+  const setZen = (v: boolean) => {
+    setZenState(v);
+    try {
+      localStorage.setItem("sb-zen", v ? "1" : "0");
+    } catch {}
+  };
+  const setPanel = (v: boolean) => {
+    setPanelState(v);
+    try {
+      localStorage.setItem("sb-panel", v ? "1" : "0");
+    } catch {}
+  };
+  // The big pencil from the videos is the cursor
+  const pointer = useRef<{ x: number; y: number; down: boolean } | null>(null);
+  const overlay = useRef<HTMLCanvasElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const history = useRef<{ past: string[]; future: string[] }>({ past: [], future: [] });
@@ -304,6 +329,26 @@ export function ScratchboardEditor({ id }: { id: string }) {
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [playing, paint, playLen]);
+
+  /** The pencil under the pointer, in the color you're drawing with; it lifts when you're not pressing */
+  const drawCursor = useCallback(() => {
+    const cv = overlay.current,
+      el = wrap.current;
+    if (!cv || !el) return;
+    const dpr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(el.clientWidth * dpr) || cv.height !== Math.round(el.clientHeight * dpr)) {
+      cv.width = Math.round(el.clientWidth * dpr);
+      cv.height = Math.round(el.clientHeight * dpr);
+    }
+    const c = cv.getContext("2d")!;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, cv.width, cv.height);
+    const p = pointer.current;
+    if (!S || !p || playing !== null || tool === "hand" || editing) return;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    S.drawPencil(c, p.x, p.y, { angle: -0.98, color: tool === "eraser" ? "#F4AE92" : style.color, lift: p.down ? 0 : 8, scale: 0.72 });
+  }, [S, tool, style.color, playing, editing]);
+  useEffect(() => drawCursor());
 
   // ---------- pointer ----------
   const topHit = (p: Pt) => {
@@ -647,6 +692,9 @@ export function ScratchboardEditor({ id }: { id: string }) {
         const dx = e.key === "ArrowLeft" ? -n : e.key === "ArrowRight" ? n : 0,
           dy = e.key === "ArrowUp" ? -n : e.key === "ArrowDown" ? n : 0;
         commit(itemsRef.current.map((it) => (sel.has(it.id) ? moved(it, dx, dy) : it)));
+      } else if (e.altKey && e.code === "KeyZ") {
+        e.preventDefault();
+        setZen(!zen);
       } else if (k === "q" && !mod) {
         setLocked((l) => !l);
       } else if (!mod && !e.altKey && KEYS[e.code === "Digit0" ? "0" : k]) {
@@ -697,7 +745,9 @@ export function ScratchboardEditor({ id }: { id: string }) {
   const showText = tool === "text" || (one?.kind === "text");
   const showFill = !one || ["rect", "diamond", "ellipse", "badge"].includes(one.kind) || (one.kind === "text" && one.style === "big");
 
-  const cursor = playing !== null ? "default" : tool === "hand" ? "grab" : tool === "select" ? "default" : tool === "text" ? "text" : "crosshair";
+  const pencilCursor = playing === null && tool !== "hand" && !editing;
+  const cursor = playing !== null ? "default" : tool === "hand" ? "grab" : pencilCursor ? "none" : "default";
+  const chrome = !zen && playing === null;
 
   return (
     <div className="relative h-dvh w-full overflow-hidden select-none" style={{ background: DESK }}>
@@ -707,18 +757,28 @@ export function ScratchboardEditor({ id }: { id: string }) {
           className="block h-full w-full touch-none"
           style={{ cursor }}
           onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
+          onPointerMove={(e) => {
+            const r = canvas.current!.getBoundingClientRect();
+            pointer.current = { x: e.clientX - r.left, y: e.clientY - r.top, down: e.buttons > 0 };
+            drawCursor();
+            onPointerMove(e);
+          }}
+          onPointerLeave={() => {
+            pointer.current = null;
+            drawCursor();
+          }}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           onDoubleClick={onDoubleClick}
           onWheel={onWheel}
         />
+        <canvas ref={overlay} className="pointer-events-none absolute inset-0 h-full w-full" />
       </div>
 
       {editItem && <TextEditor item={editItem} cam={cam} onDone={finishText} />}
 
       {/* Top left: back, title, saved */}
-      <div className="absolute left-3 top-3 z-10 flex h-10 items-center gap-1 rounded-xl bg-[#33312F]/95 px-1.5 text-[#EDEAE3] shadow-[0_6px_24px_rgba(0,0,0,0.3)]">
+      {chrome && <div className="absolute left-3 top-3 z-10 flex h-10 items-center gap-1 rounded-xl bg-[#33312F]/95 px-1.5 text-[#EDEAE3] shadow-[0_6px_24px_rgba(0,0,0,0.3)]">
         <Link href="/?view=scratchboards" aria-label="Back to Scratchboards" title="Back to Scratchboards" className="flex h-7 w-7 items-center justify-center rounded-md text-[#A9A49A] no-underline hover:bg-white/10 hover:text-[#EDEAE3]">
           <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M10 3.5 5.5 8l4.5 4.5" />
@@ -729,18 +789,18 @@ export function ScratchboardEditor({ id }: { id: string }) {
           onChange={(e) => changeTitle(e.target.value)}
           placeholder="Untitled scratchboard"
           aria-label="Title"
-          size={Math.min(26, Math.max(10, (title ?? board?.title ?? "").length + 1))}
-          className="h-7 min-w-0 rounded-md bg-transparent px-1.5 text-[13px] font-semibold uppercase tracking-[0.04em] outline-none hover:bg-white/10 focus:bg-white/10"
+          size={Math.min(20, Math.max(10, (title ?? board?.title ?? "").length + 1))}
+          className="hidden h-7 min-w-0 rounded-md bg-transparent px-1.5 text-[13px] font-semibold uppercase tracking-[0.04em] outline-none hover:bg-white/10 focus:bg-white/10 xl:block"
           style={{ fontFamily: "Archivo, system-ui, sans-serif" }}
         />
         <span
           title={saving === "saving" ? "Saving…" : saving === "error" ? "Couldn't save" : "Saved"}
           className={`mx-1.5 h-1.5 w-1.5 rounded-full ${saving === "error" ? "bg-[#E24B3F]" : saving === "saving" ? "bg-[#F6D36B]" : "bg-[#7FA752]"}`}
         />
-      </div>
+      </div>}
 
       {/* Top center: tools (Excalidraw's order and shortcuts) */}
-      <div className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-xl bg-[#33312F]/95 p-1 shadow-[0_6px_24px_rgba(0,0,0,0.3)]">
+      {chrome && <div className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-xl bg-[#33312F]/90 p-1 shadow-[0_6px_24px_rgba(0,0,0,0.25)] backdrop-blur">
         <button
           type="button"
           onClick={() => setLocked(!locked)}
@@ -754,19 +814,18 @@ export function ScratchboardEditor({ id }: { id: string }) {
           </svg>
         </button>
         <span className="mx-0.5 h-5 w-px bg-white/10" />
-        {TOOLS.map((t, i) => (
+        {TOOLS.map((t) => (
           <button
             key={t.tool}
             type="button"
             onClick={() => setTool(t.tool)}
             aria-pressed={tool === t.tool}
             title={`${t.label} — ${t.key}`}
-            className={`relative flex h-9 w-9 items-center justify-center rounded-lg ${tool === t.tool ? "bg-[#F6D36B] text-[#22211f]" : "text-[#EDEAE3] hover:bg-white/10"}`}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg ${tool === t.tool ? "bg-[#F6D36B] text-[#22211f]" : "text-[#EDEAE3] hover:bg-white/10"}`}
           >
             <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               {t.icon}
             </svg>
-            {i > 0 && <span className={`absolute bottom-0.5 right-1 text-[8.5px] ${tool === t.tool ? "text-[#22211f]/70" : "text-[#A9A49A]"}`} style={{ fontFamily: "JetBrains Mono, monospace" }}>{t.key.split(" ")[2] ?? t.key}</span>}
           </button>
         ))}
         <span className="mx-0.5 h-5 w-px bg-white/10" />
@@ -786,10 +845,34 @@ export function ScratchboardEditor({ id }: { id: string }) {
           </svg>
           {playing !== null ? "Stop" : "Play"}
         </button>
-      </div>
+        <button
+          type="button"
+          onClick={() => setPanel(!panel)}
+          aria-pressed={panel}
+          title="Style: colors, fills, line weight, lettering"
+          className={`ml-0.5 flex h-8 w-8 items-center justify-center rounded-lg ${panel ? "bg-white/15 text-[#F6D36B]" : "text-[#EDEAE3] hover:bg-white/10"}`}
+        >
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M8 2a6 6 0 1 0 0 12c.9 0 1.2-.7.9-1.4-.3-.8.2-1.6 1.1-1.6H12a2 2 0 0 0 2-2A6 6 0 0 0 8 2Z" />
+            <circle cx="5" cy="7" r=".8" fill="currentColor" />
+            <circle cx="8" cy="4.8" r=".8" fill="currentColor" />
+            <circle cx="11" cy="7" r=".8" fill="currentColor" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => setZen(true)}
+          title="Present: hide everything (Alt+Z)"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-[#EDEAE3] hover:bg-white/10"
+        >
+          <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" />
+          </svg>
+        </button>
+      </div>}
 
-      {/* Left: style for the selection / next thing */}
-      {playing === null && (
+      {/* Left: style for the selection / next thing (only when opened) */}
+      {chrome && panel && (
         <div className="absolute left-3 top-16 z-10 w-[212px] rounded-xl bg-[#33312F]/95 p-3 text-[#EDEAE3] shadow-[0_6px_24px_rgba(0,0,0,0.3)]" style={{ fontFamily: "JetBrains Mono, monospace" }}>
           <Label>Ink</Label>
           <div className="mb-3 grid grid-cols-6 gap-1.5">
@@ -937,7 +1020,7 @@ export function ScratchboardEditor({ id }: { id: string }) {
       )}
 
       {/* Bottom left: zoom and undo */}
-      <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1 rounded-xl bg-[#33312F]/95 p-1 text-[#EDEAE3] shadow-[0_6px_24px_rgba(0,0,0,0.3)]" style={{ fontFamily: "JetBrains Mono, monospace" }}>
+      {chrome && <div className="absolute bottom-3 left-3 z-10 flex items-center gap-1 rounded-xl bg-[#33312F]/95 p-1 text-[#EDEAE3] shadow-[0_6px_24px_rgba(0,0,0,0.3)]" style={{ fontFamily: "JetBrains Mono, monospace" }}>
         <IconBtn title="Zoom out (⌘-)" onClick={() => zoomBy(1 / 1.2)}>−</IconBtn>
         <button type="button" onClick={() => fit()} title="Zoom to fit (⇧1)" className="h-8 min-w-[54px] rounded-md px-1 text-[12px] hover:bg-white/10">
           {Math.round(cam.z * 100)}%
@@ -946,9 +1029,20 @@ export function ScratchboardEditor({ id }: { id: string }) {
         <span className="mx-0.5 h-5 w-px bg-white/10" />
         <IconBtn title="Undo (⌘Z)" onClick={undo}>↶</IconBtn>
         <IconBtn title="Redo (⇧⌘Z)" onClick={redo}>↷</IconBtn>
-      </div>
+      </div>}
 
-      {!items.length && loaded && !editing && (
+      {zen && (
+        <button
+          type="button"
+          onClick={() => setZen(false)}
+          className="absolute bottom-3 right-3 z-10 rounded-lg px-3 py-1.5 text-[11px] uppercase tracking-[0.1em] text-[#8E8B84] opacity-0 transition-opacity hover:bg-black/5 hover:opacity-100"
+          style={{ fontFamily: "JetBrains Mono, monospace" }}
+        >
+          Exit presenting (Alt+Z)
+        </button>
+      )}
+
+      {!items.length && loaded && !editing && !zen && (
         <div className="pointer-events-none absolute inset-x-0 top-[42%] text-center text-[#8E8B84]" style={{ fontFamily: '"Architects Daughter", cursive', fontSize: 26 }}>
           pick a tool and start drawing
         </div>

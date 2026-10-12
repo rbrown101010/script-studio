@@ -6,6 +6,7 @@
 //   {kind:"rect", x, y, width, h, r?, color?, fill?}         box; r = corner radius (rounded for UI objects)
 //   {kind:"diamond", x, y, width, h, color?, fill?}          diamond
 //   {kind:"ellipse", cx, cy, rx, ry, color?, fill?}          circle / ellipse
+//   {kind:"poly", pts:[[x,y],…], closed?, sketch?, fill?}    any polygon (closed by default, fillable)
 //   {kind:"text", style:"note"|"head"|"label"|"big", text, x, y, size?, color?, align?}
 //   {kind:"badge", cx, cy, r?, text, color?}                 numbered circle, filled
 //   {kind:"tick", x, y, s?}                                  green check
@@ -122,7 +123,7 @@ export const getForAgent = internalQuery({
   },
 });
 
-const KINDS = new Set(["pen", "line", "arrow", "rect", "diamond", "ellipse", "text", "badge", "tick"]);
+const KINDS = new Set(["pen", "line", "arrow", "rect", "diamond", "ellipse", "poly", "text", "badge", "tick"]);
 function clean(items: unknown) {
   if (!Array.isArray(items)) throw new ConvexError("items must be a list");
   if (items.length > 400) throw new ConvexError("At most 400 items at once");

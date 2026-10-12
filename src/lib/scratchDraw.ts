@@ -8,7 +8,10 @@ export type TextStyle = "note" | "head" | "label" | "big";
 export type Item = {
   id: string;
   seed: number;
-  kind: "pen" | "line" | "arrow" | "rect" | "diamond" | "ellipse" | "text" | "badge" | "tick";
+  kind: "pen" | "line" | "arrow" | "rect" | "diamond" | "ellipse" | "poly" | "text" | "badge" | "tick";
+  /** poly: closed shape (fillable); sketch = each side its own overshooting line */
+  closed?: boolean;
+  sketch?: boolean;
   color?: string;
   w?: number;
   fill?: Fill;
@@ -140,6 +143,14 @@ export function build(S: any, it: Item): Drawable[] {
       out.push({ el: S.ink([S.K.arrow(p0, p1, p2, p3, { w, col })]), layer: 2, tool: true, dur: 0.6 });
       break;
     }
+    case "poly": {
+      const pts = it.pts ?? [];
+      if (pts.length < 2) break;
+      if (it.closed !== false) fillOf(pts);
+      // w 0 = color only, no outline (e.g. a tinted band between two walls)
+      if (w > 0) out.push({ el: S.ink([S.K.poly(pts, it.closed !== false, { w, col, sketch: !!it.sketch })]), layer: 2, tool: true, dur: 0.7 });
+      break;
+    }
     case "rect": {
       const b = box(it);
       const poly = rrectPts(S, b.x, b.y, b.w, b.h, it.r ?? 0);
@@ -201,8 +212,9 @@ export function build(S: any, it: Item): Drawable[] {
 export function bounds(it: Item): { x: number; y: number; w: number; h: number } {
   const pad = (it.w ?? 2.6) * 2;
   switch (it.kind) {
+    case "poly":
     case "pen": {
-      const pts = it.pts ?? [[0, 0]];
+      const pts = it.pts?.length ? it.pts : [[0, 0] as Pt];
       const xs = pts.map((p) => p[0]),
         ys = pts.map((p) => p[1]);
       return { x: Math.min(...xs) - pad, y: Math.min(...ys) - pad, w: Math.max(...xs) - Math.min(...xs) + pad * 2, h: Math.max(...ys) - Math.min(...ys) + pad * 2 };
@@ -266,6 +278,8 @@ export function hit(it: Item, p: Pt, tol: number): boolean {
   switch (it.kind) {
     case "pen":
       return polyDist(p, it.pts ?? [], false) < tol + (it.w ?? 2.6);
+    case "poly":
+      return polyDist(p, it.pts ?? [], it.closed !== false) < tol + 4 || (!!it.fill && it.closed !== false && inPoly(p, it.pts ?? []));
     case "line":
       return !!it.a && !!it.b && segDist(p, it.a, it.b) < tol + (it.w ?? 2.6);
     case "arrow": {

@@ -66,6 +66,8 @@ Items (coordinates in px; a sheet is usually ~1080 wide), drawn in order:
   {"kind":"text","style":"label","text":"less than 1 year ago","x":200,"y":700,"color":"#5B8FC7"}
   {"kind":"rect","x":100,"y":200,"width":300,"h":180,"r":22,"fill":{"color":"#4F8DD6"}}   (r 0 = sharp corners)
   {"kind":"ellipse","cx":250,"cy":840,"rx":56,"ry":56,"fill":{"color":"#7FA752"}}
+  {"kind":"poly","pts":[[70,130],[1010,130],[840,1000],[240,1000]],"fill":{"color":"#E2774F","tint":true}}   funnel band
+  {"kind":"pen","pts":[[70,260],[220,150],[420,360],[650,230]]}   free curve through points
   {"kind":"arrow","a":[880,1085],"b":[790,640],"bend":0.3}
   {"kind":"line","a":[60,380],"b":[660,380],"dashed":true,"color":"#9B6FC9"}
   {"kind":"badge","cx":90,"cy":100,"r":44,"text":"1","fill":{"color":"#4F8DD6"}}

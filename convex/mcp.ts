@@ -464,7 +464,7 @@ const TOOLS: Tool[] = [
   {
     name: "add_to_scratchboard",
     description:
-      "Draw on a scratchboard: items are added on top, in order (which is also the order Play draws them). Item shapes: pen {pts}, line {a,b,dashed?}, arrow {a,b,bend?}, rect {x,y,width,h,r?,fill?}, diamond {x,y,width,h,fill?}, ellipse {cx,cy,rx,ry,fill?}, text {style: note|head|label|big, text, x, y (baseline), size?, align?}, badge {cx,cy,r?,text,fill?}, tick {x,y,s?}. All take color (hex) and w (line weight, default 2.6). fill = {color, tint?}.",
+      "Draw on a scratchboard: items are added on top, in order (which is also the order Play draws them). Item shapes: pen {pts}, line {a,b,dashed?}, arrow {a,b,bend?}, rect {x,y,width,h,r?,fill?}, diamond {x,y,width,h,fill?}, ellipse {cx,cy,rx,ry,fill?}, poly {pts,closed?,sketch?,fill?}, text {style: note|head|label|big, text, x, y (baseline), size?, align?}, badge {cx,cy,r?,text,fill?}, tick {x,y,s?}. All take color (hex) and w (line weight, default 2.6). fill = {color, tint?}.",
     inputSchema: { type: "object", properties: { board: { type: "string" }, items: { type: "array", items: { type: "object" } } }, required: ["board", "items"] },
     run: (ctx, a) => ctx.runMutation(internal.scratchboards.addForAgent, a),
   },
