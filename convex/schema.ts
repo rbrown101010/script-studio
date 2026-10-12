@@ -91,6 +91,18 @@ export const editAttachment = v.object({ storageId: v.optional(v.id("_storage"))
 export default defineSchema({
   ...authTables,
 
+  /** Scratchboard: Riley's drawing-board style (pencil on paper), drawn by our own engine, not Excalidraw */
+  scratchboards: defineTable({
+    title: v.string(),
+    /** The drawing: a JSON array of items (see convex/scratchboards.ts) */
+    elements: v.string(),
+    /** Plain-text description for AI */
+    summary: v.string(),
+    createdBy: v.union(v.string(), v.null()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_updated", ["updatedAt"]),
+
   /** Edit Feed: short-form videos being edited, each with numbered versions (v1, v2, …) and comments */
   editVideos: defineTable({
     title: v.string(),

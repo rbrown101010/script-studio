@@ -442,6 +442,33 @@ const TOOLS: Tool[] = [
     run: (ctx, a) => ctx.runMutation(internal.editFeed.setStatusForAgent, a),
   },
   {
+    name: "list_scratchboards",
+    description: "Scratchboards: Riley's drawings in his short-form 'drawing board' style (pencil on warm paper, hand-inked lines, colored-pencil fills, Archivo headings, handwritten notes). Separate from Excalidraw boards.",
+    inputSchema: { type: "object", properties: { query: { type: "string" } } },
+    annotations: { readOnlyHint: true },
+    run: (ctx, a) => ctx.runQuery(internal.scratchboards.listForAgent, a),
+  },
+  {
+    name: "get_scratchboard",
+    description: "Read a scratchboard: a summary plus every item (see read_guide, Scratchboard, for the item shapes).",
+    inputSchema: { type: "object", properties: { board: { type: "string", description: "Scratchboard id or its /sb/<id> link" } }, required: ["board"] },
+    annotations: { readOnlyHint: true },
+    run: (ctx, a) => ctx.runQuery(internal.scratchboards.getForAgent, a),
+  },
+  {
+    name: "create_scratchboard",
+    description: "Make a scratchboard, optionally drawing items on it (same items as add_to_scratchboard). Returns its id and link.",
+    inputSchema: { type: "object", properties: { title: { type: "string" }, items: { type: "array", items: { type: "object" } }, agentName: { type: "string" } }, required: ["title"] },
+    run: (ctx, a) => ctx.runMutation(internal.scratchboards.createForAgent, a),
+  },
+  {
+    name: "add_to_scratchboard",
+    description:
+      "Draw on a scratchboard: items are added on top, in order (which is also the order Play draws them). Item shapes: pen {pts}, line {a,b,dashed?}, arrow {a,b,bend?}, rect {x,y,width,h,r?,fill?}, diamond {x,y,width,h,fill?}, ellipse {cx,cy,rx,ry,fill?}, text {style: note|head|label|big, text, x, y (baseline), size?, align?}, badge {cx,cy,r?,text,fill?}, tick {x,y,s?}. All take color (hex) and w (line weight, default 2.6). fill = {color, tint?}.",
+    inputSchema: { type: "object", properties: { board: { type: "string" }, items: { type: "array", items: { type: "object" } } }, required: ["board", "items"] },
+    run: (ctx, a) => ctx.runMutation(internal.scratchboards.addForAgent, a),
+  },
+  {
     name: "list_boards",
     description: "List the team's Excalidraw boards (newest first), optionally searching their titles and contents. Returns ids and links.",
     inputSchema: { type: "object", properties: { query: { type: "string" } } },

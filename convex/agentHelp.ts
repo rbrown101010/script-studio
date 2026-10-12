@@ -54,6 +54,27 @@ versions) but kept out of the script views and have no status, format or other d
 get_script {script: id} to read it, edit_lines / edit_script to change it, create_journal_entry {title, lines?} to
 add one (only when asked). list_scripts never includes them.
 
+## Scratchboard
+Riley's drawings in his short-form "drawing board" style, drawn by Native Note's own engine (not Excalidraw): warm
+paper, hand-inked lines with a slow waver and pencil grain, colored-pencil hatching, Archivo 800/900 headings and big
+numbers, Architects Daughter handwritten notes, blue JetBrains Mono labels. Links look like /sb/<id>.
+list_scratchboards, get_scratchboard {board}, create_scratchboard {title, items?}, add_to_scratchboard {board, items}.
+Items (coordinates in px; a sheet is usually ~1080 wide), drawn in order:
+  {"kind":"text","style":"head","text":"What drives the funnel","x":540,"y":120,"align":"center"}   heading (uppercase)
+  {"kind":"text","style":"big","text":"20M","x":540,"y":420,"size":260,"align":"center","fill":{"color":"#E2774F"}}
+  {"kind":"text","style":"note","text":"the builders","x":700,"y":600}        handwritten aside
+  {"kind":"text","style":"label","text":"less than 1 year ago","x":200,"y":700,"color":"#5B8FC7"}
+  {"kind":"rect","x":100,"y":200,"width":300,"h":180,"r":22,"fill":{"color":"#4F8DD6"}}   (r 0 = sharp corners)
+  {"kind":"ellipse","cx":250,"cy":840,"rx":56,"ry":56,"fill":{"color":"#7FA752"}}
+  {"kind":"arrow","a":[880,1085],"b":[790,640],"bend":0.3}
+  {"kind":"line","a":[60,380],"b":[660,380],"dashed":true,"color":"#9B6FC9"}
+  {"kind":"badge","cx":90,"cy":100,"r":44,"text":"1","fill":{"color":"#4F8DD6"}}
+  {"kind":"tick","x":610,"y":190}
+Palette: ink #2B2B2C, graphite #6B6A66, blue labels #5B8FC7, coral #E2774F, blue #4F8DD6, violet #9B6FC9, pink #C96FA6,
+tan #C28F55, green #7FA752, red #E24B3F, grey #8E8B84, highlighter #F6D36B. Style rules: ink outline first, color
+underneath; no boxes around groups (group with space and headings); one light tint per region (fill.tint true) plus
+one or two solid accents.
+
 ## Edit Feed (short-form video edits)
 Riley's review queue for short-form videos (Edit Feed app in Native Note). Each video has numbered versions and a
 Kanban status: editing → ready (Ready to post) → posted.
@@ -174,6 +195,10 @@ Never invent numbers or videos. Only include view counts you actually saw at tha
 | set_edit_status {video, status} | editing / ready / posted / archived |
 | list_journal {query?} | Journal entries (personal notes, internal docs) |
 | create_journal_entry {title, lines?, agentName?} | New Journal entry |
+| list_scratchboards {query?} | Scratchboards (Riley's drawing-board style) |
+| get_scratchboard {board} | Read a scratchboard's summary and items |
+| create_scratchboard {title, items?} | New scratchboard |
+| add_to_scratchboard {board, items} | Draw on a scratchboard |
 | list_boards {query?} | List / search Excalidraw boards (pinned: shown in the sidebar) |
 | pin_board {board, pinned?} | Pin a board to the sidebar (pinned false unpins) |
 | pin_script {script, pinned?} | Pin a script to the sidebar and the top of Scripts (pinned false unpins) |

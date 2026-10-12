@@ -27,7 +27,8 @@ export type View =
   | "boards"
   | "topics"
   | "youtube"
-  | "editfeed";
+  | "editfeed"
+  | "scratchboards";
 export type SponsorFilter = "all" | "sponsored" | "notSponsored";
 
 export const SIDEBAR_WIDTH = 252;
@@ -355,6 +356,7 @@ export function HomeSidebar({
           {nav("mymind", "Mymind", <MindIcon />)}
           {nav("library", "Library", <LibraryIcon />)}
           {nav("boards", "Excalidraw", <DrawIcon />)}
+          {nav("scratchboards", "Scratchboard", <ScratchIcon />)}
           {nav("tweet", "Tweet", <TweetIcon />)}
           {nav("brands", "Brand deals", <BrandIcon />)}
           {nav("topics", "Topic opportunities", <TrendIcon />)}
@@ -774,6 +776,15 @@ function JournalIcon() {
     <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M3.25 2.25h8.5a1 1 0 0 1 1 1v9.5a1 1 0 0 1-1 1h-8.5z" />
       <path d="M5.75 2.25v11.5M8 5.5h2.5M8 8h2.5" />
+    </svg>
+  );
+}
+
+function ScratchIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2" y="2.5" width="12" height="11" rx="1.5" />
+      <path d="M4.5 10.5c1.2-2.4 2.4-3.6 3.6-1.8s2.2.4 3.4-2" />
     </svg>
   );
 }
