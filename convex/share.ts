@@ -110,6 +110,7 @@ export const saveGuestEdit = mutation({
         textColor: v.optional(textColor),
         images: v.optional(v.array(attachment)),
         sourceBlockId: v.union(v.string(), v.null()),
+        indent: v.optional(v.number()),
         comments: v.optional(v.array(comment)),
       }),
     ),

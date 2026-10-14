@@ -77,6 +77,8 @@ export const blockFields = {
   color: blockColor,
   textColor: v.optional(textColor),
   sourceBlockId: v.union(v.string(), v.null()),
+  /** Nesting for list lines (sub-bullets): 1 to 4; missing = top level */
+  indent: v.optional(v.number()),
   /** An "images" block's pictures, shown side by side */
   images: v.optional(v.array(attachment)),
   // Legacy: files attached straight to a block (now they live inside comments)
@@ -92,6 +94,12 @@ export default defineSchema({
   ...authTables,
 
   /** Scratchboard: Riley's drawing-board style (pencil on paper), drawn by our own engine, not Excalidraw */
+  // Which apps each person keeps in their sidebar (all apps are hidden until pinned)
+  sidebarApps: defineTable({
+    userId: v.id("users"),
+    apps: v.array(v.string()),
+  }).index("by_user", ["userId"]),
+
   scratchboards: defineTable({
     title: v.string(),
     /** The drawing: a JSON array of items (see convex/scratchboards.ts) */
@@ -184,8 +192,9 @@ export default defineSchema({
     editPasscode: v.union(v.string(), v.null()),
     createdBy: v.union(v.id("users"), v.null()),
     updatedAt: v.number(),
-    /** "journal" = a Journal entry: the same document and editor as a script, kept out of the script views */
-    kind: v.optional(v.literal("journal")),
+    /** "journal" = a Journal entry: the same document and editor as a script, kept out of the script views.
+     * "todo" = the team's one shared Todo list (a bulleted list in the script editor), above Scripts and on Home */
+    kind: v.optional(v.union(v.literal("journal"), v.literal("todo"))),
   })
     .index("by_slug", ["shareSlug"])
     .index("by_updated", ["updatedAt"])

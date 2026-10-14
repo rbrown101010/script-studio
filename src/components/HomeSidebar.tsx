@@ -228,6 +228,19 @@ export function HomeSidebar({
   const unpinBoard = useMutation(api.boards.setPinned);
   const create = useMutation(api.videos.create);
   const [creating, setCreating] = useState(false);
+  // The team's Todo list sits above Scripts for everyone
+  const todo = useQuery(api.todo.get);
+  const openTodoM = useMutation(api.todo.open);
+  const openTodo = async () => {
+    onNavigate?.();
+    const id = todo?.id ?? (await openTodoM());
+    if (activeId !== id) router.push(`/v/${id}`);
+  };
+  // Apps are hidden until you pin them (the + next to Apps)
+  const myApps = useQuery(api.prefs.apps);
+  const setApp = useMutation(api.prefs.setApp);
+  const shownApps = APPS.filter((a) => myApps?.includes(a.view));
+  const [appsOpen, setAppsOpen] = useState(false);
 
   const go = (v: View) => {
     onNavigate?.();
@@ -302,6 +315,12 @@ export function HomeSidebar({
         aria-label="Sidebar"
         className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-4 pt-3"
       >
+        <div className="mb-4 flex flex-col gap-px">
+          <Item on={!!todo && activeId === todo.id} onClick={() => void openTodo()} icon={<TodoIcon />}>
+            Todo
+          </Item>
+        </div>
+
         <Group label="Scripts">
           {nav("list", "All scripts", <ListIcon />)}
           {nav("calendar", "Calendar", <CalendarIcon />)}
@@ -352,16 +371,52 @@ export function HomeSidebar({
           </Group>
         )}
 
-        <Group label="Apps">
-          {nav("mymind", "Mymind", <MindIcon />)}
-          {nav("library", "Library", <LibraryIcon />)}
-          {nav("boards", "Excalidraw", <DrawIcon />)}
-          {nav("scratchboards", "Scratchboard", <ScratchIcon />)}
-          {nav("tweet", "Tweet", <TweetIcon />)}
-          {nav("brands", "Brand deals", <BrandIcon />)}
-          {nav("topics", "Topic opportunities", <TrendIcon />)}
-          {nav("youtube", "YouTube", <YouTubeIcon />)}
-          {nav("editfeed", "Edit Feed", <EditFeedIcon />)}
+        <Group
+          label="Apps"
+          action={
+            <button
+              type="button"
+              onClick={() => setAppsOpen(!appsOpen)}
+              aria-expanded={appsOpen}
+              aria-label={appsOpen ? "Done adding apps" : "Add apps to the sidebar"}
+              title={appsOpen ? "Done" : "Add apps to the sidebar"}
+              className={`-mr-1 flex h-6 w-6 items-center justify-center rounded-md hover:bg-(--c-b-e6e6e3) hover:text-(--c-t-1b1b1b) ${appsOpen ? "bg-(--c-b-e6e6e3) text-(--c-t-1b1b1b)" : "text-(--c-t-9a9a9a)"}`}
+            >
+              {appsOpen ? <CheckIcon /> : <IconPlus size={13} />}
+            </button>
+          }
+        >
+          {(appsOpen ? APPS : shownApps).map((a) => {
+            const on = !!myApps?.includes(a.view);
+            return (
+              <Item
+                key={a.view}
+                on={view === a.view}
+                onClick={() => go(a.view)}
+                icon={a.icon}
+                dim={appsOpen && !on}
+                action={
+                  appsOpen
+                    ? on
+                      ? { label: `Remove ${a.label} from the sidebar`, title: "Remove from sidebar", icon: <MinusIcon />, run: () => void setApp({ app: a.view, pinned: false }), always: true }
+                      : { label: `Add ${a.label} to the sidebar`, title: "Add to sidebar", icon: <IconPlus size={13} />, run: () => void setApp({ app: a.view, pinned: true }), always: true }
+                    : { label: `Remove ${a.label} from the sidebar`, title: "Remove from sidebar", icon: <MinusIcon />, run: () => void setApp({ app: a.view, pinned: false }) }
+                }
+              >
+                {a.label}
+              </Item>
+            );
+          })}
+          {!appsOpen && !shownApps.length && myApps && (
+            <button
+              type="button"
+              onClick={() => setAppsOpen(true)}
+              className="flex h-[30px] items-center gap-2.5 rounded-md px-2 text-left text-[13px] text-(--c-t-9a9a9a) hover:bg-(--c-b-efefed) hover:text-(--c-t-1b1b1b)"
+            >
+              <span className="flex w-4 justify-center"><IconPlus size={13} /></span>
+              Add apps
+            </button>
+          )}
         </Group>
       </nav>
 
@@ -447,11 +502,12 @@ function Account() {
   );
 }
 
-function Group({ label, children }: { label: string; children: ReactNode }) {
+function Group({ label, action, children }: { label: string; action?: ReactNode; children: ReactNode }) {
   return (
     <div role="group" aria-label={label} className="mb-4 last:mb-0">
       <div className="flex h-7 items-center px-2 text-[12px] font-medium text-(--c-t-9a9a9a)">
-        {label}
+        <span className="flex-1">{label}</span>
+        {action}
       </div>
       <div className="flex flex-col gap-px">{children}</div>
     </div>
@@ -465,6 +521,7 @@ function Item({
   hint,
   action,
   disabled,
+  dim,
   children,
 }: {
   on: boolean;
@@ -472,8 +529,10 @@ function Item({
   icon?: ReactNode;
   hint?: string;
   /** A small button that shows on hover (e.g. unpin) */
-  action?: { label: string; icon: ReactNode; run: () => void };
+  action?: { label: string; icon: ReactNode; run: () => void; title?: string; always?: boolean };
   disabled?: boolean;
+  /** Greyed (an app not in the sidebar yet, while choosing) */
+  dim?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -486,7 +545,9 @@ function Item({
         className={`flex h-[30px] w-full items-center gap-2.5 rounded-md px-2 text-left text-[13.5px] transition-colors duration-100 disabled:opacity-60 ${
           on
             ? "bg-(--c-b-e9e9e7) font-medium text-(--c-t-1b1b1b)"
-            : "text-(--c-t-4a4a4a) hover:bg-(--c-b-efefed) hover:text-(--c-t-1b1b1b)"
+            : dim
+              ? "text-(--c-t-9a9a9a) hover:bg-(--c-b-efefed) hover:text-(--c-t-1b1b1b)"
+              : "text-(--c-t-4a4a4a) hover:bg-(--c-b-efefed) hover:text-(--c-t-1b1b1b)"
         }`}
       >
         {icon && (
@@ -497,7 +558,7 @@ function Item({
           </span>
         )}
         <span
-          className={`min-w-0 flex-1 truncate ${action ? "group-hover/item:pr-6" : ""}`}
+          className={`min-w-0 flex-1 truncate ${action?.always ? "pr-6" : action ? "group-hover/item:pr-6" : ""}`}
         >
           {children}
         </span>
@@ -512,8 +573,8 @@ function Item({
           type="button"
           onClick={action.run}
           aria-label={action.label}
-          title="Unpin"
-          className="absolute right-1 top-1/2 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-(--c-t-8a8a8a) hover:bg-(--c-b-e6e6e3) hover:text-(--c-t-1b1b1b) group-hover/item:flex group-focus-within/item:flex pointer-coarse:flex"
+          title={action.title ?? "Unpin"}
+          className={`absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-(--c-t-8a8a8a) hover:bg-(--c-b-e6e6e3) hover:text-(--c-t-1b1b1b) ${action.always ? "flex" : "hidden group-hover/item:flex group-focus-within/item:flex pointer-coarse:flex"}`}
         >
           {action.icon}
         </button>
@@ -785,6 +846,46 @@ function ScratchIcon() {
     <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="2" y="2.5" width="12" height="11" rx="1.5" />
       <path d="M4.5 10.5c1.2-2.4 2.4-3.6 3.6-1.8s2.2.4 3.4-2" />
+    </svg>
+  );
+}
+
+/** Every app; each person pins the ones they want in their sidebar */
+const APPS: { view: View; label: string; icon: ReactNode }[] = [
+  { view: "mymind", label: "Mymind", icon: <MindIcon /> },
+  { view: "library", label: "Library", icon: <LibraryIcon /> },
+  { view: "boards", label: "Excalidraw", icon: <DrawIcon /> },
+  { view: "scratchboards", label: "Scratchboard", icon: <ScratchIcon /> },
+  { view: "tweet", label: "Tweet", icon: <TweetIcon /> },
+  { view: "brands", label: "Brand deals", icon: <BrandIcon /> },
+  { view: "topics", label: "Topic opportunities", icon: <TrendIcon /> },
+  { view: "youtube", label: "YouTube", icon: <YouTubeIcon /> },
+  { view: "editfeed", label: "Edit Feed", icon: <EditFeedIcon /> },
+];
+
+function TodoIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="3.25" cy="4.25" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="3.25" cy="8" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="5.75" cy="11.75" r="0.9" fill="currentColor" stroke="none" />
+      <path d="M6 4.25h7.5M6 8h7.5M8.5 11.75h5" />
+    </svg>
+  );
+}
+
+function MinusIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+      <path d="M3.5 8h9" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m3.5 8.5 3 3 6-6.5" />
     </svg>
   );
 }

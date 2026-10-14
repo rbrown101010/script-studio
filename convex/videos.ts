@@ -11,7 +11,7 @@ export const list = query({
   handler: async (ctx) => {
     await requireUser(ctx);
     // Journal entries live in the Journal, not in the script views
-    const videos = (await ctx.db.query("videos").withIndex("by_updated").order("desc").collect()).filter((v) => v.kind !== "journal");
+    const videos = (await ctx.db.query("videos").withIndex("by_updated").order("desc").collect()).filter((v) => !v.kind); // Journal entries and the Todo list have their own places
     return Promise.all(
       videos.map(async (video) => {
         const edited = await ctx.db

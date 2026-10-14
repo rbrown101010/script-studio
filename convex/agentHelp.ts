@@ -48,6 +48,14 @@ video, video file, any web page) and/or a note. The card type is worked out from
 import many at once (up to 200 per call, e.g. bookmarks); links already saved aren't duplicated. Write a short note on
 each idea saying what it is and why it's worth keeping. Use list_ideas to search what's there.
 
+## Todo list
+The team's one shared Todo list: a bulleted list (with sub-bullets) at the top of the sidebar and of Home, for everyone.
+get_todo reads it: its id plus every line with its key, text and indent (0 = top level, 1-4 = sub-bullet levels), and
+comments. add_todo {items:[{text, indent?}], under?} adds items at the end, or as sub-bullets under a line (under = that
+line's key). To change, reorder, nest or remove lines use edit_lines with script = the Todo's id (replace {key, text?,
+indent?}). Comment on an item with comment_on_script {script: todo id, blockKey: line key, text, attachments?}.
+Only add, change or remove items when asked.
+
 ## Journal
 Riley's journal entries and internal docs. They're the same kind of document as scripts (same editor, lines, comments,
 versions) but kept out of the script views and have no status, format or other details. list_journal to find one,
@@ -202,6 +210,8 @@ Never invent numbers or videos. Only include view counts you actually saw at tha
 | add_edit_version {video, file, note?, agentName?, resolveComments?} | Upload the next version (v2, v3, …) after edits |
 | comment_on_edit_video {video, text, version?, at?, attachments?, agentName?} | Comment on a version (at = seconds) |
 | set_edit_status {video, status} | editing / ready / posted / archived |
+| get_todo {} | The team's Todo list: id, lines (key, text, indent) and comments |
+| add_todo {items:[{text, indent?}], under?, agentName?} | Add Todo items (under = a line key to add sub-bullets) |
 | list_journal {query?} | Journal entries (personal notes, internal docs) |
 | create_journal_entry {title, lines?, agentName?} | New Journal entry |
 | list_scratchboards {query?} | Scratchboards (Riley's drawing-board style) |

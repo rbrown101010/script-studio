@@ -17,6 +17,7 @@ import { insertIdea } from "./ideas";
 import { reattachComments } from "./commentAnchors";
 import { queueAssetSync } from "./library";
 import { boardCard, boardIdOf } from "./boards";
+import { ensureTodo } from "./todo";
 import { agentAddVersion, agentAddVideo, agentComment } from "./editFeed";
 import { attachFiles, resolveAttachments, storeBlob } from "./agentFiles";
 
@@ -32,6 +33,8 @@ const line = v.object({
   color: v.optional(blockColor),
   /** Color of the text */
   textColor: v.optional(textColor),
+  /** Sub-bullet level for list lines (bullet, number, todo): 1 to 4; 0 or missing = top level */
+  indent: v.optional(v.number()),
 });
 type Line = Infer<typeof line>;
 
@@ -96,6 +99,7 @@ async function linesOf(ctx: QueryCtx, documentId: Id<"documents"> | undefined) {
     ...(b.type === "todo" ? { checked: b.checked } : {}),
     ...(b.color ? { color: b.color } : {}),
     ...(b.textColor ? { textColor: b.textColor } : {}),
+    ...(b.indent ? { indent: b.indent } : {}),
     ...(b.type === "images" ? { images: (b.images ?? []).map((a) => ({ name: a.name, url: a.url })) } : {}),
   })).map(async (l, i) => (blocks[i].type === "board" ? { ...l, board: await boardCard(ctx, blocks[i].content) } : l)));
 }
@@ -114,7 +118,7 @@ export const listScripts = internalQuery({
     const videos = await ctx.db.query("videos").withIndex("by_updated").order("desc").collect();
     const out = [];
     for (const vid of videos) {
-      if (vid.kind === "journal") continue; // see list_journal
+      if (vid.kind === "journal" || vid.kind === "todo") continue; // see list_journal, get_todo
       if (q && !vid.title.toLowerCase().includes(q)) continue;
       const edited = await ctx.db
         .query("documents")
@@ -499,6 +503,7 @@ type NewLine = {
   checked?: boolean;
   color?: Doc<"blocks">["color"];
   textColor?: Doc<"blocks">["textColor"];
+  indent?: number;
   /** Internal only (restoring a version): an images block's pictures */
   images?: Doc<"blocks">["images"];
 };
@@ -551,6 +556,7 @@ async function replaceScript(ctx: MutationCtx, video: Doc<"videos">, lines: NewL
       color: l.color !== undefined ? l.color : (prev?.color ?? null),
       textColor: l.textColor !== undefined ? l.textColor : (prev?.textColor ?? null),
       sourceBlockId: null,
+      ...((l.indent ?? prev?.indent) ? { indent: Math.max(0, Math.min(4, Math.round(l.indent ?? prev?.indent ?? 0))) } : {}),
       ...(prev?.attachments ? { attachments: prev.attachments } : {}),
       ...(l.images ? { images: l.images } : prev?.images ? { images: prev.images } : {}),
     });
@@ -579,7 +585,7 @@ async function replaceScript(ctx: MutationCtx, video: Doc<"videos">, lines: NewL
 }
 
 async function currentLines(ctx: QueryCtx, video: Doc<"videos">): Promise<NewLine[]> {
-  return (await linesOf(ctx, (await docOf(ctx, video._id, "main"))?._id)).map((l) => ({ key: l.key, type: l.type, text: l.text }));
+  return (await linesOf(ctx, (await docOf(ctx, video._id, "main"))?._id)).map((l) => ({ key: l.key, type: l.type, text: l.text, ...(l.indent ? { indent: l.indent } : {}) }));
 }
 
 /** Replace the whole script text (keep keys for lines you keep). Previous version is saved. */
@@ -597,6 +603,7 @@ const lineOp = v.union(
     checked: v.optional(v.boolean()),
     color: v.optional(blockColor),
     textColor: v.optional(textColor),
+    indent: v.optional(v.number()),
   }),
   v.object({ op: v.literal("insert"), afterKey: v.optional(v.union(v.string(), v.null())), lines: v.array(line) }),
   v.object({ op: v.literal("delete"), key: v.string() }),
@@ -629,9 +636,10 @@ export const editLines = internalMutation({
           ...(o.checked !== undefined ? { checked: o.checked } : {}),
           ...(o.color !== undefined ? { color: o.color } : {}),
           ...(o.textColor !== undefined ? { textColor: o.textColor } : {}),
+          ...(o.indent !== undefined ? { indent: o.indent } : {}),
         };
       } else if (o.op === "insert") {
-        list.splice(after(o.afterKey), 0, ...o.lines.map((l) => ({ type: l.type, text: l.text, checked: l.checked, color: l.color, textColor: l.textColor })));
+        list.splice(after(o.afterKey), 0, ...o.lines.map((l) => ({ type: l.type, text: l.text, checked: l.checked, color: l.color, textColor: l.textColor, indent: l.indent })));
       } else if (o.op === "delete") {
         list.splice(indexOf(o.key), 1);
       } else {
@@ -964,4 +972,46 @@ export const httpFile = httpAction(async (ctx, req) => {
   } catch (e) {
     return json({ error: errorOf(e) }, 400);
   }
+});
+
+// ---------- The team's Todo list ----------
+
+/** The Todo list's id, made if there isn't one yet */
+export const todoId = internalMutation({
+  args: {},
+  handler: async (ctx) => ensureTodo(ctx, null),
+});
+
+/**
+ * Adds items to the Todo list: at the end, or as sub-bullets under a line (under = its key). Each item can
+ * carry its own sub-items (indent 1, 2… relative to where it's added). Comments on other lines stay put.
+ */
+export const addTodoItems = internalMutation({
+  args: {
+    items: v.array(v.object({ text: v.string(), indent: v.optional(v.number()) })),
+    under: v.optional(v.string()),
+    agentName: v.optional(v.string()),
+  },
+  handler: async (ctx, { items, under, agentName }) => {
+    if (!items.length) throw new ConvexError("Give at least one item");
+    if (items.length > 200) throw new ConvexError("At most 200 items at once");
+    const video = (await ctx.db.get(await ensureTodo(ctx, null)))!;
+    let list = await currentLines(ctx, video);
+    // A fresh list is one empty bullet: replace it rather than adding below it
+    if (list.length === 1 && !list[0].text.trim()) list = [];
+    let at = list.length;
+    let base = 0;
+    if (under) {
+      const i = list.findIndex((l) => l.key === under);
+      if (i < 0) throw new ConvexError(`No line with key ${under}. get_todo lists the keys.`);
+      base = (list[i].indent ?? 0) + 1;
+      // After the line's own sub-items
+      at = i + 1;
+      while (at < list.length && (list[at].indent ?? 0) >= base) at++;
+    }
+    const added = items.map((it) => ({ type: "bullet" as const, text: it.text, indent: Math.min(4, base + Math.max(0, Math.round(it.indent ?? 0))) }));
+    list.splice(at, 0, ...added);
+    const res = await replaceScript(ctx, video, list, agentName);
+    return { todo: video._id, url: `${process.env.SITE_URL ?? ""}/v/${video._id}`, added: items.length, lines: res };
+  },
 });

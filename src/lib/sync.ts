@@ -17,6 +17,7 @@ type ServerBlock = {
   textColor?: Block["textColor"];
   images?: Block["images"];
   source_block_id: string | null;
+  indent?: number;
 };
 
 /** Only what's stored for an image (drops upload progress and errors) */
@@ -38,6 +39,7 @@ export function toServer(b: Block, position: number) {
     textColor: b.textColor ?? null,
     ...(b.type === "images" ? { images: cleanImages(b.images) } : {}),
     sourceBlockId: b.source_block_id ?? null,
+    ...(b.indent ? { indent: b.indent } : {}),
   };
 }
 

@@ -91,6 +91,8 @@ export function VideoEditor({ id }: { id: string }) {
   const data = useQuery(api.videos.get, { id });
   /** A Journal entry: the same editor, without the script parts */
   const journal = data?.video.kind === "journal";
+  /** The team's Todo list: one bulleted list, nothing else */
+  const todo = data?.video.kind === "todo";
   const comments = useQuery(
     api.comments.list,
     data?.video ? { videoId: data.video._id } : "skip",
@@ -622,7 +624,7 @@ export function VideoEditor({ id }: { id: string }) {
               />
             )}
             <Link
-              href={journal ? "/?view=journal" : "/"}
+              href={journal ? "/?view=journal" : todo ? "/?view=home" : "/"}
               onClick={(e) => {
                 // Came here from the Scripts page: go back to it, so its view, filters and scroll are just as you left them
                 if (cameFromHome.current && window.history.length > 1) {
@@ -634,7 +636,7 @@ export function VideoEditor({ id }: { id: string }) {
             >
               <IconArrowLeft />
               {/* Phones: just the arrow, so the top bar fits next to the sidebar button */}
-              <span className="max-sm:hidden">{journal ? "Journal" : "Scripts"}</span>
+              <span className="max-sm:hidden">{journal ? "Journal" : todo ? "Home" : "Scripts"}</span>
             </Link>
           </>
         }
@@ -651,7 +653,7 @@ export function VideoEditor({ id }: { id: string }) {
         onClosePanel={closeComments}
         tools={
           <>
-            <button
+            {!todo && <button
               type="button"
               onClick={() =>
                 void setPinnedM({
@@ -669,7 +671,7 @@ export function VideoEditor({ id }: { id: string }) {
               className={`flex h-9 w-9 items-center justify-center rounded-lg hover:bg-(--c-b-ececea) ${data.video.pinnedAt ? "text-(--c-t-2358d8)" : "text-(--c-t-6b6b6b) hover:text-(--c-t-1b1b1b)"}`}
             >
               <IconPin size={17} filled={!!data.video.pinnedAt} />
-            </button>
+            </button>}
             <button
               type="button"
               onClick={() => setPresenting(true)}
@@ -845,7 +847,7 @@ export function VideoEditor({ id }: { id: string }) {
         <VideoTitle
           meta={meta}
           onChange={changeMeta}
-          readOnly={!!review}
+          readOnly={!!review || todo}
           onEnter={() =>
             document
               .querySelector<HTMLElement>("[data-script] .editable")
@@ -853,7 +855,7 @@ export function VideoEditor({ id }: { id: string }) {
           }
         />
         {/* Journal entries are just the writing: no instructions, details, captions or brief */}
-        {!journal && <ScriptTabs
+        {!journal && !todo && <ScriptTabs
           collapsible
           tabs={[
             {
@@ -952,6 +954,8 @@ export function VideoEditor({ id }: { id: string }) {
                 activeId={openId}
                 commentCounts={countsFor(mainBlocks)}
                 onOpenComments={openComments}
+                listOnly={todo}
+                placeholder={todo ? "Add a to-do…" : undefined}
               />
             </div>
           </>

@@ -130,6 +130,7 @@ export function SharedScript({ slug }: { slug: string }) {
             textColor: b.textColor ?? null,
             ...(b.type === "images" ? { images: cleanImages(b.images) } : {}),
             sourceBlockId: b.source_block_id ?? null,
+            ...(b.indent ? { indent: b.indent } : {}),
           })),
         });
         dirty.current = false;

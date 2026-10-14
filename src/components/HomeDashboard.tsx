@@ -1,7 +1,8 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import { statusOf } from "@/lib/types";
@@ -98,8 +99,10 @@ export function HomeDashboard() {
         <kbd className="hidden font-sans text-[12px] tracking-wide text-(--c-t-b0b0b0) sm:inline">⌘K</kbd>
       </button>
 
+      <TodoSection className="mt-14" />
+
       {urgent.length > 0 && (
-        <Section className="mt-14" title="Needs attention" count={urgent.length} tone="urgent" more={{ label: "Feed", run: () => go("feed") }}>
+        <Section className="mt-12" title="Needs attention" count={urgent.length} tone="urgent" more={{ label: "Feed", run: () => go("feed") }}>
           {urgent.slice(0, 5).map((u) => (
             <Row key={u.id} href={`/v/${u.videoId}`} right={ago(u.happenedAt)}>
               <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-(--c-t-b42318)" aria-hidden="true" />
@@ -325,4 +328,90 @@ function Loading() {
 
 function Empty({ children }: { children: ReactNode }) {
   return <p className="m-0 px-2 py-2 text-[14px] text-(--c-t-9a9a9a)">{children}</p>;
+}
+
+/** "Some **bold** and a [link](url)" → "Some bold and a link" */
+const plain = (s: string) => s.replace(/\*\*(.+?)\*\*/g, "$1").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/\n/g, " ");
+
+/** The team's Todo list, at the top of Home for everyone: its items (with sub-bullets), and a quick add */
+function TodoSection({ className = "" }: { className?: string }) {
+  const todo = useQuery(api.todo.get);
+  const openM = useMutation(api.todo.open);
+  const addM = useMutation(api.todo.add);
+  const router = useRouter();
+  const [draft, setDraft] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  const open = async () => router.push(`/v/${todo?.id ?? (await openM())}`);
+  const lines = (todo?.lines ?? []).filter((l) => l.content.trim() || l.files);
+  const LIMIT = 12;
+  const shown = showAll ? lines : lines.slice(0, LIMIT);
+  const add = () => {
+    const t = draft.trim();
+    if (!t) return;
+    setDraft("");
+    void addM({ text: t });
+  };
+  return (
+    <Section className={className} title="Todo" count={todo ? lines.length : undefined} more={{ label: "Open", run: () => void open() }}>
+      {todo === undefined ? (
+        <Loading />
+      ) : (
+        <>
+          {shown.map((l) => (
+            <button
+              key={l.key}
+              type="button"
+              onClick={() => void open()}
+              className="flex min-h-9 w-full items-start gap-2.5 rounded-lg px-2 py-[7px] text-left text-[14px] leading-[1.45] hover:bg-(--c-b-f4f4f4)"
+              style={{ paddingLeft: 8 + Math.min(4, l.indent) * 22 }}
+            >
+              <span className="flex h-[1.45em] w-3 shrink-0 items-center justify-center" aria-hidden="true">
+                {l.type === "todo" ? (
+                  <span className={`h-[11px] w-[11px] rounded-[3px] border-[1.3px] ${l.checked ? "border-(--c-t-9a9a9a) bg-(--c-t-9a9a9a)" : "border-(--c-t-8a8a8a)"}`} />
+                ) : (
+                  <span className={`h-[5px] w-[5px] bg-(--c-t-8a8a8a) ${l.indent % 3 === 1 ? "rounded-full border border-(--c-t-8a8a8a) bg-transparent!" : l.indent % 3 === 2 ? "rounded-[1px]" : "rounded-full"}`} />
+                )}
+              </span>
+              <span className={`min-w-0 flex-1 ${l.type === "todo" && l.checked ? "text-(--c-t-9a9a9a) line-through" : "text-(--c-t-1b1b1b)"}`}>
+                {plain(l.content) || <span className="text-(--c-t-9a9a9a)">{l.files === 1 ? "1 file" : `${l.files} files`}</span>}
+              </span>
+              {l.comments > 0 && (
+                <span className="mt-[2px] flex shrink-0 items-center gap-1 text-[12px] text-(--c-t-9a9a9a)" title={`${l.comments} comment${l.comments === 1 ? "" : "s"}`}>
+                  <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M2.75 3.25h10.5v7.5H7.5l-3 2.5v-2.5H2.75z" />
+                  </svg>
+                  {l.comments}
+                </span>
+              )}
+            </button>
+          ))}
+          {lines.length > LIMIT && (
+            <button type="button" onClick={() => setShowAll(!showAll)} className="h-8 rounded-lg px-2 text-left text-[13px] text-(--c-t-8a8a8a) hover:bg-(--c-b-f4f4f4) hover:text-(--c-t-1b1b1b)">
+              {showAll ? "Show less" : `Show all ${lines.length}`}
+            </button>
+          )}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              add();
+            }}
+            className="flex h-9 items-center gap-2.5 rounded-lg px-2 focus-within:bg-(--c-b-f4f4f4) hover:bg-(--c-b-f4f4f4)"
+          >
+            <span className="flex w-3 shrink-0 justify-center text-(--c-t-9a9a9a)" aria-hidden="true">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+                <path d="M8 3v10M3 8h10" />
+              </svg>
+            </span>
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Add a to-do"
+              aria-label="Add a to-do"
+              className="h-full min-w-0 flex-1 bg-transparent text-[14px] text-(--c-t-1b1b1b) outline-none placeholder:text-(--c-t-9a9a9a)"
+            />
+          </form>
+        </>
+      )}
+    </Section>
+  );
 }

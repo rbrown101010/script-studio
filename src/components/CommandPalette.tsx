@@ -210,6 +210,7 @@ function Palette({
   const pathname = usePathname();
   const createVideo = useMutation(api.videos.create);
   const createBoard = useMutation(api.boards.create);
+  const openTodo = useMutation(api.todo.open);
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -288,7 +289,15 @@ function Palette({
       href: `/b/${b.id}`,
       at: b.updatedAt,
     }));
-    const pages: Item[] = PAGES.map((p) => ({
+    const todoPage: Item = {
+      key: "p:todo",
+      group: "Views",
+      title: "Todo",
+      words: "todo to-do list tasks team checklist app page",
+      icon: svg(<><path d="M6 4.25h7.5M6 8h7.5M8.5 11.75h5" /><circle cx="3.25" cy="4.25" r="0.6" /><circle cx="3.25" cy="8" r="0.6" /><circle cx="5.75" cy="11.75" r="0.6" /></>),
+      run: async () => router.push(`/v/${await openTodo()}`),
+    };
+    const pages: Item[] = [todoPage, ...PAGES.map((p): Item => ({
       key: `p:${p.view}`,
       group: p.view === "home" || p.view === "list" || p.view === "calendar" || p.view === "kanban" || p.view === "journal" || p.view === "feed" ? "Views" : "Apps",
       title: p.title,
@@ -296,7 +305,7 @@ function Palette({
       icon: p.icon,
       run: () => goView(p.view),
       link: `/?view=${p.view}`,
-    }));
+    }))];
     const create: Item[] = [
       {
         key: "new-script",
@@ -322,7 +331,7 @@ function Palette({
       },
     ];
     return { scripts, js, bs, pages, create };
-  }, [videos, boards, journal, goView, createVideo, createBoard, router]);
+  }, [videos, boards, journal, goView, createVideo, createBoard, router, openTodo]);
 
   /** What shows: recents and pages when empty; otherwise the best matches, grouped */
   const rows = useMemo(() => {

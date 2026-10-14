@@ -19,6 +19,9 @@ type SetBlocks = (fn: (prev: Block[]) => Block[]) => void;
 export type Variant = "script" | "instructions";
 
 const isList = (t: BlockType) => t === "bullet" || t === "number" || t === "todo";
+/** How deep sub-bullets go, and how far each level steps in */
+const MAX_INDENT = 4;
+const INDENT_PX = 26;
 
 /**
  * Type for writing: a calm 17px body with roomy line height (like Bear), soft near-black text, and
@@ -59,6 +62,7 @@ export function colorRunClass(list: { color?: string | null; type: string }[], i
 
 export function BlockPrefix({
   type,
+  depth = 0,
   n,
   checked,
   onToggle,
@@ -66,6 +70,8 @@ export function BlockPrefix({
   className = "",
 }: {
   type: BlockType;
+  /** Sub-bullet level: the dot turns into a ring, then a small square, like most writing apps */
+  depth?: number;
   n?: number;
   checked?: boolean;
   onToggle?: () => void;
@@ -91,7 +97,9 @@ export function BlockPrefix({
     return (
       // A round dot centred on the first line, rather than a text bullet that sits low
       <span aria-hidden="true" className={`flex h-[1.7em] shrink-0 select-none items-center ${script ? "w-[30px] pl-[7px]" : "w-6 pl-1"} ${className}`}>
-        <span className="h-[5.5px] w-[5.5px] rounded-full bg-current opacity-70" />
+        <span
+          className={`h-[5.5px] w-[5.5px] opacity-70 ${depth % 3 === 1 ? "rounded-full border-[1.3px] border-current" : depth % 3 === 2 ? "rounded-[1px] bg-current" : "rounded-full bg-current"}`}
+        />
       </span>
     );
   if (type === "number")
@@ -223,6 +231,7 @@ export function DocEditor({
   placeholder = "Write, or drop a file…",
   footer,
   boardName,
+  listOnly,
 }: {
   blocks: Block[];
   setBlocks: SetBlocks;
@@ -244,6 +253,8 @@ export function DocEditor({
   footer?: ReactNode;
   /** The script's title: a board made from a board block is named after it ("Title", then "Title 2"…) */
   boardName?: string;
+  /** Everything is a bullet (the Todo list): Enter never leaves the list, Backspace never turns a bullet into text */
+  listOnly?: boolean;
 }) {
   const canBoards = useCanEditBoards();
   const els = useRef(new Map<string, HTMLDivElement>());
@@ -613,6 +624,21 @@ export function DocEditor({
         return;
       }
 
+      // Tab nests a list line under the one above (a sub-bullet); Shift+Tab brings it back out
+      if (!readOnly && e.key === "Tab" && !e.metaKey && !e.ctrlKey && !e.altKey && isList(block.type)) {
+        e.preventDefault();
+        const now = block.indent ?? 0;
+        const above = list[index - 1];
+        // One level deeper than the line above at most, so the nesting always reads as a tree
+        const max = above && isList(above.type) ? Math.min(MAX_INDENT, (above.indent ?? 0) + 1) : 0;
+        const next = e.shiftKey ? Math.max(0, now - 1) : Math.min(max, now + 1);
+        if (next !== now) {
+          focusBlock(id, sel.start);
+          update(id, { indent: next || undefined });
+        }
+        return;
+      }
+
       if (e.key === "Enter" && e.shiftKey) {
         e.preventDefault();
         focusBlock(id, sel.start + 1);
@@ -622,6 +648,13 @@ export function DocEditor({
 
       if (e.key === "Enter") {
         e.preventDefault();
+        // Enter on an empty sub-bullet steps it back out a level; on an empty top-level one it ends the list
+        if (isList(block.type) && text === "" && (block.indent ?? 0) > 0) {
+          focusBlock(id, 0);
+          update(id, { indent: (block.indent ?? 0) - 1 || undefined });
+          return;
+        }
+        if (isList(block.type) && text === "" && listOnly) return;
         if (isList(block.type) && text === "" && variant === "script") {
           focusBlock(id, 0);
           update(id, { type: "p" });
@@ -633,9 +666,11 @@ export function DocEditor({
           update(id, { color: null });
           return;
         }
-        const nextType: BlockType = isList(block.type) ? block.type : "p";
+        const nextType: BlockType = isList(block.type) ? block.type : listOnly ? "bullet" : "p";
+        // A new list line stays at the same level
+        const nest = isList(block.type) && block.indent ? { indent: block.indent } : {};
         if (sel.start === 0 && collapsed && text !== "") {
-          const above: Block = { id: uid(), type: nextType, content: "", color: block.color ?? null, textColor: block.textColor ?? null };
+          const above: Block = { id: uid(), type: nextType, content: "", color: block.color ?? null, textColor: block.textColor ?? null, ...nest };
           focusBlock(id, 0);
           setBlocks((prev) => {
             const i = prev.findIndex((b) => b.id === id);
@@ -644,7 +679,7 @@ export function DocEditor({
           return;
         }
         // The new line keeps the color, so a colored block grows instead of starting a plain one
-        const nb: Block = { id: uid(), type: nextType, content: text.slice(sel.end), color: block.color ?? null, textColor: block.textColor ?? null };
+        const nb: Block = { id: uid(), type: nextType, content: text.slice(sel.end), color: block.color ?? null, textColor: block.textColor ?? null, ...nest };
         focusBlock(nb.id, 0);
         setBlocks((prev) => {
           const i = prev.findIndex((b) => b.id === id);
@@ -654,7 +689,14 @@ export function DocEditor({
       }
 
       if (e.key === "Backspace" && collapsed && sel.start === 0) {
-        if (block.type !== "p" && !(variant === "instructions" && block.type === "todo")) {
+        // Backspace at the start of a sub-bullet steps it out a level first
+        if (isList(block.type) && (block.indent ?? 0) > 0) {
+          e.preventDefault();
+          focusBlock(id, 0);
+          update(id, { indent: (block.indent ?? 0) - 1 || undefined });
+          return;
+        }
+        if (block.type !== "p" && !(variant === "instructions" && block.type === "todo") && !(listOnly && block.type === "bullet")) {
           e.preventDefault();
           focusBlock(id, 0);
           update(id, { type: "p" });
@@ -702,7 +744,7 @@ export function DocEditor({
       else if (e.key === "ArrowLeft" && !e.shiftKey && collapsed && sel.start === 0) move(list[index - 1], "end");
       else if (e.key === "ArrowRight" && !e.shiftKey && collapsed && sel.start === text.length) move(list[index + 1], 0);
     },
-    [readOnly, setBlocks, update, variant, canComment, onOpenComments, setSlash, applySlash, canBoards],
+    [readOnly, setBlocks, update, variant, canComment, onOpenComments, setSlash, applySlash, canBoards, listOnly],
   );
 
   const onPaste = useCallback(
@@ -1263,10 +1305,11 @@ export function DocEditor({
 
               <div
                 className={`flex ${textClass(b.type, variant)} ${muted ? "text-(--c-t-737373)" : ""}`}
-                style={b.textColor ? { color: textHex(b.textColor) } : undefined}
+                style={{ ...(b.textColor ? { color: textHex(b.textColor) } : {}), ...(b.indent && isList(b.type) ? { paddingLeft: b.indent * INDENT_PX } : {}) }}
               >
                 <BlockPrefix
                   type={b.type}
+                  depth={isList(b.type) ? (b.indent ?? 0) : 0}
                   n={numbers.get(b.id)}
                   checked={b.checked}
                   variant={variant}

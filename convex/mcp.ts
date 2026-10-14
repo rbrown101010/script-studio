@@ -45,6 +45,7 @@ const lineArg = {
     text: { type: "string", description: "The line's text. Link words with [words](https://…), bold with **words**." },
     textColor: { type: ["string", "null"], enum: ["gray", "red", "orange", "green", "blue", "purple", null], description: "Color of the text (null = default)" },
     color: { type: ["string", "null"], enum: ["yellow", "blue", "green", "red", "rose", null], description: "Background color of the block (red shows as purple, rose shows as red)" },
+    indent: { type: "number", description: "Sub-bullet level for bullet/number/todo lines: 1-4 (0 = top level)" },
   },
   required: ["text"],
 };
@@ -192,6 +193,7 @@ const TOOLS: Tool[] = [
               type: { type: "string", enum: ["p", "h1", "bullet", "number", "todo", "board"], description: "board = an Excalidraw board shown in the script; its text is the board id (from list_boards) or its /b/<id> link" },
               textColor: { type: ["string", "null"], enum: ["gray", "red", "orange", "green", "blue", "purple", null] },
               color: { type: ["string", "null"], enum: ["yellow", "blue", "green", "red", "rose", null] },
+              indent: { type: "number", description: "Sub-bullet level 0-4 (replace)" },
               lines: { type: "array", items: lineArg },
             },
             required: ["op"],
@@ -672,6 +674,29 @@ const TOOLS: Tool[] = [
       required: ["script"],
     },
     run: (ctx, a) => ctx.runMutation(internal.agent.updateDetails, a),
+  },
+  {
+    name: "get_todo",
+    description:
+      "Read the team's shared Todo list (a bulleted list with sub-bullets, at the top of Native Note for everyone): its id, every line with its key, text and indent (0 = top level, 1-4 = sub-bullet levels), and comments. Change lines with edit_lines and comment with comment_on_script, using the id as script.",
+    inputSchema: { type: "object", properties: {} },
+    annotations: { readOnlyHint: true },
+    run: async (ctx) => ctx.runQuery(internal.agent.script, { script: await ctx.runMutation(internal.agent.todoId, {}) }),
+  },
+  {
+    name: "add_todo",
+    description:
+      "Add items to the team's Todo list: at the end, or as sub-bullets under a line (under = that line's key from get_todo). indent on an item nests it further (1 = a sub-bullet of the item before it). Only when asked.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        items: { type: "array", items: { type: "object", properties: { text: { type: "string" }, indent: { type: "number" } }, required: ["text"] } },
+        under: { type: "string", description: "Line key to add the items beneath, as sub-bullets" },
+        agentName: { type: "string" },
+      },
+      required: ["items"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.agent.addTodoItems, a),
   },
   {
     name: "list_journal",

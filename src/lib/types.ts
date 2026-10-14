@@ -45,6 +45,8 @@ export type Block = {
   /** An "images" block's pictures, side by side */
   images?: Attachment[];
   source_block_id?: string | null;
+  /** List lines can nest: 0 (or missing) = top level, up to 4 */
+  indent?: number;
 };
 
 export type VideoStatus = "inProduction" | "upcoming" | "done" | "idea" | "sentToEditor";
