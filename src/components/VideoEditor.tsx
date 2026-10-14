@@ -98,6 +98,7 @@ export function VideoEditor({ id }: { id: string }) {
     todoRef.current = todo;
   }, [todo]);
   const team = useQuery(api.users.list, todo ? {} : "skip");
+  const scripts = useQuery(api.videos.list, todo ? {} : "skip");
   const comments = useQuery(
     api.comments.list,
     data?.video ? { videoId: data.video._id } : "skip",
@@ -963,6 +964,7 @@ export function VideoEditor({ id }: { id: string }) {
                 onOpenComments={openComments}
                 listOnly={todo}
                 people={todo ? (team ?? []) : undefined}
+                mentions={todo ? (scripts ?? []).map((s) => ({ id: s._id, title: s.title, format: s.format })) : undefined}
                 placeholder={todo ? "Add a to-do…" : undefined}
               />
             </div>

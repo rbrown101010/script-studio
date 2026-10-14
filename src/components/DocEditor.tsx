@@ -8,7 +8,10 @@ import { BLOCK_COLORS, TEXT_COLORS, colorBg, textHex, type Attachment, type Bloc
 import { uploadToUrl } from "@/lib/upload";
 import { MediaViewer } from "./Attachments";
 import { caretOnFirstLine, caretOnLastLine, getSelectionOffsets, readText, setCaret, writeText } from "@/lib/caret";
-import { isUrl, linkSegments, renderLinks, toRawOffset, toggleBold, wrapLink } from "@/lib/scriptLinks";
+import { isUrl, linkSegments, mentionText, renderLinks, toRawOffset, toggleBold, wrapLink } from "@/lib/scriptLinks";
+import { useRouter } from "next/navigation";
+import { FormatIcon } from "./FormatIcon";
+import { initials, personColor } from "@/lib/people";
 import { listNumbers, uid } from "@/lib/util";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { IconBoard, IconClip, IconComment, IconCopy, IconCheck, IconGrip, IconPlus, IconTrash, IconX } from "./icons";
@@ -233,6 +236,7 @@ export function DocEditor({
   boardName,
   listOnly,
   people,
+  mentions,
 }: {
   blocks: Block[];
   setBlocks: SetBlocks;
@@ -258,6 +262,8 @@ export function DocEditor({
   listOnly?: boolean;
   /** The team: shows who each to-do is assigned to, with a picker */
   people?: Person[];
+  /** Scripts you can mention with @ (shown as pills) */
+  mentions?: Mentionable[];
 }) {
   const canBoards = useCanEditBoards();
   const els = useRef(new Map<string, HTMLDivElement>());
@@ -286,6 +292,26 @@ export function DocEditor({
     slashRef.current = s;
     setSlashState(s);
   }, []);
+
+  /** The @ menu: mention a script (where the @ is, what's typed after it) */
+  const [mention, setMentionState] = useState<{ id: string; start: number; query: string; top: number; left: number; up: boolean; active: number } | null>(null);
+  const mentionRef = useRef(mention);
+  const setMention = useCallback((m: typeof mention) => {
+    mentionRef.current = m;
+    setMentionState(m);
+  }, []);
+  const mentionDismissed = useRef<{ id: string; start: number } | null>(null);
+  const mentionsRef = useRef(mentions);
+  useEffect(() => {
+    mentionsRef.current = mentions;
+  }, [mentions]);
+  const router = useRouter();
+  // Clicking a script pill opens it here (not in a new tab)
+  useEffect(() => {
+    const go = (e: Event) => router.push((e as CustomEvent<string>).detail);
+    window.addEventListener("nn:open-script", go);
+    return () => window.removeEventListener("nn:open-script", go);
+  }, [router]);
 
   // ---- Images blocks: upload pasted/dropped/picked pictures and add them to the block ----
   const uploadUrl = useMutation(api.docs.generateUploadUrl);
@@ -490,6 +516,28 @@ export function DocEditor({
       if (readOnly) return;
       const caret = getSelectionOffsets(el)?.start ?? text.length;
       const open = slashRef.current;
+      // Typing @ (at the start or after a space) mentions a script
+      const m = mentionRef.current;
+      // (an @ at the start or after a space, with a word or nothing after it yet; Escape dismisses that one)
+      const at = mentionsRef.current ? text.slice(0, caret).match(/(^|\s)@([^\s@[\]()]{0,40})$/) : null;
+      if (at) {
+        const start = caret - at[2].length - 1;
+        const same = m && m.id === id && m.start === start;
+        if (!same && !(mentionDismissed.current?.id === id && mentionDismissed.current.start === start)) {
+          const range = window.getSelection()?.rangeCount ? window.getSelection()!.getRangeAt(0) : null;
+          let r = range?.getBoundingClientRect();
+          if (!r || (r.top === 0 && r.left === 0)) r = el.getBoundingClientRect();
+          const up = r.bottom + 320 > window.innerHeight && r.top > 320;
+          setMention({ id, start, query: at[2], top: up ? r.top - 6 : r.bottom + 6, left: r.left, up, active: 0 });
+          return;
+        }
+      }
+      if (m && m.id === id) {
+        const query = text.slice(m.start + 1, caret);
+        if (caret <= m.start || text[m.start] !== "@" || query.length > 60 || query.includes("\n")) setMention(null);
+        else setMention({ ...m, query, active: 0 });
+        return;
+      }
       if (caret > 0 && text[caret - 1] === "/" && (caret === 1 || /\s/.test(text[caret - 2]))) {
         const range = window.getSelection()?.rangeCount ? window.getSelection()!.getRangeAt(0) : null;
         let r = range?.getBoundingClientRect();
@@ -502,7 +550,25 @@ export function DocEditor({
         else setSlash({ ...open, query, active: 0 });
       }
     },
-    [update, readOnly, variant, setSlash, canBoards],
+    [update, readOnly, variant, setSlash, canBoards, setMention],
+  );
+
+  /** Puts the picked script in place of the "@words" typed */
+  const applyMention = useCallback(
+    (script: Mentionable) => {
+      const m = mentionRef.current;
+      if (!m) return;
+      setMention(null);
+      const b = blocksRef.current.find((x) => x.id === m.id);
+      if (!b) return;
+      const el = els.current.get(m.id);
+      const text = el ? readText(el) : b.content;
+      const end = Math.min(text.length, m.start + 1 + m.query.length);
+      const pill = mentionText(script.title, script.id, window.location.origin) + " ";
+      focusBlock(m.id, m.start + pill.length);
+      update(m.id, { content: text.slice(0, m.start) + pill + text.slice(end) });
+    },
+    [update, setMention],
   );
 
   /** Applies a / menu choice to its line and removes the "/words" that were typed */
@@ -549,6 +615,29 @@ export function DocEditor({
       const text = readText(el);
       const sel = getSelectionOffsets(el) ?? { start: text.length, end: text.length };
       const collapsed = sel.start === sel.end;
+
+      // Arrows, Enter and Escape drive the @ menu while it's open
+      const mm = mentionRef.current;
+      if (mm && mm.id === id) {
+        const found = mentionMatches(mentionsRef.current ?? [], mm.query);
+        if ((e.key === "ArrowDown" || e.key === "ArrowUp") && found.length) {
+          e.preventDefault();
+          const d = e.key === "ArrowDown" ? 1 : -1;
+          setMention({ ...mm, active: (mm.active + d + found.length) % found.length });
+          return;
+        }
+        if ((e.key === "Enter" || e.key === "Tab") && found[mm.active]) {
+          e.preventDefault();
+          applyMention(found[mm.active]);
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          mentionDismissed.current = { id, start: mm.start };
+          setMention(null);
+          return;
+        }
+      }
 
       // Arrows, Enter and Escape drive the / menu while it's open
       const s = slashRef.current;
@@ -747,7 +836,7 @@ export function DocEditor({
       else if (e.key === "ArrowLeft" && !e.shiftKey && collapsed && sel.start === 0) move(list[index - 1], "end");
       else if (e.key === "ArrowRight" && !e.shiftKey && collapsed && sel.start === text.length) move(list[index + 1], 0);
     },
-    [readOnly, setBlocks, update, variant, canComment, onOpenComments, setSlash, applySlash, canBoards, listOnly],
+    [readOnly, setBlocks, update, variant, canComment, onOpenComments, setSlash, applySlash, canBoards, listOnly, setMention, applyMention],
   );
 
   const onPaste = useCallback(
@@ -1134,6 +1223,14 @@ export function DocEditor({
 
   return (
     <div ref={rootRef} className="relative">
+      {mention && mentions && (
+        <MentionMenu
+          at={mention}
+          items={mentionMatches(mentions, mention.query)}
+          onPick={applyMention}
+          onHover={(active) => setMention({ ...mention, active })}
+        />
+      )}
       {slash && <SlashMenu slash={slash} items={slashItems(slash.query, variant, canBoards)} onPick={applySlash} onHover={(active) => setSlash({ ...slash, active })} />}
       {linkBox && (
         <LinkBox
@@ -1386,7 +1483,10 @@ export function DocEditor({
                   onPaste={onPaste}
                   onFocus={(id) => {
                     setFocusedId(id);
-                    if (!id) setSlash(null);
+                    if (!id) {
+                      setSlash(null);
+                      setMention(null);
+                    }
                     if (id) onActivate?.(id);
                   }}
                 />
@@ -1799,7 +1899,8 @@ const EditableText = memo(function EditableText({
         // Clicking a link opens it; clicking elsewhere on the line edits it
         if (link) {
           e.preventDefault();
-          window.open(link.href, "_blank", "noopener,noreferrer");
+          if (link.dataset.internal !== undefined) window.dispatchEvent(new CustomEvent("nn:open-script", { detail: link.getAttribute("href") }));
+          else window.open(link.href, "_blank", "noopener,noreferrer");
           return;
         }
         if (readOnly || el.dataset.rich === undefined) return;
@@ -1943,15 +2044,7 @@ function ImageStrip({
   );
 }
 
-export type Person = { id: string; name: string };
-
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join("") || "?";
+export type Person = { id: string; name: string; color: number };
 
 /** Who a to-do is assigned to: their initials and first name, or (on hover) a button to pick someone */
 function AssignChip({ people, value, readOnly, onChange }: { people: Person[]; value: string | null; readOnly: boolean; onChange: (who: string | null) => void }) {
@@ -1981,13 +2074,13 @@ function AssignChip({ people, value, readOnly, onChange }: { people: Person[]; v
         title={who ? `Assigned to ${who.name}` : "Assign"}
         className={
           who
-            ? "flex h-6 items-center gap-1.5 rounded-full bg-(--c-b-f0f0ee) py-0 pl-0.5 pr-2 text-[12.5px] font-medium text-(--c-t-4a4a4a) hover:bg-(--c-b-e6e6e3)"
+            ? "flex h-6 items-center gap-1.5 rounded-full bg-(--c-b-f1f1ef) py-0 pl-0.5 pr-2 text-[12.5px] font-medium text-(--c-t-4a4a4a) hover:bg-(--c-b-e6e6e3)"
             : `flex h-6 w-6 items-center justify-center rounded-full text-(--c-t-9a9a9a) hover:bg-(--c-b-efefed) hover:text-(--c-t-1b1b1b) ${open ? "opacity-100" : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"}`
         }
       >
         {who ? (
           <>
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-(--c-b-1b1b1b) text-[9.5px] font-semibold text-(--c-on-ink)">{initials(who.name)}</span>
+            <span className="flex h-5 w-5 items-center justify-center rounded-full text-[9.5px] font-semibold text-white" style={{ background: personColor(who.color) }}>{initials(who.name)}</span>
             {who.name.split(/\s+/)[0]}
           </>
         ) : (
@@ -2011,7 +2104,7 @@ function AssignChip({ people, value, readOnly, onChange }: { people: Person[]; v
               }}
               className="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-(--c-t-1b1b1b) hover:bg-(--c-b-f4f4f4)"
             >
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-(--c-b-1b1b1b) text-[9.5px] font-semibold text-(--c-on-ink)">{initials(p.name)}</span>
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9.5px] font-semibold text-white" style={{ background: personColor(p.color) }}>{initials(p.name)}</span>
               <span className="min-w-0 flex-1 truncate">{p.name}</span>
               {p.id === value && <IconCheck size={13} />}
             </button>
@@ -2030,6 +2123,67 @@ function AssignChip({ people, value, readOnly, onChange }: { people: Person[]; v
             </button>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+export type Mentionable = { id: string; title: string; format: "long" | "short" };
+
+/** Scripts whose title has every word typed after the @, best first */
+function mentionMatches(all: Mentionable[], query: string) {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const hits = all.filter((s) => {
+    const t = (s.title || "Untitled").toLowerCase();
+    return words.every((w) => t.includes(w));
+  });
+  if (words.length) hits.sort((a, b) => Number(!(a.title || "").toLowerCase().startsWith(words[0])) - Number(!(b.title || "").toLowerCase().startsWith(words[0])));
+  return hits.slice(0, 8);
+}
+
+function MentionMenu({
+  at,
+  items,
+  onPick,
+  onHover,
+}: {
+  at: { query: string; top: number; left: number; up: boolean; active: number };
+  items: Mentionable[];
+  onPick: (s: Mentionable) => void;
+  onHover: (i: number) => void;
+}) {
+  return (
+    <div
+      role="listbox"
+      aria-label="Mention a script"
+      onMouseDown={(e) => e.preventDefault()}
+      className="fixed z-50 w-[300px] max-w-[calc(100vw-24px)] rounded-xl border border-(--c-l-e5e5e5) bg-(--c-b-ffffff) p-1 shadow-[0_12px_32px_rgba(0,0,0,0.12)]"
+      style={{
+        top: at.up ? undefined : at.top,
+        bottom: at.up ? (typeof window === "undefined" ? 0 : window.innerHeight - at.top) : undefined,
+        left: Math.max(12, Math.min(at.left, (typeof window === "undefined" ? 800 : window.innerWidth) - 312)),
+      }}
+    >
+      <div className="px-2 pb-1 pt-2 text-[11px] font-medium uppercase tracking-[0.05em] text-(--c-t-9a9a9a)">Scripts</div>
+      {items.length === 0 ? (
+        <div className="px-2 py-2 text-[13.5px] text-(--c-t-9a9a9a)">No script matches “{at.query}”</div>
+      ) : (
+        items.map((s, i) => (
+          <button
+            key={s.id}
+            type="button"
+            role="option"
+            aria-selected={i === at.active}
+            onMouseEnter={() => onHover(i)}
+            onClick={() => onPick(s)}
+            className={`flex h-[34px] w-full items-center gap-2.5 rounded-md px-2 text-left text-[14px] text-(--c-t-1b1b1b) ${i === at.active ? "bg-(--c-b-f1f1ef)" : ""}`}
+          >
+            <span className="flex w-4 shrink-0 justify-center text-(--c-t-8a8a8a)">
+              <FormatIcon format={s.format} size={14} />
+            </span>
+            <span className={`min-w-0 flex-1 truncate ${s.title.trim() ? "" : "text-(--c-t-9a9a9a)"}`}>{s.title.trim() || "Untitled"}</span>
+          </button>
+        ))
       )}
     </div>
   );

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import { statusOf } from "@/lib/types";
+import { initials, personColor } from "@/lib/people";
+import { linkSegments, mentionOf } from "@/lib/scriptLinks";
 import { FormatIcon } from "./FormatIcon";
 import { openCommandPalette } from "./CommandPalette";
 import { useHomeView, type View } from "./HomeSidebar";
@@ -396,7 +398,11 @@ function TodoSection({ className = "" }: { className?: string }) {
                 </button>
                 <button type="button" onClick={() => void open()} className="flex min-w-0 flex-1 items-start gap-2.5 text-left">
                   <span className={`min-w-0 flex-1 ${done ? "text-(--c-t-9a9a9a) line-through decoration-(--c-t-c4c4c4)" : "text-(--c-t-1b1b1b)"}`}>
-                    {plain(l.content) || <span className="text-(--c-t-9a9a9a)">{l.files === 1 ? "1 file" : `${l.files} files`}</span>}
+                    {l.content.trim() ? (
+                      <TodoText text={l.content} onOpenScript={(id) => router.push(`/v/${id}`)} />
+                    ) : (
+                      <span className="text-(--c-t-9a9a9a)">{l.files === 1 ? "1 file" : `${l.files} files`}</span>
+                    )}
                   </span>
                   {l.comments > 0 && (
                     <span className="mt-[2px] flex shrink-0 items-center gap-1 text-[12px] text-(--c-t-9a9a9a)" title={`${l.comments} comment${l.comments === 1 ? "" : "s"}`}>
@@ -408,8 +414,8 @@ function TodoSection({ className = "" }: { className?: string }) {
                   )}
                   {who && (
                     <span className="flex shrink-0 items-center gap-1.5 text-[12.5px] text-(--c-t-6b6b6b)" title={`Assigned to ${who.name}`}>
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-(--c-b-1b1b1b) text-[9.5px] font-semibold text-(--c-on-ink)">
-                        {who.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("")}
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full text-[9.5px] font-semibold text-white" style={{ background: personColor(who.color) }}>
+                        {initials(who.name)}
                       </span>
                       <span className="max-sm:hidden">{who.name.split(/\s+/)[0]}</span>
                     </span>
@@ -446,5 +452,47 @@ function TodoSection({ className = "" }: { className?: string }) {
         </>
       )}
     </Section>
+  );
+}
+
+/** A to-do's words on Home: bold and links as text, mentioned scripts as pills that open them */
+function TodoText({ text, onOpenScript }: { text: string; onOpenScript: (id: string) => void }) {
+  const segs = linkSegments(text.replace(/\n/g, " "));
+  if (!segs) return <>{text.replace(/\n/g, " ")}</>;
+  return (
+    <>
+      {segs.map((s, i) => {
+        const id = mentionOf(s);
+        if (id)
+          return (
+            <span
+              key={i}
+              role="link"
+              tabIndex={0}
+              className="script-pill"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenScript(id);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onOpenScript(id);
+                }
+              }}
+            >
+              {s.text.slice(1)}
+            </span>
+          );
+        return s.bold ? (
+          <strong key={i} className="font-semibold">
+            {s.text}
+          </strong>
+        ) : (
+          <span key={i}>{s.text}</span>
+        );
+      })}
+    </>
   );
 }

@@ -56,6 +56,8 @@ add_todo {items:[{text, indent?, assignee?}], under?} adds to-dos at the end, or
 update_todo_item {key, checked?, assignee?, text?} marks one done / not done, assigns it (name or email; null = nobody)
 or rewords it. To reorder, nest or remove items use edit_lines with script = the Todo's id. Comment on an item with
 comment_on_script {script: todo id, blockKey: its key, text, attachments?}. Only add, change or remove items when asked.
+Mention a script in an item (it shows as a pill that opens the script) by writing [@Script title](<site>/v/<script id>)
+in the text, e.g. "Record [@Q4 recap](https://script-studio-kohl.vercel.app/v/abc123)"; list_scripts gives ids.
 
 ## Journal
 Riley's journal entries and internal docs. They're the same kind of document as scripts (same editor, lines, comments,

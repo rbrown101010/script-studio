@@ -28,11 +28,31 @@ export function linkSegments(value: string): Seg[] | null {
   return segs;
 }
 
+/** A script mention ([@Title](…/v/<id>)): the script's id, or null */
+export function mentionOf(s: Pick<Seg, "text" | "href">) {
+  if (!s.href || !s.text.startsWith("@")) return null;
+  return s.href.match(/\/v\/([a-z0-9]{20,40})\/?$/i)?.[1] ?? null;
+}
+
+/** Mentions a script inside a line: what's stored */
+export const mentionText = (title: string, id: string, origin: string) => `[@${(title.trim() || "Untitled").replace(/[[\]\n]/g, "")}](${origin}/v/${id})`;
+
 /** Draws the line with real links. */
 export function renderLinks(el: HTMLElement, segs: Seg[]) {
   el.textContent = "";
   for (const s of segs) {
-    if (s.href) {
+    const mention = mentionOf(s);
+    if (mention) {
+      // A mentioned script: a pill that opens it (in this tab)
+      const a = document.createElement("a");
+      a.href = `/v/${mention}`;
+      a.dataset.scriptLink = "";
+      a.dataset.internal = "";
+      a.className = "script-pill";
+      a.textContent = s.text.slice(1);
+      a.title = `Open ${s.text.slice(1)}`;
+      el.appendChild(a);
+    } else if (s.href) {
       const a = document.createElement("a");
       a.href = s.href;
       a.target = "_blank";
