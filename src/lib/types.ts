@@ -47,6 +47,8 @@ export type Block = {
   source_block_id?: string | null;
   /** List lines can nest: 0 (or missing) = top level, up to 4 */
   indent?: number;
+  /** Who a to-do is assigned to (a user id) */
+  assignee?: string | null;
 };
 
 export type VideoStatus = "inProduction" | "upcoming" | "done" | "idea" | "sentToEditor";

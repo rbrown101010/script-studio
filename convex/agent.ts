@@ -100,6 +100,7 @@ async function linesOf(ctx: QueryCtx, documentId: Id<"documents"> | undefined) {
     ...(b.color ? { color: b.color } : {}),
     ...(b.textColor ? { textColor: b.textColor } : {}),
     ...(b.indent ? { indent: b.indent } : {}),
+    ...(b.assignee ? { assignee: b.assignee } : {}),
     ...(b.type === "images" ? { images: (b.images ?? []).map((a) => ({ name: a.name, url: a.url })) } : {}),
   })).map(async (l, i) => (blocks[i].type === "board" ? { ...l, board: await boardCard(ctx, blocks[i].content) } : l)));
 }
@@ -504,6 +505,7 @@ type NewLine = {
   color?: Doc<"blocks">["color"];
   textColor?: Doc<"blocks">["textColor"];
   indent?: number;
+  assignee?: Id<"users">;
   /** Internal only (restoring a version): an images block's pictures */
   images?: Doc<"blocks">["images"];
 };
@@ -557,6 +559,7 @@ async function replaceScript(ctx: MutationCtx, video: Doc<"videos">, lines: NewL
       textColor: l.textColor !== undefined ? l.textColor : (prev?.textColor ?? null),
       sourceBlockId: null,
       ...((l.indent ?? prev?.indent) ? { indent: Math.max(0, Math.min(4, Math.round(l.indent ?? prev?.indent ?? 0))) } : {}),
+      ...(("assignee" in l ? l.assignee : prev?.assignee) ? { assignee: ("assignee" in l ? l.assignee : prev?.assignee)! } : {}),
       ...(prev?.attachments ? { attachments: prev.attachments } : {}),
       ...(l.images ? { images: l.images } : prev?.images ? { images: prev.images } : {}),
     });
@@ -988,11 +991,12 @@ export const todoId = internalMutation({
  */
 export const addTodoItems = internalMutation({
   args: {
-    items: v.array(v.object({ text: v.string(), indent: v.optional(v.number()) })),
+    items: v.array(v.object({ text: v.string(), indent: v.optional(v.number()), assignee: v.optional(v.string()), checked: v.optional(v.boolean()) })),
     under: v.optional(v.string()),
     agentName: v.optional(v.string()),
   },
   handler: async (ctx, { items, under, agentName }) => {
+    const people = await teamOf(ctx);
     if (!items.length) throw new ConvexError("Give at least one item");
     if (items.length > 200) throw new ConvexError("At most 200 items at once");
     const video = (await ctx.db.get(await ensureTodo(ctx, null)))!;
@@ -1009,9 +1013,63 @@ export const addTodoItems = internalMutation({
       at = i + 1;
       while (at < list.length && (list[at].indent ?? 0) >= base) at++;
     }
-    const added = items.map((it) => ({ type: "bullet" as const, text: it.text, indent: Math.min(4, base + Math.max(0, Math.round(it.indent ?? 0))) }));
+    const added = items.map((it) => ({
+      type: "todo" as const,
+      text: it.text,
+      checked: !!it.checked,
+      indent: Math.min(4, base + Math.max(0, Math.round(it.indent ?? 0))),
+      ...(it.assignee ? { assignee: personOf(people, it.assignee) } : {}),
+    }));
     list.splice(at, 0, ...added);
     const res = await replaceScript(ctx, video, list, agentName);
     return { todo: video._id, url: `${process.env.SITE_URL ?? ""}/v/${video._id}`, added: items.length, lines: res };
+  },
+});
+
+/** Everyone who has signed up (the team), for assigning to-dos */
+async function teamOf(ctx: QueryCtx) {
+  return (await ctx.db.query("users").collect()).map((u) => ({ id: u._id, name: u.name?.trim() || u.email?.split("@")[0] || "", email: (u.email ?? "").toLowerCase() }));
+}
+/** A teammate by name, first name, email or id */
+function personOf(people: Awaited<ReturnType<typeof teamOf>>, who: string) {
+  const w = who.trim().toLowerCase();
+  const hit =
+    people.find((p) => p.id === who || p.email === w || p.name.toLowerCase() === w) ??
+    people.filter((p) => p.name.toLowerCase().split(/\s+/)[0] === w.split(/\s+/)[0]).at(0);
+  if (!hit) throw new ConvexError(`No one called "${who}" has joined Native Note. get_todo lists the team.`);
+  return hit.id;
+}
+
+/** The team, for agents assigning to-dos */
+export const team = internalQuery({
+  args: {},
+  handler: async (ctx) => (await teamOf(ctx)).map((p) => ({ id: p.id, name: p.name, email: p.email })),
+});
+
+/** Tick, untick, assign or reword one Todo item by its key (no new version; comments stay) */
+export const updateTodoItem = internalMutation({
+  args: { key: v.string(), checked: v.optional(v.boolean()), assignee: v.optional(v.union(v.string(), v.null())), text: v.optional(v.string()) },
+  handler: async (ctx, { key, checked, assignee, text }) => {
+    const video = (await ctx.db.get(await ensureTodo(ctx, null)))!;
+    const main = await docOf(ctx, video._id, "main");
+    const block = main
+      ? await ctx.db
+          .query("blocks")
+          .withIndex("by_document_key", (q) => q.eq("documentId", main._id).eq("key", key))
+          .unique()
+      : null;
+    if (!block) throw new ConvexError(`No Todo item with key ${key}. get_todo lists the keys.`);
+    const patch: Partial<Doc<"blocks">> = {};
+    if (checked !== undefined) Object.assign(patch, { checked, type: "todo" as const });
+    if (text !== undefined) {
+      if (text.length > MAX_TEXT) throw new ConvexError(`Items can be at most ${MAX_TEXT} characters`);
+      patch.content = text;
+    }
+    if (assignee !== undefined) patch.assignee = assignee ? personOf(await teamOf(ctx), assignee) : undefined;
+    await ctx.db.patch(block._id, patch);
+    const now = Date.now();
+    await ctx.db.patch(main!._id, { updatedAt: now });
+    await ctx.db.patch(video._id, { updatedAt: now });
+    return { key, checked: patch.checked ?? block.checked, assignee: (assignee !== undefined ? patch.assignee : block.assignee) ?? null, text: patch.content ?? block.content };
   },
 });

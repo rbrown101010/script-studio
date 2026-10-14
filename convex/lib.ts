@@ -31,6 +31,7 @@ export async function docBlocks(ctx: QueryCtx, documentId: Id<"documents">) {
     source_block_id: b.sourceBlockId,
     ...(b.images ? { images: b.images } : {}),
     ...(b.indent ? { indent: b.indent } : {}),
+    ...(b.assignee ? { assignee: b.assignee } : {}),
   }));
 }
 
@@ -102,6 +103,7 @@ type EditedBlock = {
   images?: Doc<"blocks">["images"];
   sourceBlockId: string | null;
   indent?: number;
+  assignee?: Id<"users">;
 };
 
 /**
@@ -159,6 +161,7 @@ export async function writeEditedVersion(
       ...(b.textColor ? { textColor: b.textColor } : {}),
       ...(b.images ? { images: b.images } : {}),
       ...(b.indent ? { indent: Math.max(0, Math.min(4, Math.round(b.indent))) } : {}),
+      ...(b.assignee ? { assignee: b.assignee } : {}),
       sourceBlockId: b.sourceBlockId,
     });
   }

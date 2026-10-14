@@ -49,12 +49,13 @@ import many at once (up to 200 per call, e.g. bookmarks); links already saved ar
 each idea saying what it is and why it's worth keeping. Use list_ideas to search what's there.
 
 ## Todo list
-The team's one shared Todo list: a bulleted list (with sub-bullets) at the top of the sidebar and of Home, for everyone.
-get_todo reads it: its id plus every line with its key, text and indent (0 = top level, 1-4 = sub-bullet levels), and
-comments. add_todo {items:[{text, indent?}], under?} adds items at the end, or as sub-bullets under a line (under = that
-line's key). To change, reorder, nest or remove lines use edit_lines with script = the Todo's id (replace {key, text?,
-indent?}). Comment on an item with comment_on_script {script: todo id, blockKey: line key, text, attachments?}.
-Only add, change or remove items when asked.
+The team's one shared Todo list: a checklist (with sub-items) at the top of the sidebar and of Home, for everyone.
+Everyone who has signed up is on the team and can be assigned items. get_todo reads it: its id, every item with its key,
+text, checked (done), indent (0 = top level, 1-4 = sub-item levels) and assignee, its comments, and the team.
+add_todo {items:[{text, indent?, assignee?}], under?} adds to-dos at the end, or as sub-items under one (under = its key).
+update_todo_item {key, checked?, assignee?, text?} marks one done / not done, assigns it (name or email; null = nobody)
+or rewords it. To reorder, nest or remove items use edit_lines with script = the Todo's id. Comment on an item with
+comment_on_script {script: todo id, blockKey: its key, text, attachments?}. Only add, change or remove items when asked.
 
 ## Journal
 Riley's journal entries and internal docs. They're the same kind of document as scripts (same editor, lines, comments,
@@ -211,7 +212,8 @@ Never invent numbers or videos. Only include view counts you actually saw at tha
 | comment_on_edit_video {video, text, version?, at?, attachments?, agentName?} | Comment on a version (at = seconds) |
 | set_edit_status {video, status} | editing / ready / posted / archived |
 | get_todo {} | The team's Todo list: id, lines (key, text, indent) and comments |
-| add_todo {items:[{text, indent?}], under?, agentName?} | Add Todo items (under = a line key to add sub-bullets) |
+| add_todo {items:[{text, indent?, assignee?}], under?, agentName?} | Add to-dos (under = an item's key, for sub-items) |
+| update_todo_item {key, checked?, assignee?, text?} | Tick / untick, assign or reword a to-do |
 | list_journal {query?} | Journal entries (personal notes, internal docs) |
 | create_journal_entry {title, lines?, agentName?} | New Journal entry |
 | list_scratchboards {query?} | Scratchboards (Riley's drawing-board style) |

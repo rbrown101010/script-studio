@@ -18,6 +18,7 @@ type ServerBlock = {
   images?: Block["images"];
   source_block_id: string | null;
   indent?: number;
+  assignee?: string;
 };
 
 /** Only what's stored for an image (drops upload progress and errors) */
@@ -40,6 +41,7 @@ export function toServer(b: Block, position: number) {
     ...(b.type === "images" ? { images: cleanImages(b.images) } : {}),
     sourceBlockId: b.source_block_id ?? null,
     ...(b.indent ? { indent: b.indent } : {}),
+    ...(b.assignee ? { assignee: b.assignee as Id<"users"> } : {}),
   };
 }
 

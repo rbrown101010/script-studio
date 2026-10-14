@@ -678,25 +678,38 @@ const TOOLS: Tool[] = [
   {
     name: "get_todo",
     description:
-      "Read the team's shared Todo list (a bulleted list with sub-bullets, at the top of Native Note for everyone): its id, every line with its key, text and indent (0 = top level, 1-4 = sub-bullet levels), and comments. Change lines with edit_lines and comment with comment_on_script, using the id as script.",
+      "Read the team's shared Todo list (a checklist with sub-items, at the top of Native Note for everyone): its id, every item with its key, text, checked (done), indent (0 = top level, 1-4 = sub-item levels) and assignee (user id), its comments, and the team (everyone who has joined, to assign to). Tick, assign or reword items with update_todo_item; reorder or delete with edit_lines (script = the id); comment with comment_on_script.",
     inputSchema: { type: "object", properties: {} },
     annotations: { readOnlyHint: true },
-    run: async (ctx) => ctx.runQuery(internal.agent.script, { script: await ctx.runMutation(internal.agent.todoId, {}) }),
+    run: async (ctx) => ({
+      ...(await ctx.runQuery(internal.agent.script, { script: await ctx.runMutation(internal.agent.todoId, {}) })),
+      team: await ctx.runQuery(internal.agent.team, {}),
+    }),
   },
   {
     name: "add_todo",
     description:
-      "Add items to the team's Todo list: at the end, or as sub-bullets under a line (under = that line's key from get_todo). indent on an item nests it further (1 = a sub-bullet of the item before it). Only when asked.",
+      "Add to-dos to the team's Todo list: at the end, or as sub-items under one (under = its key from get_todo). indent nests an item further (1 = a sub-item of the item before it); assignee = a teammate's name or email. Only when asked.",
     inputSchema: {
       type: "object",
       properties: {
-        items: { type: "array", items: { type: "object", properties: { text: { type: "string" }, indent: { type: "number" } }, required: ["text"] } },
+        items: { type: "array", items: { type: "object", properties: { text: { type: "string" }, indent: { type: "number" }, assignee: { type: "string", description: "Name or email of someone on the team" }, checked: { type: "boolean" } }, required: ["text"] } },
         under: { type: "string", description: "Line key to add the items beneath, as sub-bullets" },
         agentName: { type: "string" },
       },
       required: ["items"],
     },
     run: (ctx, a) => ctx.runMutation(internal.agent.addTodoItems, a),
+  },
+  {
+    name: "update_todo_item",
+    description: "Mark a Todo item done or not done (checked), assign it to a teammate (assignee = name or email; null unassigns), or reword it (text). key from get_todo. Only when asked.",
+    inputSchema: {
+      type: "object",
+      properties: { key: { type: "string" }, checked: { type: "boolean" }, assignee: { type: ["string", "null"] }, text: { type: "string" } },
+      required: ["key"],
+    },
+    run: (ctx, a) => ctx.runMutation(internal.agent.updateTodoItem, a),
   },
   {
     name: "list_journal",

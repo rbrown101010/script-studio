@@ -131,6 +131,7 @@ export function SharedScript({ slug }: { slug: string }) {
             ...(b.type === "images" ? { images: cleanImages(b.images) } : {}),
             sourceBlockId: b.source_block_id ?? null,
             ...(b.indent ? { indent: b.indent } : {}),
+            ...(b.assignee ? { assignee: b.assignee as Id<"users"> } : {}),
           })),
         });
         dirty.current = false;

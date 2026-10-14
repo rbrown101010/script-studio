@@ -232,6 +232,7 @@ export function DocEditor({
   footer,
   boardName,
   listOnly,
+  people,
 }: {
   blocks: Block[];
   setBlocks: SetBlocks;
@@ -255,6 +256,8 @@ export function DocEditor({
   boardName?: string;
   /** Everything is a bullet (the Todo list): Enter never leaves the list, Backspace never turns a bullet into text */
   listOnly?: boolean;
+  /** The team: shows who each to-do is assigned to, with a picker */
+  people?: Person[];
 }) {
   const canBoards = useCanEditBoards();
   const els = useRef(new Map<string, HTMLDivElement>());
@@ -666,7 +669,7 @@ export function DocEditor({
           update(id, { color: null });
           return;
         }
-        const nextType: BlockType = isList(block.type) ? block.type : listOnly ? "bullet" : "p";
+        const nextType: BlockType = isList(block.type) ? block.type : listOnly ? "todo" : "p";
         // A new list line stays at the same level
         const nest = isList(block.type) && block.indent ? { indent: block.indent } : {};
         if (sel.start === 0 && collapsed && text !== "") {
@@ -696,7 +699,7 @@ export function DocEditor({
           update(id, { indent: (block.indent ?? 0) - 1 || undefined });
           return;
         }
-        if (block.type !== "p" && !(variant === "instructions" && block.type === "todo") && !(listOnly && block.type === "bullet")) {
+        if (block.type !== "p" && !(variant === "instructions" && block.type === "todo") && !(listOnly && isList(block.type))) {
           e.preventDefault();
           focusBlock(id, 0);
           update(id, { type: "p" });
@@ -1388,6 +1391,14 @@ export function DocEditor({
                   }}
                 />
                 )}
+                {people && b.type === "todo" && (
+                  <AssignChip
+                    people={people}
+                    value={b.assignee ?? null}
+                    readOnly={!!readOnly}
+                    onChange={(who) => update(b.id, { assignee: who })}
+                  />
+                )}
               </div>
 
               {(count > 0 || (canComment && onOpenComments)) && (!mobile || count > 0 || open || focusedId === b.id) && (
@@ -1927,6 +1938,98 @@ function ImageStrip({
             }}
           />
         </>
+      )}
+    </div>
+  );
+}
+
+export type Person = { id: string; name: string };
+
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("") || "?";
+
+/** Who a to-do is assigned to: their initials and first name, or (on hover) a button to pick someone */
+function AssignChip({ people, value, readOnly, onChange }: { people: Person[]; value: string | null; readOnly: boolean; onChange: (who: string | null) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", esc);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+  const who = value ? people.find((p) => p.id === value) : undefined;
+  if (readOnly && !who) return null;
+  return (
+    <div ref={ref} className="relative ml-2 flex h-[1.7em] shrink-0 items-center" contentEditable={false}>
+      <button
+        type="button"
+        disabled={readOnly}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setOpen(!open)}
+        aria-label={who ? `Assigned to ${who.name}. Change` : "Assign to someone"}
+        title={who ? `Assigned to ${who.name}` : "Assign"}
+        className={
+          who
+            ? "flex h-6 items-center gap-1.5 rounded-full bg-(--c-b-f0f0ee) py-0 pl-0.5 pr-2 text-[12.5px] font-medium text-(--c-t-4a4a4a) hover:bg-(--c-b-e6e6e3)"
+            : `flex h-6 w-6 items-center justify-center rounded-full text-(--c-t-9a9a9a) hover:bg-(--c-b-efefed) hover:text-(--c-t-1b1b1b) ${open ? "opacity-100" : "opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"}`
+        }
+      >
+        {who ? (
+          <>
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-(--c-b-1b1b1b) text-[9.5px] font-semibold text-(--c-on-ink)">{initials(who.name)}</span>
+            {who.name.split(/\s+/)[0]}
+          </>
+        ) : (
+          <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden="true">
+            <circle cx="6.5" cy="5.5" r="2.5" />
+            <path d="M2 13.5c.6-2.4 2.4-3.6 4.5-3.6s3.9 1.2 4.5 3.6M12.5 5v4M10.5 7h4" />
+          </svg>
+        )}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-[calc(100%+4px)] z-40 max-h-[280px] w-[220px] overflow-y-auto rounded-xl border border-(--c-l-ebebeb) bg-(--c-b-ffffff) p-1.5 text-[13.5px] font-normal leading-normal shadow-[0_12px_32px_rgba(0,0,0,0.12)]">
+          <div className="px-2 pb-1 pt-0.5 text-[12px] text-(--c-t-9a9a9a)">Assign to</div>
+          {people.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onChange(p.id === value ? null : p.id);
+                setOpen(false);
+              }}
+              className="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-(--c-t-1b1b1b) hover:bg-(--c-b-f4f4f4)"
+            >
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-(--c-b-1b1b1b) text-[9.5px] font-semibold text-(--c-on-ink)">{initials(p.name)}</span>
+              <span className="min-w-0 flex-1 truncate">{p.name}</span>
+              {p.id === value && <IconCheck size={13} />}
+            </button>
+          ))}
+          {value && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                onChange(null);
+                setOpen(false);
+              }}
+              className="mt-1 flex h-8 w-full items-center rounded-md px-2 text-left text-(--c-t-737373) hover:bg-(--c-b-f4f4f4)"
+            >
+              Unassign
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

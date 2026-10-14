@@ -37,7 +37,8 @@ export const sync = mutation({
       if (existing) {
         const kept = new Set(filesOf(b));
         for (const f of filesOf(existing)) if (!kept.has(f)) dropped.push(f);
-        await ctx.db.patch(existing._id, { ...b, attachments: undefined });
+        // Fields a line can lose (back to the top level, unassigned) are cleared when they're not sent
+        await ctx.db.patch(existing._id, { ...b, indent: b.indent, assignee: b.assignee, attachments: undefined });
       } else {
         await ctx.db.insert("blocks", { ...b, documentId, videoId: doc.videoId });
       }

@@ -79,6 +79,8 @@ export const blockFields = {
   sourceBlockId: v.union(v.string(), v.null()),
   /** Nesting for list lines (sub-bullets): 1 to 4; missing = top level */
   indent: v.optional(v.number()),
+  /** Who a to-do is assigned to */
+  assignee: v.optional(v.id("users")),
   /** An "images" block's pictures, shown side by side */
   images: v.optional(v.array(attachment)),
   // Legacy: files attached straight to a block (now they live inside comments)

@@ -338,6 +338,16 @@ function TodoSection({ className = "" }: { className?: string }) {
   const todo = useQuery(api.todo.get);
   const openM = useMutation(api.todo.open);
   const addM = useMutation(api.todo.add);
+  // Ticking shows straight away; the save follows
+  const setItem = useMutation(api.todo.setItem).withOptimisticUpdate((store, a) => {
+    const cur = store.getQuery(api.todo.get, {});
+    if (!cur) return;
+    store.setQuery(api.todo.get, {}, {
+      ...cur,
+      lines: cur.lines.map((l) => (l.key === a.key ? { ...l, ...(a.checked !== undefined ? { checked: a.checked } : {}), ...(a.assignee !== undefined ? { assignee: a.assignee } : {}) } : l)),
+    });
+  });
+  const team = useQuery(api.users.list);
   const router = useRouter();
   const [draft, setDraft] = useState("");
   const [showAll, setShowAll] = useState(false);
@@ -357,34 +367,57 @@ function TodoSection({ className = "" }: { className?: string }) {
         <Loading />
       ) : (
         <>
-          {shown.map((l) => (
-            <button
-              key={l.key}
-              type="button"
-              onClick={() => void open()}
-              className="flex min-h-9 w-full items-start gap-2.5 rounded-lg px-2 py-[7px] text-left text-[14px] leading-[1.45] hover:bg-(--c-b-f4f4f4)"
-              style={{ paddingLeft: 8 + Math.min(4, l.indent) * 22 }}
-            >
-              <span className="flex h-[1.45em] w-3 shrink-0 items-center justify-center" aria-hidden="true">
-                {l.type === "todo" ? (
-                  <span className={`h-[11px] w-[11px] rounded-[3px] border-[1.3px] ${l.checked ? "border-(--c-t-9a9a9a) bg-(--c-t-9a9a9a)" : "border-(--c-t-8a8a8a)"}`} />
-                ) : (
-                  <span className={`h-[5px] w-[5px] bg-(--c-t-8a8a8a) ${l.indent % 3 === 1 ? "rounded-full border border-(--c-t-8a8a8a) bg-transparent!" : l.indent % 3 === 2 ? "rounded-[1px]" : "rounded-full"}`} />
-                )}
-              </span>
-              <span className={`min-w-0 flex-1 ${l.type === "todo" && l.checked ? "text-(--c-t-9a9a9a) line-through" : "text-(--c-t-1b1b1b)"}`}>
-                {plain(l.content) || <span className="text-(--c-t-9a9a9a)">{l.files === 1 ? "1 file" : `${l.files} files`}</span>}
-              </span>
-              {l.comments > 0 && (
-                <span className="mt-[2px] flex shrink-0 items-center gap-1 text-[12px] text-(--c-t-9a9a9a)" title={`${l.comments} comment${l.comments === 1 ? "" : "s"}`}>
-                  <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M2.75 3.25h10.5v7.5H7.5l-3 2.5v-2.5H2.75z" />
-                  </svg>
-                  {l.comments}
-                </span>
-              )}
-            </button>
-          ))}
+          {shown.map((l) => {
+            const who = l.assignee ? team?.find((p) => p.id === l.assignee) : undefined;
+            const done = l.checked;
+            return (
+              <div
+                key={l.key}
+                className="group/todo flex min-h-9 w-full items-start gap-2.5 rounded-lg px-2 py-[7px] text-[14px] leading-[1.45] hover:bg-(--c-b-f4f4f4)"
+                style={{ paddingLeft: 8 + Math.min(4, l.indent) * 22 }}
+              >
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={done}
+                  aria-label={done ? `Mark "${plain(l.content)}" not done` : `Mark "${plain(l.content)}" done`}
+                  onClick={() => void setItem({ key: l.key, checked: !done })}
+                  className="flex h-[1.45em] w-4 shrink-0 items-center justify-center"
+                >
+                  <span
+                    className={`flex h-[15px] w-[15px] items-center justify-center rounded-[4px] border-[1.4px] transition-colors ${done ? "border-(--c-t-1b1b1b) bg-(--c-t-1b1b1b) text-(--c-on-ink)" : "border-(--c-t-9a9a9a) hover:border-(--c-t-1b1b1b)"}`}
+                  >
+                    {done && (
+                      <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="m2.5 6.2 2.3 2.3 4.7-4.9" />
+                      </svg>
+                    )}
+                  </span>
+                </button>
+                <button type="button" onClick={() => void open()} className="flex min-w-0 flex-1 items-start gap-2.5 text-left">
+                  <span className={`min-w-0 flex-1 ${done ? "text-(--c-t-9a9a9a) line-through decoration-(--c-t-c4c4c4)" : "text-(--c-t-1b1b1b)"}`}>
+                    {plain(l.content) || <span className="text-(--c-t-9a9a9a)">{l.files === 1 ? "1 file" : `${l.files} files`}</span>}
+                  </span>
+                  {l.comments > 0 && (
+                    <span className="mt-[2px] flex shrink-0 items-center gap-1 text-[12px] text-(--c-t-9a9a9a)" title={`${l.comments} comment${l.comments === 1 ? "" : "s"}`}>
+                      <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M2.75 3.25h10.5v7.5H7.5l-3 2.5v-2.5H2.75z" />
+                      </svg>
+                      {l.comments}
+                    </span>
+                  )}
+                  {who && (
+                    <span className="flex shrink-0 items-center gap-1.5 text-[12.5px] text-(--c-t-6b6b6b)" title={`Assigned to ${who.name}`}>
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-(--c-b-1b1b1b) text-[9.5px] font-semibold text-(--c-on-ink)">
+                        {who.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("")}
+                      </span>
+                      <span className="max-sm:hidden">{who.name.split(/\s+/)[0]}</span>
+                    </span>
+                  )}
+                </button>
+              </div>
+            );
+          })}
           {lines.length > LIMIT && (
             <button type="button" onClick={() => setShowAll(!showAll)} className="h-8 rounded-lg px-2 text-left text-[13px] text-(--c-t-8a8a8a) hover:bg-(--c-b-f4f4f4) hover:text-(--c-t-1b1b1b)">
               {showAll ? "Show less" : `Show all ${lines.length}`}

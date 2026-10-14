@@ -111,6 +111,7 @@ export const saveGuestEdit = mutation({
         images: v.optional(v.array(attachment)),
         sourceBlockId: v.union(v.string(), v.null()),
         indent: v.optional(v.number()),
+        assignee: v.optional(v.id("users")),
         comments: v.optional(v.array(comment)),
       }),
     ),

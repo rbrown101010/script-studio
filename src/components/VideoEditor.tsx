@@ -93,6 +93,11 @@ export function VideoEditor({ id }: { id: string }) {
   const journal = data?.video.kind === "journal";
   /** The team's Todo list: one bulleted list, nothing else */
   const todo = data?.video.kind === "todo";
+  const todoRef = useRef(false);
+  useEffect(() => {
+    todoRef.current = todo;
+  }, [todo]);
+  const team = useQuery(api.users.list, todo ? {} : "skip");
   const comments = useQuery(
     api.comments.list,
     data?.video ? { videoId: data.video._id } : "skip",
@@ -215,7 +220,9 @@ export function VideoEditor({ id }: { id: string }) {
     if (!serverMain || serverMain === mainId) return;
     void loadBlocks(serverMain).then((b) => {
       mainSync.seed(serverMain, b);
-      setMainBlocks(b.length ? b : [emptyBlock()]);
+      // The Todo list is all checkboxes (lines written as bullets or text become to-dos; this saves)
+      const list = b.length ? b : [emptyBlock()];
+      setMainBlocks(todoRef.current ? list.map((x) => (x.type === "bullet" || x.type === "number" || x.type === "p" ? { ...x, type: "todo" as const } : x)) : list);
       setMainId(serverMain);
       setReview(null);
       setOpenId(null);
@@ -955,6 +962,7 @@ export function VideoEditor({ id }: { id: string }) {
                 commentCounts={countsFor(mainBlocks)}
                 onOpenComments={openComments}
                 listOnly={todo}
+                people={todo ? (team ?? []) : undefined}
                 placeholder={todo ? "Add a to-do…" : undefined}
               />
             </div>

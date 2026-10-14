@@ -31,8 +31,8 @@ export async function ensureTodo(ctx: MutationCtx, userId: Id<"users"> | null): 
   });
   const main = await ctx.db.insert("documents", { videoId, kind: "main", editorName: null, guestToken: null, updatedAt: now });
   await ctx.db.insert("documents", { videoId, kind: "instructions", editorName: null, guestToken: null, updatedAt: now });
-  // Start with one empty bullet so the list is ready to type into
-  await ctx.db.insert("blocks", { documentId: main, videoId, key: crypto.randomUUID(), position: 0, type: "bullet", content: "", checked: false, color: null, sourceBlockId: null });
+  // Start with one empty to-do so the list is ready to type into
+  await ctx.db.insert("blocks", { documentId: main, videoId, key: crypto.randomUUID(), position: 0, type: "todo", content: "", checked: false, color: null, sourceBlockId: null });
   return videoId;
 }
 
@@ -79,6 +79,7 @@ export const get = query({
         content: b.content,
         checked: b.checked,
         indent: b.indent ?? 0,
+        assignee: b.assignee ?? null,
         files: (b.images ?? []).length,
         comments: counts[b.key] ?? 0,
       })),
@@ -105,13 +106,41 @@ export const add = mutation({
       .collect();
     // A fresh list is one empty bullet: fill it in rather than adding below it
     const lone = blocks.length === 1 && !blocks[0].content.trim() ? blocks[0] : null;
-    if (lone) await ctx.db.patch(lone._id, { content: t, type: "bullet" });
+    if (lone) await ctx.db.patch(lone._id, { content: t, type: "todo" });
     else {
       const position = blocks.reduce((m, b) => Math.max(m, b.position), -1) + 1;
-      await ctx.db.insert("blocks", { documentId: main._id, videoId, key: crypto.randomUUID(), position, type: "bullet", content: t, checked: false, color: null, sourceBlockId: null });
+      await ctx.db.insert("blocks", { documentId: main._id, videoId, key: crypto.randomUUID(), position, type: "todo", content: t, checked: false, color: null, sourceBlockId: null });
     }
     const now = Date.now();
     await ctx.db.patch(main._id, { updatedAt: now });
     await ctx.db.patch(videoId, { updatedAt: now });
+  },
+});
+
+/** Tick or untick an item, or assign it (null = nobody), from Home */
+export const setItem = mutation({
+  args: { key: v.string(), checked: v.optional(v.boolean()), assignee: v.optional(v.union(v.id("users"), v.null())) },
+  handler: async (ctx, { key, checked, assignee }) => {
+    await requireUser(ctx);
+    const todo = await findTodo(ctx);
+    if (!todo) return;
+    const main = await ctx.db
+      .query("documents")
+      .withIndex("by_video", (q) => q.eq("videoId", todo._id).eq("kind", "main"))
+      .first();
+    const block = main
+      ? await ctx.db
+          .query("blocks")
+          .withIndex("by_document_key", (q) => q.eq("documentId", main._id).eq("key", key))
+          .unique()
+      : null;
+    if (!block) return;
+    await ctx.db.patch(block._id, {
+      ...(checked !== undefined ? { checked, type: "todo" as const } : {}),
+      ...(assignee !== undefined ? { assignee: assignee ?? undefined } : {}),
+    });
+    const now = Date.now();
+    await ctx.db.patch(main!._id, { updatedAt: now });
+    await ctx.db.patch(todo._id, { updatedAt: now });
   },
 });
