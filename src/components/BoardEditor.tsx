@@ -2,7 +2,7 @@
 
 import "@excalidraw/excalidraw/index.css";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
-import { useConvex, useMutation, useQuery } from "convex/react";
+import { useAction, useConvex, useMutation, useQuery } from "convex/react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -60,6 +60,8 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
   const setPinned = useMutation(api.boards.setPinned);
   const uploadUrl = useMutation(api.docs.generateUploadUrl);
   const fileUrl = useMutation(api.docs.fileUrl);
+  const addFile = useMutation(api.boards.addFile);
+  const adoptFile = useAction(api.boards.adoptFile);
   // Load once: later saves come from this editor, so the live copy isn't pushed back into it
   const [initial, setInitial] = useState<typeof board>(undefined);
   useEffect(() => {
@@ -216,18 +218,24 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
     if (seen.current === null) seen.current = initial.elements;
     if (board.elements === seen.current) return;
     seen.current = board.elements;
-    const ex = excalidraw.current;
-    if (!ex) return;
-    const fresh = (board.files as SavedFile[]).filter((f) => !files.current.some((x) => x.id === f.id));
-    if (fresh.length) {
-      files.current = [...files.current, ...fresh];
-      ex.addFiles(fresh.map((f) => ({ id: f.id, dataURL: f.url, mimeType: f.mimeType, created: Date.now() })));
-    }
-    void mergeIn(board.elements);
+    if (excalidraw.current) void mergeIn(board.elements);
   }, [board, initial, mergeIn]);
-  // Don't lose the last change when leaving (no time to check for newer saves first)
+  // Pictures saved elsewhere (another tab, a copy finishing, an agent) show up here as soon as they're saved
   useEffect(() => {
-    const before = () => void flush(false);
+    const ex = excalidraw.current;
+    if (!board || !ex) return;
+    const fresh = (board.files as SavedFile[]).filter((f) => !files.current.some((x) => x.id === f.id));
+    if (!fresh.length) return;
+    files.current = [...files.current, ...fresh];
+    ex.addFiles(fresh.map((f) => ({ id: f.id, dataURL: f.url, mimeType: f.mimeType, created: Date.now() })));
+  }, [board]);
+  // Don't lose the last change when leaving (no time to check for newer saves first), and ask before leaving
+  // while a picture is still uploading
+  useEffect(() => {
+    const before = (e: BeforeUnloadEvent) => {
+      void flush(false);
+      if (uploading.current.size) e.preventDefault();
+    };
     window.addEventListener("beforeunload", before);
     return () => {
       window.removeEventListener("beforeunload", before);
@@ -235,17 +243,31 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
     };
   }, [flush]);
 
-  /** Pasted or dropped images become files in Native Note storage */
+  /**
+   * Pasted or dropped images become files in Native Note storage, added to the board the moment they're stored.
+   * A picture pasted from another board is already a Native Note link: this board gets its own copy of it.
+   */
   const storeFiles = async (map: Record<string, BinaryFile>) => {
     for (const f of Object.values(map)) {
-      if (!f.dataURL?.startsWith("data:") || files.current.some((x) => x.id === f.id) || uploading.current.has(f.id)) continue;
+      if (!f.dataURL || files.current.some((x) => x.id === f.id) || uploading.current.has(f.id)) continue;
+      const pasted = f.dataURL.startsWith("data:");
+      if (!pasted && !/^https:\/\/[^/]+\.convex\.cloud\/api\/storage\//.test(f.dataURL)) continue;
       uploading.current.add(f.id);
       try {
-        const blob = await (await fetch(f.dataURL)).blob();
-        const target = await uploadUrl();
-        const storageId = (await uploadToUrl(target, new File([blob], f.id, { type: f.mimeType }), () => {})) as Id<"_storage">;
-        const url = await fileUrl({ storageId });
-        if (url) files.current = [...files.current, { id: f.id, url, mimeType: f.mimeType, storageId }];
+        if (pasted) {
+          const blob = await (await fetch(f.dataURL)).blob();
+          const target = await uploadUrl();
+          const storageId = (await uploadToUrl(target, new File([blob], f.id, { type: f.mimeType }), () => {})) as Id<"_storage">;
+          const url = await fileUrl({ storageId });
+          if (!url) throw new Error("no url");
+          const saved = { id: f.id, url, mimeType: f.mimeType, storageId };
+          files.current = [...files.current, saved];
+          await addFile({ id: boardId, file: saved });
+        } else {
+          await adoptFile({ id: boardId, fileId: f.id, url: f.dataURL, mimeType: f.mimeType });
+          // (the board's own copy is saved; until it arrives here, the picture keeps showing from where it came)
+          if (!files.current.some((x) => x.id === f.id)) files.current = [...files.current, { id: f.id, url: f.dataURL, mimeType: f.mimeType }];
+        }
         lastKey.current = null; // make sure the file list gets saved
       } catch {
         setState("error");

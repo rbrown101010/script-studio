@@ -2,7 +2,8 @@
 // also writes a plain-text summary of what's on the board (its text, shapes, labels and arrows) so AI can read it.
 
 import { ConvexError, v } from "convex/values";
-import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { action, internalAction, internalMutation, internalQuery, mutation, query, type ActionCtx, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireUser } from "./lib";
 import { describeStyle, draw, edit, itemsOf, styleProfile, type EditOp, type Item, type Options } from "./boardDraw";
@@ -158,7 +159,8 @@ export const save = mutation({
     const { summary, elementCount } = summarize(t, els);
     const patch: Partial<Doc<"boards">> = { title: t, elements: els, summary, elementCount, updatedAt: Date.now() };
     if (appState !== undefined) patch.appState = appState;
-    if (files !== undefined) patch.files = files;
+    // Pictures are only ever added: a tab that hasn't heard about a newer picture yet must not drop it
+    if (files !== undefined) patch.files = mergeFiles(b.files, files);
     await ctx.db.patch(id, patch);
   },
 });
@@ -361,5 +363,101 @@ export const setPinnedForAgent = internalMutation({
     if (!b) throw new ConvexError("Board not found. Use list_boards for ids.");
     await ctx.db.patch(b._id, { pinnedAt: pinned ? (b.pinnedAt ?? Date.now()) : null });
     return { id: b._id, title: b.title, pinned };
+  },
+});
+
+// ---------- Pictures on boards ----------
+
+type BoardFile = Doc<"boards">["files"][number];
+/** Every picture from both lists (by id); never drops one */
+function mergeFiles(saved: BoardFile[], incoming: BoardFile[]) {
+  const byId = new Map(saved.map((f) => [f.id, f]));
+  for (const f of incoming) if (!byId.has(f.id)) byId.set(f.id, f);
+  return [...byId.values()];
+}
+
+/** Adds a stored picture to a board the moment its upload finishes (not on the next save) */
+export const addFile = mutation({
+  args: { id: v.id("boards"), file },
+  handler: async (ctx, { id, file: f }) => {
+    await requireUser(ctx);
+    const b = await ctx.db.get(id);
+    if (!b) return;
+    if (!b.files.some((x) => x.id === f.id)) await ctx.db.patch(id, { files: [...b.files, f] });
+  },
+});
+
+export const addFileInternal = internalMutation({
+  args: { id: v.id("boards"), file },
+  handler: async (ctx, { id, file: f }) => {
+    const b = await ctx.db.get(id);
+    if (b && !b.files.some((x) => x.id === f.id)) await ctx.db.patch(id, { files: [...b.files, f] });
+  },
+});
+
+/** A picture's stored file on any board (by Excalidraw file id), to copy from */
+export const findFile = internalQuery({
+  args: { fileId: v.string() },
+  handler: async (ctx, { fileId }) => {
+    for (const b of await ctx.db.query("boards").collect()) {
+      const f = b.files.find((x) => x.id === fileId);
+      if (f) return f;
+    }
+    return null;
+  },
+});
+
+const storagePrefix = () => `${process.env.CONVEX_CLOUD_URL ?? ""}/api/storage/`;
+
+/** Gives a board its own copy of a stored picture (so deleting the other board never takes it away) */
+async function copyInto(ctx: ActionCtx, board: Id<"boards">, fileId: string, url: string, mimeType: string) {
+  const res = await fetch(url);
+  if (!res.ok) throw new ConvexError("That picture couldn't be loaded");
+  const blob = await res.blob();
+  const storageId = await ctx.storage.store(new Blob([blob], { type: mimeType || blob.type }));
+  const stored = await ctx.storage.getUrl(storageId);
+  if (!stored) throw new ConvexError("That picture couldn't be saved");
+  await ctx.runMutation(internal.boards.addFileInternal, { id: board, file: { id: fileId, url: stored, mimeType: mimeType || blob.type, storageId } });
+}
+
+/** A picture pasted from another board (its data is already a Native Note link): copy it into this board */
+export const adoptFile = action({
+  args: { id: v.id("boards"), fileId: v.string(), url: v.string(), mimeType: v.string() },
+  handler: async (ctx, { id, fileId, url, mimeType }) => {
+    if (!(await ctx.auth.getUserIdentity())) throw new ConvexError("Not signed in");
+    // Only our own stored files (never fetch arbitrary addresses)
+    if (!url.startsWith(storagePrefix())) throw new ConvexError("Only pictures stored in Native Note can be copied");
+    await copyInto(ctx, id, fileId, url, mimeType);
+  },
+});
+
+/** Repairs a board whose pictures went missing: finds each missing picture on another board and copies it in */
+export const repairFiles = internalAction({
+  args: { board: v.id("boards") },
+  handler: async (ctx, { board }): Promise<{ repaired: string[]; notFound: string[] }> => {
+    const b = await ctx.runQuery(internal.boards.rawForRepair, { id: board });
+    if (!b) throw new ConvexError("Board not found");
+    const have = new Set(b.files.map((f) => f.id));
+    const want = [...new Set((JSON.parse(b.elements) as { type?: string; fileId?: string; isDeleted?: boolean }[]).filter((e) => e.type === "image" && e.fileId && !have.has(e.fileId)).map((e) => e.fileId!))];
+    const repaired: string[] = [];
+    const notFound: string[] = [];
+    for (const fileId of want) {
+      const src = await ctx.runQuery(internal.boards.findFile, { fileId });
+      if (!src) {
+        notFound.push(fileId);
+        continue;
+      }
+      await copyInto(ctx, board, fileId, src.url, src.mimeType);
+      repaired.push(fileId);
+    }
+    return { repaired, notFound };
+  },
+});
+
+export const rawForRepair = internalQuery({
+  args: { id: v.id("boards") },
+  handler: async (ctx, { id }) => {
+    const b = await ctx.db.get(id);
+    return b ? { elements: b.elements, files: b.files } : null;
   },
 });
