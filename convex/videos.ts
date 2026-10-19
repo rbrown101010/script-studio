@@ -49,16 +49,17 @@ export const get = query({
 });
 
 export const create = mutation({
-  args: { format, status: v.optional(status), journal: v.optional(v.boolean()) },
-  handler: async (ctx, { format, status, journal }) => {
+  args: { format, status: v.optional(status), journal: v.optional(v.boolean()), title: v.optional(v.string()), liveDate: v.optional(v.union(v.string(), v.null())), sponsored: v.optional(sponsorship) },
+  handler: async (ctx, { format, status, journal, title, liveDate, sponsored }) => {
     const userId = await requireUser(ctx);
     const now = Date.now();
+    if (liveDate && !/^\d{4}-\d{2}-\d{2}$/.test(liveDate)) throw new Error("Live date must be YYYY-MM-DD");
     const videoId = await ctx.db.insert("videos", {
-      title: "",
-      liveDate: null,
+      title: (title ?? "").slice(0, 500),
+      liveDate: liveDate ?? null,
       status: status ?? "inProduction",
       format,
-      sponsored: "none",
+      sponsored: sponsored ?? "none",
       shareSlug: newSlug(),
       editPasscode: null,
       createdBy: userId,

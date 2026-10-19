@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
+import { useGoBack } from "./HomeSidebar";
 import { uploadToUrl } from "@/lib/upload";
 import { CONTAINERS, INK, PALETTE, TEXT, bounds, box, build, cloneItems, hit, inside, lineGap, settleBound, withBound, moved, onImageLoad, shownText, textWidth, tidyPath, type Drawable, type Item, type Pt, type TextStyle } from "@/lib/scratchDraw";
 
@@ -49,6 +50,7 @@ type Style = { color: string; fill: string | null; tint: boolean; w: number; tex
 
 export function ScratchboardEditor({ id }: { id: string }) {
   const board = useQuery(api.scratchboards.get, { id });
+  const goBack = useGoBack("/?view=scratchboards");
   const save = useMutation(api.scratchboards.save);
   const uploadUrl = useMutation(api.docs.generateUploadUrl);
   const fileUrl = useMutation(api.docs.fileUrl);
@@ -1095,7 +1097,7 @@ export function ScratchboardEditor({ id }: { id: string }) {
 
       {/* Top left: back, title, saved */}
       {chrome && <div className="absolute left-3 top-3 z-10 flex h-10 items-center gap-1 rounded-xl bg-[#33312F]/95 px-1.5 text-[#EDEAE3] shadow-[0_6px_24px_rgba(0,0,0,0.3)]">
-        <Link href="/?view=scratchboards" aria-label="Back to Scratchboards" title="Back to Scratchboards" className="flex h-7 w-7 items-center justify-center rounded-md text-[#A9A49A] no-underline hover:bg-white/10 hover:text-[#EDEAE3]">
+        <Link href="/?view=scratchboards" onClick={goBack} aria-label="Back" title="Back" className="flex h-7 w-7 items-center justify-center rounded-md text-[#A9A49A] no-underline hover:bg-white/10 hover:text-[#EDEAE3]">
           <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M10 3.5 5.5 8l4.5 4.5" />
           </svg>

@@ -11,7 +11,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { useBoardData, useIsDark } from "@/lib/boardSource";
 import { uploadToUrl } from "@/lib/upload";
 import { IconArrowLeft, IconPin, IconX } from "./icons";
-import { SidebarIcon, useMaybeAppSidebar } from "./HomeSidebar";
+import { SidebarIcon, useGoBack, useMaybeAppSidebar } from "./HomeSidebar";
 import { BlurLayer, BlurToggle, blurView, blursOnTop, isBlur, setBlur, type BlurEl, type BlurView } from "./boardBlur";
 import { GradientControls, gradientSelection, setGradient, type GradientSelection } from "./boardGradient";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
@@ -52,6 +52,7 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
   const board = useBoardData(id);
   // Full-page boards sit beside the app sidebar; a button here hides it for more canvas or brings it back
   const appSidebar = useMaybeAppSidebar();
+  const goBack = useGoBack("/?view=boards");
   const sidebarToggle = !onClose && !readOnly ? appSidebar : null;
   const save = useMutation(api.boards.save);
   const convex = useConvex();
@@ -365,8 +366,9 @@ export function BoardEditor({ id, onClose, readOnly, focus }: { id: string; onCl
       {onClose ? null : (
         <Link
           href="/?view=boards"
-          title="Back to Excalidraw"
-          aria-label="Back to Excalidraw"
+          onClick={goBack}
+          title="Back"
+          aria-label="Back"
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-(--c-t-6b6b6b)! no-underline hover:bg-(--button-hover-bg)"
         >
           <IconArrowLeft size={15} />

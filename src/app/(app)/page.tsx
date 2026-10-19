@@ -253,12 +253,6 @@ function TitleCell({ title, onRename }: { title: string; onRename: (t: string) =
 function ScriptList() {
   const router = useRouter();
   const videos = useQuery(api.videos.list);
-  // Lets a script's "Scripts" button go back here (keeping this page's view and scroll)
-  useEffect(() => {
-    try {
-      sessionStorage.setItem("nn-last-page", "/");
-    } catch {}
-  }, []);
   const partners = useQuery(api.partners.list);
   const partnerById = new Map((partners ?? []).map((p) => [p.id as string, p]));
   const me = useQuery(api.users.me);
@@ -284,13 +278,18 @@ function ScriptList() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const side = useAppSidebar();
   const sidebarOpen = side.shown;
+  /** The view this page was opened with (from the address or last time), until it's switched to */
+  const viewAsked = useRef<View | null>(null);
   // Remember the view, per browser
   useEffect(() => {
     try {
       const saved = localStorage.getItem("home-view");
       // ?view=… (e.g. coming back from a board) wins over the remembered view
       const asked = new URLSearchParams(window.location.search).get("view") ?? saved;
-      if (asked && ["home", "calendar", "kanban", "journal", "feed", "mymind", "library", "tweet", "brands", "boards", "topics", "youtube", "editfeed", "scratchboards", "list"].includes(asked)) setView(asked as View);
+      if (asked && ["home", "calendar", "kanban", "journal", "feed", "mymind", "library", "tweet", "brands", "boards", "topics", "youtube", "editfeed", "scratchboards", "list"].includes(asked)) {
+        viewAsked.current = asked as View;
+        setView(asked as View);
+      }
       setFiltersOpen(localStorage.getItem("home-filters") === "1");
     } catch {}
   }, [setView]);
@@ -312,6 +311,18 @@ function ScriptList() {
       localStorage.setItem("home-prefs", JSON.stringify({ status: statusFilter, sponsor: sponsorFilter, format: filter, sort }));
     } catch {}
   }, [prefsLoaded, statusFilter, sponsorFilter, filter, sort]);
+  // The open view lives in the address too, so the browser's Back (and back arrows) return to exactly this view
+  useEffect(() => {
+    // (not before the view asked for on opening has been switched to)
+    if (viewAsked.current && view !== viewAsked.current) return;
+    viewAsked.current = null;
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("view") === view) return;
+      url.searchParams.set("view", view);
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    } catch {}
+  }, [view]);
   // The ⌘K switcher asks for a view while this page is already open
   useEffect(() => {
     const onView = (e: Event) => {
@@ -546,9 +557,7 @@ function ScriptList() {
                   videos={board as KanbanVideo[]}
                   partnerOf={(id) => (id ? partnerById.get(id) : undefined)}
                   onReorder={(status, ids, moved) => void reorder({ status, ids: ids as Id<"videos">[], moved: moved as Id<"videos"> })}
-                  onNew={(status) =>
-                    void create({ format: filter === "short" ? "short" : "long", status }).then((id) => router.push(`/v/${id}`))
-                  }
+                  onNew={(status, d) => create({ format: d.format, status, title: d.title, liveDate: d.liveDate, sponsored: d.sponsored })}
                 />
               )}
             </div>

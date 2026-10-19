@@ -83,6 +83,22 @@ export function useMaybeAppSidebar(): SidebarState | null {
   return useContext(Shell)?.side ?? null;
 }
 
+/** Whether this tab has moved between pages inside the app since it loaded (so Back stays in the app) */
+let movedInApp = false;
+
+/**
+ * A back arrow: returns to the page you came from (with its view, filters and scroll, like the browser's Back),
+ * or to `fallback` when this page was opened directly (a link, a new tab, a reload).
+ */
+export function useGoBack(fallback: string) {
+  const router = useRouter();
+  return (e?: { preventDefault: () => void }) => {
+    e?.preventDefault();
+    if (movedInApp && window.history.length > 1) router.back();
+    else router.push(fallback);
+  };
+}
+
 /** The Scripts page's open view, kept in the shell so the sidebar can highlight it */
 export function useHomeView() {
   const ctx = useContext(Shell);
@@ -100,6 +116,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const newScript = useRef<(() => void) | null>(null);
   const pathname = usePathname();
   const active = pathname.match(/^\/(?:v|b)\/([^/]+)/)?.[1];
+  // Note when you move to another page inside the app, so back arrows can use the browser's Back
+  const firstPath = useRef(pathname);
+  useEffect(() => {
+    if (pathname !== firstPath.current) movedInApp = true;
+  }, [pathname]);
   const closeOnPhone = () => {
     if (side.mobile) side.toggle(false);
   };

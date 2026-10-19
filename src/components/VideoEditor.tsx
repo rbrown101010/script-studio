@@ -3,7 +3,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { useDocumentTitle } from "@/lib/useDocumentTitle";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -53,6 +52,7 @@ import {
 import {
   ShowSidebarButton,
   useAppSidebar,
+  useGoBack,
 } from "./HomeSidebar";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { Presentation } from "./Presentation";
@@ -161,14 +161,8 @@ export function VideoEditor({ id }: { id: string }) {
   };
 
   const setPinnedM = useMutation(api.videos.setPinned);
-  const router = useRouter();
-  const cameFromHome = useRef(false);
-  useEffect(() => {
-    try {
-      cameFromHome.current = sessionStorage.getItem("nn-last-page") === "/";
-      sessionStorage.setItem("nn-last-page", window.location.pathname);
-    } catch {}
-  }, []);
+  const backTo = journal ? "/?view=journal" : todo ? "/?view=home" : "/";
+  const goBack = useGoBack(backTo);
   const mobile = useIsMobile();
   const side = useAppSidebar();
   const partnerOptions = useQuery(api.partners.list)?.map((p) => ({
@@ -632,14 +626,9 @@ export function VideoEditor({ id }: { id: string }) {
               />
             )}
             <Link
-              href={journal ? "/?view=journal" : todo ? "/?view=home" : "/"}
-              onClick={(e) => {
-                // Came here from the Scripts page: go back to it, so its view, filters and scroll are just as you left them
-                if (cameFromHome.current && window.history.length > 1) {
-                  e.preventDefault();
-                  router.back();
-                }
-              }}
+              href={backTo}
+              // Back to wherever you came from (the Scripts page in the view you left it, Home, a board…)
+              onClick={goBack}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[14px] text-(--c-t-6b6b6b) no-underline hover:bg-(--c-b-f4f4f4)"
             >
               <IconArrowLeft />

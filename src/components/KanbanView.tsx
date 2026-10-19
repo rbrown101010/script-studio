@@ -12,9 +12,12 @@ import { FormatIcon } from "./FormatIcon";
 import { PartnerLogo } from "./VideoMeta";
 import { IconPlus } from "./icons";
 import {
+  FORMATS,
+  SPONSORSHIPS,
   STATUSES,
   isPaidSponsor,
   statusOf,
+  type Sponsorship,
   type VideoFormat,
   type VideoStatus,
 } from "@/lib/types";
@@ -51,11 +54,14 @@ export function KanbanView({
   partnerOf: (id: string | null | undefined) => Partner | undefined;
   /** A column's cards in their new order (top first), after `moved` was dropped into it */
   onReorder: (status: VideoStatus, ids: string[], moved: string) => void;
-  onNew: (status: VideoStatus) => void;
+  /** Makes a script in a column from the quick New card; resolves with its id */
+  onNew: (status: VideoStatus, details: NewDetails) => Promise<string>;
 }) {
   const [dragging, setDragging] = useState<string | null>(null);
   // Where cards were just dropped, shown right away (the save takes a moment to come back)
   const [moves, setMoves] = useState<Record<string, VideoStatus>>({});
+  /** The column with the quick New card open */
+  const [composing, setComposing] = useState<VideoStatus | null>(null);
   // A column's new order, shown right away until the saved order comes back
   const [orders, setOrders] = useState<Partial<Record<VideoStatus, string[]>>>(
     {},
@@ -334,17 +340,32 @@ export function KanbanView({
                 </span>
                 <button
                   type="button"
-                  onClick={() => onNew(col.value)}
+                  onClick={() => setComposing(col.value)}
                   aria-label={`New script in ${col.label}`}
                   title={`New script in ${col.label}`}
-                  className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-(--c-t-9a9a9a) opacity-0 transition-opacity hover:bg-(--kb-card-ring) hover:text-(--c-t-1b1b1b) group-hover/col:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+                  className={`ml-auto flex h-6 items-center gap-1 rounded-md px-1.5 text-[12.5px] font-medium text-(--c-t-6b6b6b) transition-opacity hover:bg-(--kb-card-ring) hover:text-(--c-t-1b1b1b) group-hover/col:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 ${composing === col.value ? "opacity-100" : "opacity-0"}`}
                 >
-                  <IconPlus size={13} />
+                  <IconPlus size={12} />
+                  New
                 </button>
               </header>
               <div
                 className={`flex flex-col gap-2 ${posted && !allPosted ? "" : "min-h-[64px]"}`}
               >
+                {composing === col.value && (
+                  <NewCard
+                    status={col.value}
+                    onCancel={() => setComposing(null)}
+                    onCreate={async (details, again) => {
+                      if (!again) setComposing(null);
+                      const id = await onNew(col.value, details);
+                      // New scripts go to the top of the column
+                      const ids = [id, ...col.list.map((x) => x._id).filter((x) => x !== id)];
+                      setOrders((o) => ({ ...o, [col.value]: ids }));
+                      onReorder(col.value, ids, id);
+                    }}
+                  />
+                )}
                 {shown.map((v) => {
                   // The drop line sits just above the card the dragged one would land before
                   const place = shown
@@ -446,6 +467,100 @@ export function KanbanView({
         )}
       </div>
     </div>
+  );
+}
+
+export type NewDetails = { title: string; format: VideoFormat; liveDate: string | null; sponsored: Sponsorship };
+
+/** A quick new script, made right in the column: its name and the main details, without opening it */
+function NewCard({ status, onCreate, onCancel }: { status: VideoStatus; onCreate: (d: NewDetails, again: boolean) => Promise<void>; onCancel: () => void }) {
+  const [title, setTitle] = useState("");
+  const [format, setFormat] = useState<VideoFormat>("long");
+  const [liveDate, setLiveDate] = useState("");
+  const [sponsored, setSponsored] = useState<Sponsorship>("none");
+  const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => ref.current?.focus(), []);
+  const submit = async (again: boolean) => {
+    if (!title.trim() || busy) return;
+    setBusy(true);
+    try {
+      await onCreate({ title: title.trim(), format, liveDate: liveDate || null, sponsored }, again);
+      if (again) {
+        setTitle("");
+        ref.current?.focus();
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+  const field = "h-7 rounded-md border border-(--kb-card-ring) bg-transparent px-1.5 text-[12.5px] text-(--c-t-1b1b1b) outline-none focus:border-(--c-t-9a9a9a)";
+  return (
+    <form
+      data-status-new={status}
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit(false);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          onCancel();
+        }
+      }}
+      style={{ background: "var(--kb-card)" }}
+      className="flex flex-col gap-2 rounded-xl px-3 py-2.5 shadow-[0_6px_18px_rgba(0,0,0,0.08)] ring-1 ring-(--c-t-9a9a9a)/40"
+    >
+      <input
+        ref={ref}
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => {
+          // ⌘Enter adds this one and starts another
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            void submit(true);
+          }
+        }}
+        placeholder="Script name"
+        aria-label="Script name"
+        className="w-full bg-transparent text-[13.5px] font-medium text-(--c-t-1b1b1b) outline-none placeholder:font-normal placeholder:text-(--c-t-9a9a9a)"
+      />
+      <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex h-7 overflow-hidden rounded-md border border-(--kb-card-ring)" role="group" aria-label="Format">
+          {FORMATS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => setFormat(f.value)}
+              aria-pressed={format === f.value}
+              title={f.label}
+              className={`flex items-center gap-1 px-1.5 text-[12px] ${format === f.value ? "bg-(--kb-card-ring) text-(--c-t-1b1b1b)" : "text-(--c-t-8a8a8a) hover:text-(--c-t-1b1b1b)"}`}
+            >
+              <FormatIcon format={f.value} size={12} />
+              {f.value === "long" ? "Long" : "Short"}
+            </button>
+          ))}
+        </div>
+        <input type="date" value={liveDate} onChange={(e) => setLiveDate(e.target.value)} aria-label="Live date" title="Live date" className={`${field} w-[124px]`} />
+        <select value={sponsored} onChange={(e) => setSponsored(e.target.value as Sponsorship)} aria-label="Sponsorship" title="Sponsorship" className={`${field} max-w-[118px]`}>
+          {SPONSORSHIPS.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.value === "none" ? "Sponsor?" : s.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <button type="submit" disabled={!title.trim() || busy} className="h-7 rounded-md bg-(--c-b-1b1b1b) px-2.5 text-[12.5px] font-medium text-(--c-on-ink) disabled:opacity-40">
+          Add
+        </button>
+        <button type="button" onClick={onCancel} className="h-7 rounded-md px-2 text-[12.5px] text-(--c-t-6b6b6b) hover:bg-(--kb-card-ring)">
+          Cancel
+        </button>
+        <span className="ml-auto text-[11px] text-(--c-t-9a9a9a) max-sm:hidden">⌘↵ add another</span>
+      </div>
+    </form>
   );
 }
 
