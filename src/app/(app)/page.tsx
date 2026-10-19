@@ -265,6 +265,7 @@ function ScriptList() {
   const create = useMutation(api.videos.create);
   const remove = useMutation(api.videos.remove);
   const update = useMutation(api.videos.update);
+  const reorder = useMutation(api.videos.reorder);
   const setPinned = useMutation(api.videos.setPinned);
   const [filter, setFilter] = useState<"all" | VideoFormat>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | VideoStatus>("inProduction");
@@ -544,7 +545,7 @@ function ScriptList() {
                 <KanbanView
                   videos={board as KanbanVideo[]}
                   partnerOf={(id) => (id ? partnerById.get(id) : undefined)}
-                  onMove={(id, status) => void update({ id: id as Id<"videos">, status })}
+                  onReorder={(status, ids, moved) => void reorder({ status, ids: ids as Id<"videos">[], moved: moved as Id<"videos"> })}
                   onNew={(status) =>
                     void create({ format: filter === "short" ? "short" : "long", status }).then((id) => router.push(`/v/${id}`))
                   }

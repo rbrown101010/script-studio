@@ -174,3 +174,24 @@ export const journal = query({
     );
   },
 });
+
+/**
+ * Kanban: a column's cards in the order they were dragged into (top to bottom). Moves the dropped card to that
+ * column too. Doesn't touch "last edited", so other views keep their order.
+ */
+export const reorder = mutation({
+  args: { status, ids: v.array(v.id("videos")), moved: v.optional(v.id("videos")) },
+  handler: async (ctx, { status: st, ids, moved }) => {
+    await requireUser(ctx);
+    if (ids.length > 2000) throw new Error("Too many cards");
+    for (const [i, id] of ids.entries()) {
+      const vid = await ctx.db.get(id);
+      if (!vid) continue;
+      const patch: { kanbanOrder?: number; status?: typeof st; updatedAt?: number } = {};
+      if (vid.kanbanOrder !== i) patch.kanbanOrder = i;
+      // Changing column is a real change; just reordering isn't
+      if (id === moved && vid.status !== st) Object.assign(patch, { status: st, updatedAt: Date.now() });
+      if (Object.keys(patch).length) await ctx.db.patch(id, patch);
+    }
+  },
+});

@@ -197,6 +197,8 @@ export default defineSchema({
     /** "journal" = a Journal entry: the same document and editor as a script, kept out of the script views.
      * "todo" = the team's one shared Todo list (a bulleted list in the script editor), above Scripts and on Home */
     kind: v.optional(v.union(v.literal("journal"), v.literal("todo"))),
+    /** Where the card sits in its Kanban column (dragged there by hand); missing = after the ordered ones */
+    kanbanOrder: v.optional(v.number()),
   })
     .index("by_slug", ["shareSlug"])
     .index("by_updated", ["updatedAt"])
