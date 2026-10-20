@@ -30,6 +30,7 @@ import type * as links from "../links.js";
 import type * as mcp from "../mcp.js";
 import type * as migrations from "../migrations.js";
 import type * as partners from "../partners.js";
+import type * as pdfs from "../pdfs.js";
 import type * as prefs from "../prefs.js";
 import type * as scratchboards from "../scratchboards.js";
 import type * as share from "../share.js";
@@ -72,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   mcp: typeof mcp;
   migrations: typeof migrations;
   partners: typeof partners;
+  pdfs: typeof pdfs;
   prefs: typeof prefs;
   scratchboards: typeof scratchboards;
   share: typeof share;

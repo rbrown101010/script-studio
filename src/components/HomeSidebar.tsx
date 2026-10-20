@@ -28,7 +28,8 @@ export type View =
   | "topics"
   | "youtube"
   | "editfeed"
-  | "scratchboards";
+  | "scratchboards"
+  | "pdfs";
 export type SponsorFilter = "all" | "sponsored" | "notSponsored";
 
 export const SIDEBAR_WIDTH = 252;
@@ -877,6 +878,7 @@ const APPS: { view: View; label: string; icon: ReactNode }[] = [
   { view: "library", label: "Library", icon: <LibraryIcon /> },
   { view: "boards", label: "Excalidraw", icon: <DrawIcon /> },
   { view: "scratchboards", label: "Scratchboard", icon: <ScratchIcon /> },
+  { view: "pdfs", label: "PDFs", icon: <PdfIcon /> },
   { view: "tweet", label: "Tweet", icon: <TweetIcon /> },
   { view: "brands", label: "Brand deals", icon: <BrandIcon /> },
   { view: "topics", label: "Topic opportunities", icon: <TrendIcon /> },
@@ -907,6 +909,16 @@ function CheckIcon() {
   return (
     <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="m3.5 8.5 3 3 6-6.5" />
+    </svg>
+  );
+}
+
+function PdfIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3.5 1.75h6l3 3v9.5h-9z" />
+      <path d="M9.5 1.75v3h3" />
+      <path d="M5.5 9.25h5M5.5 11.75h3.5" />
     </svg>
   );
 }

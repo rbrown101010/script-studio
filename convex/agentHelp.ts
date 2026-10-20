@@ -59,6 +59,16 @@ comment_on_script {script: todo id, blockKey: its key, text, attachments?}. Only
 Mention a script in an item (it shows as a pill that opens the script) by writing [@Script title](<site>/v/<script id>)
 in the text, e.g. "Record [@Q4 recap](https://script-studio-kohl.vercel.app/v/abc123)"; list_scripts gives ids.
 
+## PDFs
+Papers and documents in the PDFs app (Native Note > Apps > PDFs; links look like /pdf/<id>). People read them there,
+highlight words, comment, and leave notes on a spot or a page (typed or voice, with a transcript). list_pdfs, get_pdf
+{pdf} (details, notes page by page, and fileUrl to read the PDF itself), add_pdf {url | storageId | base64, title,
+authors, about}, update_pdf, add_pdf_note {pdf, page, text, quote?}.
+Adding a paper: find the actual PDF first. arXiv: the abs page link works (https://arxiv.org/abs/<id>). GitHub: the
+blob link to the .pdf works. Otherwise use the direct .pdf address. Always set the real title, the authors, and about:
+one or two plain sentences on what it is and why it matters. If something has no PDF (a blog post or repo only), say so
+rather than saving a web page.
+
 ## Journal
 Riley's journal entries and internal docs. They're the same kind of document as scripts (same editor, lines, comments,
 versions) but kept out of the script views and have no status, format or other details. list_journal to find one,
@@ -216,6 +226,11 @@ Never invent numbers or videos. Only include view counts you actually saw at tha
 | get_todo {} | The team's Todo list: id, lines (key, text, indent) and comments |
 | add_todo {items:[{text, indent?, assignee?}], under?, agentName?} | Add to-dos (under = an item's key, for sub-items) |
 | update_todo_item {key, checked?, assignee?, text?} | Tick / untick, assign or reword a to-do |
+| list_pdfs {query?} | PDFs app: saved papers and documents |
+| get_pdf {pdf} | One PDF: details, fileUrl, highlights and notes by page |
+| add_pdf {url or storageId or base64, title, authors?, about?, agentName?} | Save a PDF (arXiv/GitHub/direct links are downloaded) |
+| update_pdf {pdf, title?, authors?, about?} | Change a PDF's details |
+| add_pdf_note {pdf, page, text, quote?, agentName?} | Note on a page of a PDF |
 | list_journal {query?} | Journal entries (personal notes, internal docs) |
 | create_journal_entry {title, lines?, agentName?} | New Journal entry |
 | list_scratchboards {query?} | Scratchboards (Riley's drawing-board style) |

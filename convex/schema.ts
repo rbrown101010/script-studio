@@ -96,6 +96,47 @@ export default defineSchema({
   ...authTables,
 
   /** Scratchboard: Riley's drawing-board style (pencil on paper), drawn by our own engine, not Excalidraw */
+  // PDFs: papers and documents to read, mark up and talk about (the PDFs app)
+  pdfs: defineTable({
+    title: v.string(),
+    storageId: v.id("_storage"),
+    size: v.number(),
+    pages: v.optional(v.number()),
+    /** Where it came from (arXiv, a site…) */
+    sourceUrl: v.optional(v.string()),
+    authors: v.optional(v.string()),
+    /** A line or two on what it is */
+    about: v.optional(v.string()),
+    createdBy: v.union(v.id("users"), v.null()),
+    /** The agent that added it, if one did */
+    addedBy: v.optional(v.string()),
+    /** The page you were last reading, to pick up there */
+    lastPage: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_updated", ["updatedAt"]),
+
+  // Marks on a PDF: a highlight (selected words, with an optional comment) or a note (on a spot or a whole
+  // page; typed or a voice recording). Positions are fractions of the page (0-1), so they fit any zoom.
+  pdfNotes: defineTable({
+    pdfId: v.id("pdfs"),
+    page: v.number(),
+    kind: v.union(v.literal("highlight"), v.literal("note")),
+    quote: v.optional(v.string()),
+    rects: v.optional(v.array(v.object({ x: v.number(), y: v.number(), w: v.number(), h: v.number() }))),
+    x: v.optional(v.number()),
+    y: v.optional(v.number()),
+    color: v.optional(v.string()),
+    text: v.string(),
+    audio: v.optional(v.object({ storageId: v.id("_storage"), seconds: v.optional(v.number()), mime: v.optional(v.string()) })),
+    transcript: v.optional(v.string()),
+    authorId: v.union(v.id("users"), v.null()),
+    authorName: v.string(),
+    agent: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_pdf", ["pdfId", "page"]),
+
   // Which apps each person keeps in their sidebar (all apps are hidden until pinned)
   sidebarApps: defineTable({
     userId: v.id("users"),

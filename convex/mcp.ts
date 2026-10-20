@@ -444,6 +444,50 @@ const TOOLS: Tool[] = [
     run: (ctx, a) => ctx.runMutation(internal.editFeed.setStatusForAgent, a),
   },
   {
+    name: "list_pdfs",
+    description: "The PDFs app: papers and documents saved in Native Note to read and mark up. Lists them (newest first) with id, title, pages, authors, a line on what each is, and its link. query searches titles, authors and descriptions.",
+    inputSchema: { type: "object", properties: { query: { type: "string" } } },
+    annotations: { readOnlyHint: true },
+    run: (ctx, a) => ctx.runQuery(internal.pdfs.listForAgent, a),
+  },
+  {
+    name: "get_pdf",
+    description: "One PDF: its details, a download link to the file (fileUrl, to read its text), and every highlight and note on it, page by page (quotes, comments, voice notes with their transcript).",
+    inputSchema: { type: "object", properties: { pdf: { type: "string", description: "PDF id or its /pdf/<id> link" } }, required: ["pdf"] },
+    annotations: { readOnlyHint: true },
+    run: (ctx, a) => ctx.runQuery(internal.pdfs.getForAgent, a),
+  },
+  {
+    name: "add_pdf",
+    description:
+      "Save a PDF to the PDFs app. Give ONE of: url (a direct link to the .pdf, or an arXiv abs/pdf page link, or a GitHub blob link to a .pdf — Native Note downloads it), storageId (a file you uploaded via get_upload_url), or base64 (small files). Also set title (the real paper title), authors, and about (one or two plain sentences on what it is and why it's worth reading). To add a paper someone mentions, find its PDF first (arXiv, the project's GitHub or site). Returns its id and link.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: { type: "string" },
+        storageId: { type: "string" },
+        base64: { type: "string" },
+        title: { type: "string" },
+        authors: { type: "string" },
+        about: { type: "string" },
+        agentName: { type: "string" },
+      },
+    },
+    run: (ctx, a) => ctx.runAction(internal.pdfs.addForAgent, a),
+  },
+  {
+    name: "update_pdf",
+    description: "Change a PDF's title, authors or about (its one-line description).",
+    inputSchema: { type: "object", properties: { pdf: { type: "string" }, title: { type: "string" }, authors: { type: "string" }, about: { type: "string" } }, required: ["pdf"] },
+    run: (ctx, a) => ctx.runMutation(internal.pdfs.updateForAgent, a),
+  },
+  {
+    name: "add_pdf_note",
+    description: "Leave a note on a page of a PDF (shows in its notes panel with an AI badge). quote = the words it's about, if any. Only when asked.",
+    inputSchema: { type: "object", properties: { pdf: { type: "string" }, page: { type: "number" }, text: { type: "string" }, quote: { type: "string" }, agentName: { type: "string" } }, required: ["pdf", "page", "text"] },
+    run: (ctx, a) => ctx.runMutation(internal.pdfs.noteForAgent, a),
+  },
+  {
     name: "list_scratchboards",
     description: "Scratchboards: Riley's drawings in his short-form 'drawing board' style (pencil on warm paper, hand-inked lines, colored-pencil fills, Archivo headings, handwritten notes). Separate from Excalidraw boards.",
     inputSchema: { type: "object", properties: { query: { type: "string" } } },

@@ -89,3 +89,26 @@ export const version = internalAction({
     return null;
   },
 });
+
+/** A voice note on a PDF, written out (when a speech-to-text key is set up; otherwise it stays a recording) */
+export const pdfVoiceNote = internalAction({
+  args: { noteId: v.id("pdfNotes") },
+  handler: async (ctx, { noteId }): Promise<null> => {
+    const info = await ctx.runQuery(internal.pdfs.voiceNoteFile, { noteId });
+    if (!info?.url) return null;
+    const keys = { deepgram: process.env.DEEPGRAM_API_KEY, elevenlabs: process.env.ELEVENLABS_API_KEY, openai: process.env.OPENAI_API_KEY };
+    try {
+      const words = keys.elevenlabs
+        ? await elevenlabs(keys.elevenlabs, info.url)
+        : keys.deepgram
+          ? await deepgram(keys.deepgram, info.url)
+          : keys.openai
+            ? await openai(keys.openai, info.url, info.mime ?? "audio/webm")
+            : null;
+      if (words?.length) await ctx.runMutation(internal.pdfs.saveTranscript, { noteId, transcript: words.map((w) => w.w).join(" ").replace(/\s+([.,!?;:])/g, "$1") });
+    } catch {
+      // The recording is still there to play
+    }
+    return null;
+  },
+});
