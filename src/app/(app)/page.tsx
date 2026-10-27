@@ -401,7 +401,7 @@ function ScriptList() {
     .join(" · ");
 
   return (
-    <div className="relative flex min-h-screen bg-(--c-b-ffffff)">
+    <div className="nn-whiteboard relative flex min-h-screen">
 
       {view === "home" ? (
         <div className="relative min-h-screen min-w-0 flex-1">
@@ -422,8 +422,7 @@ function ScriptList() {
           <JournalList />
         </div>
       ) : view === "mymind" || view === "library" || view === "tweet" || view === "brands" || view === "boards" || view === "topics" || view === "youtube" || view === "editfeed" || view === "scratchboards" || view === "pdfs" ? (
-        // Mymind is its own light-grey space for ideas, separate from scripts
-        <div className="relative min-h-screen min-w-0 flex-1 bg-(--c-b-f7f7f5)">
+        <div className="relative min-h-screen min-w-0 flex-1">
           <div className="px-5 pb-24 pt-6 sm:px-8">
             <div className="flex min-h-9 items-center">
               {(!sidebarOpen || mobile) && <ShowSidebarButton onClick={() => toggleSidebar(true)} className="-ml-1.5" />}
@@ -434,7 +433,7 @@ function ScriptList() {
           </div>
         </div>
       ) : (
-      <div className={`relative min-w-0 flex-1 ${view === "kanban" ? "nn-whiteboard" : ""}`}>
+      <div className="relative min-w-0 flex-1">
         {/* The account lives at the bottom of the sidebar; while it's hidden, here */}
         {(!sidebarOpen || mobile) && <AccountButton initial={(me?.name || me?.email || "?").slice(0, 1).toUpperCase()} email={me?.email ?? ""} />}
         <div className={`mx-auto px-5 pb-24 pt-6 ${view === "kanban" ? "max-w-[1520px]" : view === "calendar" ? "max-w-[1180px]" : "max-w-[1120px]"}`}>

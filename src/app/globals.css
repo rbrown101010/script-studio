@@ -231,7 +231,7 @@ body {
   top: 0;
 }
 
-/* Kanban: a subtle whiteboard surface (soft grain and a faint dot grid, fixed behind the board) */
+/* Overview views: one shared whiteboard surface (soft grain and a faint dot grid behind the content) */
 .nn-whiteboard {
   --wb-base: #fafaf8;
   --wb-dot: rgba(60, 60, 50, 0.085);
