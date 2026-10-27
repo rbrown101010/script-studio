@@ -15,7 +15,6 @@ import { FeedView } from "@/components/FeedView";
 import { Mymind } from "@/components/Mymind";
 import { Library } from "@/components/Library";
 import { PartnerLogo } from "@/components/VideoMeta";
-import { PinnedVideos } from "@/components/PinnedVideos";
 import { BoardsList } from "@/components/BoardsList";
 import { TopicsApp } from "@/components/TopicsApp";
 import { YouTubeApp } from "@/components/YouTubeApp";
@@ -435,20 +434,61 @@ function ScriptList() {
           </div>
         </div>
       ) : (
-      <div className="relative min-w-0 flex-1">
+      <div className={`relative min-w-0 flex-1 ${view === "kanban" ? "nn-whiteboard" : ""}`}>
         {/* The account lives at the bottom of the sidebar; while it's hidden, here */}
         {(!sidebarOpen || mobile) && <AccountButton initial={(me?.name || me?.email || "?").slice(0, 1).toUpperCase()} email={me?.email ?? ""} />}
         <div className={`mx-auto px-5 pb-24 pt-6 ${view === "kanban" ? "max-w-[1520px]" : view === "calendar" ? "max-w-[1180px]" : "max-w-[1120px]"}`}>
           <div className="flex min-h-9 items-center gap-2 pr-12">
             {(!sidebarOpen || mobile) && <ShowSidebarButton onClick={() => toggleSidebar(true)} className="-ml-1.5" />}
+            {/* Kanban: just the title up top, with the filters right beside it */}
+            {view === "kanban" && (
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2">
+                <h1 className="m-0 text-[28px] font-semibold tracking-[-0.015em] text-(--c-t-1b1b1b)">Kanban</h1>
+                <label className="hidden h-8 w-[200px] items-center gap-2 rounded-lg bg-(--c-b-ffffff)/70 px-2 text-(--c-t-9a9a9a) ring-1 ring-(--c-l-e3e3e0) transition-[width] focus-within:w-[240px] focus-within:ring-(--c-l-c9c9c9) sm:flex">
+                  <IconSearch size={14} />
+                  <input
+                    id="sidebar-search"
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Filter by title"
+                    aria-label="Filter scripts by title"
+                    className="w-full min-w-0 border-none bg-transparent text-[13px] text-(--c-t-1b1b1b) outline-none"
+                  />
+                </label>
+                <button
+                  type="button"
+                  aria-pressed={filtersOpen}
+                  onClick={() => {
+                    setFiltersOpen(!filtersOpen);
+                    remember("home-filters", filtersOpen ? "0" : "1");
+                  }}
+                  className={`inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[13px] hover:bg-(--c-b-f4f4f4) ${activeFilters ? "text-(--c-t-2358d8)" : "text-(--c-t-737373)"}`}
+                >
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                    <path d="M2.5 4h11M4.5 8h7M6.5 12h3" />
+                  </svg>
+                  Filter{activeFilters ? ` · ${activeFilters}` : ""}
+                </button>
+                <button
+                  type="button"
+                  onClick={newScript}
+                  disabled={creating}
+                  className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-lg bg-(--c-b-1b1b1b) px-3 text-[13px] font-medium text-(--c-on-ink) hover:bg-(--c-b-333333) disabled:opacity-50"
+                >
+                  <IconPlus size={14} color="var(--c-on-ink)" />
+                  New script
+                </button>
+              </div>
+            )}
           </div>
-          <div className="mt-6 flex flex-wrap items-end justify-between gap-3 border-b border-(--c-l-ebebeb) pb-3">
+          {view !== "kanban" && <div className="mt-6 flex flex-wrap items-end justify-between gap-3 border-b border-(--c-l-ebebeb) pb-3">
             <div>
-              <h1 className="m-0 text-[32px] font-semibold tracking-[-0.015em] text-(--c-t-1b1b1b)">{view === "calendar" ? "Calendar" : view === "kanban" ? "Kanban" : view === "feed" ? "Feed" : "Scripts"}</h1>
+              <h1 className="m-0 text-[32px] font-semibold tracking-[-0.015em] text-(--c-t-1b1b1b)">{view === "calendar" ? "Calendar" : view === "feed" ? "Feed" : "Scripts"}</h1>
               {view !== "feed" && <p className="m-0 mt-1 text-[14px] text-(--c-t-737373)">
-                {view === "kanban" ? "Idea to posted, drag a card to change its status" : heading}
+                {heading}
                 {q && ` · matching "${search.trim()}"`}
-                {videos && ` · ${view === "kanban" ? board.length : shown.length}`}
+                {videos && ` · ${shown.length}`}
               </p>}
             </div>
             <div className="flex items-center gap-1.5">
@@ -495,7 +535,7 @@ function ScriptList() {
                 New script
               </button>
             </div>
-          </div>
+          </div>}
 
           {filtersOpen && view !== "feed" && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -541,14 +581,6 @@ function ScriptList() {
                 </button>
               )}
             </div>
-          )}
-
-          {videos && (
-            <PinnedVideos
-              videos={videos as Parameters<typeof PinnedVideos>[0]["videos"]}
-              partnerOf={(id) => (id ? partnerById.get(id) : undefined)}
-              onUnpin={(id) => void setPinned({ id: id as Id<"videos">, pinned: false })}
-            />
           )}
 
           {view === "kanban" ? (
